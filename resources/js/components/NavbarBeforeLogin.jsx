@@ -11,7 +11,7 @@ export default function NavbarBeforeLogin() {
     { name: "Beranda", path: "/" },
     { name: "Statistik", path: "/Statistik" },
     { name: "Status", path: "/status" },
-    { name: "Lapor", path: "/lapor" },
+    { name: "Lapor", path: "/LaporPage" },
     { name: "Kontak", path: "/kontak" },
   ];
 
