@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MapPin, Camera, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,35 @@ const LaporPage = () => {
   const [photos, setPhotos] = useState([]);
   const [mapCenter, setMapCenter] = useState({ lat: -7.2575, lng: 112.7521 }); // Default Surabaya
 
+  // Batas map hanya dikota Surabaya
+  const surabayaBounds = L.latLngBounds(
+    L.latLng(-7.37, 112.55), // barat daya (SW)
+    L.latLng(-7.18, 112.85)  // timur laut (NE)
+  );
+
+  // Auto geser setelah user menginput alamat/lokasi (Hanya didaerah Kota Surabaya)
+  useEffect(() => {
+    const timeout = setTimeout(async () => {
+      if (formData.lokasi.trim().length > 3) {
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&viewbox=112.55,-7.18,112.85,-7.37&bounded=1&q=${encodeURIComponent(
+              formData.lokasi + " Surabaya"
+            )}`
+          );
+          const data = await response.json();
+          if (data && data.length > 0) {
+            const { lat, lon } = data[0];
+            setMapCenter({ lat: parseFloat(lat), lng: parseFloat(lon) });
+          }
+        } catch (error) {
+          console.error("Error fetching location:", error);
+        }
+      }
+    }, 1000);
+    return () => clearTimeout(timeout);
+  }, [formData.lokasi]);
+
   // handle perubahan input
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -60,11 +89,17 @@ const LaporPage = () => {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          setMapCenter({ lat: latitude, lng: longitude });
-          setFormData((prev) => ({
-            ...prev,
-            lokasi: `${latitude}, ${longitude}`,
-          }));
+
+          // Memastikan Lokasi masih didaerah kota Surabaya
+          if (surabayaBounds.contains([latitude, longitude])) {
+            setMapCenter({ lat: latitude, lng: longitude });
+            setFormData((prev) => ({
+              ...prev,
+              lokasi: `${latitude}, ${longitude}`,
+            }));
+          } else {
+            alert("Lokasi Anda di luar area Surabaya!");
+          }
         },
         (error) => {
           console.error("Error getting location:", error);
@@ -151,7 +186,7 @@ const LaporPage = () => {
                 name="lokasi"
                 value={formData.lokasi}
                 onChange={handleInputChange}
-                placeholder="Contoh : Jl. Petemon No. 123, Surabaya Selatan"
+                placeholder="Contoh : Jalan Patemon Kuburan"
                 className="w-full"
               />
             </div>
@@ -181,6 +216,8 @@ const LaporPage = () => {
                 zoom={13}
                 scrollWheelZoom={false}
                 className="h-56 w-full z-0"
+                maxBounds={surabayaBounds} // ✅ batasi area map hanya Surabaya
+                maxBoundsViscosity={1.0} // agar map tidak bisa keluar
               >
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -189,7 +226,7 @@ const LaporPage = () => {
                 <Marker
                   position={[mapCenter.lat, mapCenter.lng]}
                   icon={markerIcon}
-                ></Marker>
+                />
                 <ChangeMapView coords={[mapCenter.lat, mapCenter.lng]} />
               </MapContainer>
 
@@ -261,13 +298,10 @@ const LaporPage = () => {
               <AlertDescription className="text-sm text-blue-800">
                 <p className="font-medium mb-2">Tips laporan yang baik</p>
                 <ol className="list-decimal list-inside space-y-1 text-xs">
-                  <li>
-                    Ambil foto yang jelas dan menunjukkan kerusakan fasilitas
-                  </li>
+                  <li>Ambil foto yang jelas dan menunjukkan kerusakan fasilitas</li>
                   <li>Berikan deskripsi yang detail dan spesifik</li>
                   <li>
-                    Cantumkan alamat dan bila perlu gunakan fitur "Gunakan
-                    Lokasi Saya"
+                    Cantumkan alamat dan bila perlu gunakan fitur "Gunakan Lokasi Saya"
                   </li>
                 </ol>
               </AlertDescription>
