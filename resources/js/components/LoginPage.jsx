@@ -47,7 +47,7 @@ export default function LoginPage() {
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
       // Redirect ke halaman landing page
-      navigate('/');
+      navigate('/ProfilePage');
       
     } catch (error) {
       if (error.response && error.response.data.errors) {
@@ -146,7 +146,7 @@ export default function LoginPage() {
               Ingat saya
             </label>
             <Link
-              to="/forgot-password"
+              to="/ForgotPassword"
               className="text-[#FDBD59] hover:underline font-medium cursor-pointer"
             >
               Lupa kata sandi?

@@ -1,8 +1,13 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Route;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+// Route untuk reset password page - HARUS SESUAI DENGAN URL DI EMAIL
+Route::get('/reset-password', function () {
+    return view('auth.reset-password');
+})->name('password.reset');
+
+// Route catch-all untuk React (jika ada)
+Route::get('/{any?}', function () {
+    return view('welcome'); 
+})->where('any', '.*');
