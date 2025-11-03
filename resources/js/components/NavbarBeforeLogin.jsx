@@ -12,7 +12,7 @@ export default function NavbarBeforeLogin() {
     { name: "Statistik", path: "/Statistik" },
     { name: "Status", path: "/status" },
     { name: "Lapor", path: "/LaporPage" },
-    { name: "Kontak", path: "/kontak" },
+    { name: "Kontak", path: "/KontakPage" },
   ];
 
   return (

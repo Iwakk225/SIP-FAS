@@ -10,6 +10,7 @@ import ProfilePage from "./components/ProfilePage";
 import ForgotPasswordPage from "./components/ForgotPassword";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import VerifyCodePage from "./components/VerifyCodePage";
+import KontakPage from "./components/KontakPage";
 
 ReactDOM.createRoot(document.getElementById("app")).render(
   <React.StrictMode>
@@ -24,6 +25,7 @@ ReactDOM.createRoot(document.getElementById("app")).render(
         <Route path="/ForgotPassword" element={<ForgotPasswordPage />} />
         <Route path="/ResetPasswordPage" element={<ResetPasswordPage />} />
         <Route path="/VerifyCodePage" element={<VerifyCodePage />} />
+        <Route path="/KontakPage" element={<KontakPage />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>

@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\ContactController;
 
 // Public routes - tidak perlu auth
 Route::post('/register', [AuthController::class, 'register']);
@@ -11,6 +12,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
 Route::post('/verify-reset-code', [PasswordResetController::class, 'verifyCode']);
 Route::post('/reset-password', [PasswordResetController::class, 'reset']);
+Route::post('/contact', [ContactController::class, 'sendEmail']);
 
 // Protected routes - butuh auth
 Route::middleware('auth:sanctum')->group(function () {
