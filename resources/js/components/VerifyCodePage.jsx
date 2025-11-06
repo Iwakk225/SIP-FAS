@@ -136,8 +136,6 @@ export default function VerifyCodePage() {
 
   return (
     <>
-      <NavbarBeforeLogin />
-      
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-6 py-12">
         <div className="max-w-md w-full">
           {/* Back Button */}

@@ -3,7 +3,7 @@ import { Mail, Lock, Chrome, Eye, EyeOff, LogIn } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
 import Footer from "./Footer";
-import NavbarBeforeLogin from "./NavbarBeforeLogin";
+import { useAuth } from "../contexts/AuthContext"; // Import useAuth
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -16,8 +16,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   
   const navigate = useNavigate();
+  const { login } = useAuth(); // Gunakan auth context
 
-  const API_URL = '/api'
+  const API_URL = '/api';
 
   const handleChange = (e) => {
     setFormData({
@@ -42,12 +43,11 @@ export default function LoginPage() {
     try {
       const response = await axios.post(`${API_URL}/login`, formData);
       
-      // Simpan token dan user data
-      localStorage.setItem('auth_token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Gunakan login function dari context
+      await login(response.data.token, response.data.user);
       
-      // Redirect ke halaman landing page
-      navigate('/ProfilePage');
+      // Redirect ke halaman yang sesuai
+      navigate('/');
       
     } catch (error) {
       if (error.response && error.response.data.errors) {
@@ -64,7 +64,6 @@ export default function LoginPage() {
 
   return (
     <>
-      <NavbarBeforeLogin/>
       <div className="min-h-screen flex flex-col items-center justify-center bg-white px-6 mb-10 mt-10">
         {/* Logo */}
         <div className="flex items-center justify-center mb-6">

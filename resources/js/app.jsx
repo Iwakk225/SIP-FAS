@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import LandingPage from "./components/LandingPage";
 import LoginPage from "./components/LoginPage";
 import SignUpPage from "./components/SignUpPage";
@@ -11,10 +12,27 @@ import ForgotPasswordPage from "./components/ForgotPassword";
 import ResetPasswordPage from "./components/ResetPasswordPage";
 import VerifyCodePage from "./components/VerifyCodePage";
 import KontakPage from "./components/KontakPage";
+import NavbarBeforeLogin from "./components/NavbarBeforeLogin";
+import NavbarAfterLogin from "./components/NavbarAfterLogin";
 
-ReactDOM.createRoot(document.getElementById("app")).render(
-  <React.StrictMode>
-    <BrowserRouter>
+// Komponen wrapper untuk conditional navbar
+function AppLayout() {
+  const { isLoggedIn, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#FDBD59] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <>
+      {isLoggedIn ? <NavbarAfterLogin /> : <NavbarBeforeLogin />}
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/LoginPage" element={<LoginPage />} />
@@ -27,6 +45,20 @@ ReactDOM.createRoot(document.getElementById("app")).render(
         <Route path="/VerifyCodePage" element={<VerifyCodePage />} />
         <Route path="/KontakPage" element={<KontakPage />} />
       </Routes>
-    </BrowserRouter>
-  </React.StrictMode>
-);
+    </>
+  );
+}
+
+function App() {
+  return (
+    <React.StrictMode>
+      <BrowserRouter>
+        <AuthProvider>
+          <AppLayout />
+        </AuthProvider>
+      </BrowserRouter>
+    </React.StrictMode>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("app")).render(<App />);

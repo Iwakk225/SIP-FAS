@@ -6,7 +6,6 @@ import Footer from "./Footer";
 export default function Statistik() {
   return (
     <>
-    <NavbarBeforeLogin/>
     <div className="min-h-screen bg-[#F9FAFB] px-4 sm:px-8 py-10">
       {/* Header */}
       <div className="bg-white shadow rounded-xl p-6 mb-8">

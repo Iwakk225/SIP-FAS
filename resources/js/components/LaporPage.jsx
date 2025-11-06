@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { MapPin, Camera, Info } from "lucide-react";
+import { MapPin, Camera, Info, LogIn, UserPlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Link } from "react-router-dom";
 import Footer from "./Footer";
-import NavbarBeforeLogin from "./NavbarBeforeLogin";
 
 // ✅ Import dari react-leaflet
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
+// ✅ Import useAuth
+import { useAuth } from "../contexts/AuthContext";
 
 // ✅ Fix icon default Leaflet yang error di React
 const markerIcon = new L.Icon({
@@ -34,6 +37,10 @@ const LaporPage = () => {
   });
   const [photos, setPhotos] = useState([]);
   const [mapCenter, setMapCenter] = useState({ lat: -7.2575, lng: 112.7521 }); // Default Surabaya
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  
+ // ✅ GUNAKAN isLoggedIn DARI CONTEXT
+  const { isLoggedIn, user } = useAuth();
 
   // Batas map hanya dikota Surabaya
   const surabayaBounds = L.latLngBounds(
@@ -75,6 +82,11 @@ const LaporPage = () => {
 
   // upload foto
   const handlePhotoUpload = (e) => {
+    if (!isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+    
     const files = Array.from(e.target.files);
     const newPhotos = files.map((file) => ({
       file,
@@ -85,6 +97,11 @@ const LaporPage = () => {
 
   // gunakan lokasi user
   const handleUseMyLocation = () => {
+    if (!isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -113,6 +130,11 @@ const LaporPage = () => {
 
   // kirim laporan ke backend Laravel
   const handleSubmit = async () => {
+    if (!isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+
     if (
       !formData.judul ||
       !formData.lokasi ||
@@ -134,6 +156,9 @@ const LaporPage = () => {
     try {
       const response = await fetch("http://localhost:8000/api/laporan", {
         method: "POST",
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+        },
         body: formDataToSend,
       });
 
@@ -150,9 +175,15 @@ const LaporPage = () => {
     }
   };
 
+  // Handle click pada form fields untuk guest
+  const handleGuestInteraction = () => {
+    if (!isLoggedIn) {
+      setShowLoginModal(true);
+    }
+  };
+
   return (
     <>
-      <NavbarBeforeLogin />
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-2xl mx-auto px-4">
           <div className="bg-slate-700 text-white rounded-t-lg p-6">
@@ -163,8 +194,37 @@ const LaporPage = () => {
           </div>
 
           <div className="bg-white rounded-b-lg shadow-lg p-6 space-y-6">
+            {/* Alert untuk Guest */}
+            {!isLoggedIn && (
+              <Alert className="bg-amber-50 border-amber-200">
+                <Info className="w-4 h-4 text-amber-600" />
+                <AlertDescription className="text-sm text-amber-800">
+                  <p className="font-medium">
+                    ⚠️ Anda perlu login untuk membuat laporan
+                  </p>
+                  <p className="text-xs mt-1">
+                    Silakan login atau daftar akun terlebih dahulu untuk melaporkan kerusakan fasilitas.
+                  </p>
+                  <div className="flex gap-2 mt-2">
+                    <Link to="/LoginPage">
+                      <Button className="bg-amber-500 hover:bg-amber-600 text-white text-xs py-1 h-auto cursor-pointer">
+                        <LogIn className="w-3 h-3 mr-1" />
+                        Login
+                      </Button>
+                    </Link>
+                    <Link to="/SignUpPage">
+                      <Button variant="outline" className="text-xs py-1 h-auto cursor-pointer">
+                        <UserPlus className="w-3 h-3 mr-1" />
+                        Daftar
+                      </Button>
+                    </Link>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Judul Laporan */}
-            <div>
+            <div onClick={handleGuestInteraction}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Judul laporan <span className="text-red-500">*</span>
               </label>
@@ -174,11 +234,12 @@ const LaporPage = () => {
                 onChange={handleInputChange}
                 placeholder="Contoh : Jalan berlubang di Jl. Petemon"
                 className="w-full"
+                disabled={!isLoggedIn}
               />
             </div>
 
             {/* Lokasi */}
-            <div>
+            <div onClick={handleGuestInteraction}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Lokasi
               </label>
@@ -188,11 +249,12 @@ const LaporPage = () => {
                 onChange={handleInputChange}
                 placeholder="Contoh : Jalan Patemon Kuburan"
                 className="w-full"
+                disabled={!isLoggedIn}
               />
             </div>
 
             {/* Deskripsi */}
-            <div>
+            <div onClick={handleGuestInteraction}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Deskripsi
               </label>
@@ -203,6 +265,7 @@ const LaporPage = () => {
                 placeholder="Jelaskan kondisinya secara detail..."
                 className="w-full min-h-32 resize-none"
                 maxLength={500}
+                disabled={!isLoggedIn}
               />
               <div className="text-right text-xs text-gray-500 mt-1">
                 {formData.deskripsi.length}/500 kata
@@ -232,7 +295,8 @@ const LaporPage = () => {
 
               <Button
                 onClick={handleUseMyLocation}
-                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium cursor-pointer"
+                disabled={!isLoggedIn}
+                className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <MapPin className="w-4 h-4 mr-2" />
                 Gunakan Lokasi Saya
@@ -244,7 +308,12 @@ const LaporPage = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Foto fasilitas <span className="text-red-500">*</span>
               </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors cursor-pointer">
+              <div 
+                className={`border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                  isLoggedIn ? 'hover:border-gray-400' : 'opacity-50 cursor-not-allowed'
+                }`}
+                onClick={handleGuestInteraction}
+              >
                 <input
                   type="file"
                   multiple
@@ -252,8 +321,12 @@ const LaporPage = () => {
                   onChange={handlePhotoUpload}
                   className="hidden"
                   id="photo-upload"
+                  disabled={!isLoggedIn}
                 />
-                <label htmlFor="photo-upload" className="cursor-pointer">
+                <label 
+                  htmlFor="photo-upload" 
+                  className={`cursor-pointer ${!isLoggedIn ? 'cursor-not-allowed' : ''}`}
+                >
                   <div className="flex flex-col items-center">
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
                       <Camera className="w-8 h-8 text-gray-400" />
@@ -310,15 +383,70 @@ const LaporPage = () => {
             {/* Tombol Submit */}
             <Button
               onClick={handleSubmit}
-              className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold py-6 text-base cursor-pointer"
+              disabled={!isLoggedIn}
+              className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold py-6 text-base cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Info className="w-5 h-5 mr-2" />
-              Kirim Laporan
+              {isLoggedIn ? 'Kirim Laporan' : 'Login untuk Melaporkan'}
             </Button>
           </div>
         </div>
       </div>
       <Footer />
+
+      {/* Login Modal */}
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-lg flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Login Diperlukan
+              </h3>
+              <button
+                onClick={() => setShowLoginModal(false)}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <LogIn className="w-8 h-8 text-amber-600" />
+              </div>
+              <p className="text-gray-600 mb-2">
+                Anda perlu login untuk membuat laporan
+              </p>
+              <p className="text-sm text-gray-500">
+                Login atau daftar akun untuk melaporkan kerusakan fasilitas
+              </p>
+            </div>
+
+            <div className="flex flex-col space-y-3">
+              <Link to="/LoginPage" onClick={() => setShowLoginModal(false)}>
+                <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-3 cursor-pointer">
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Login ke Akun
+                </Button>
+              </Link>
+              
+              <Link to="/SignUpPage" onClick={() => setShowLoginModal(false)}>
+                <Button variant="outline" className="w-full font-medium py-3 cursor-pointer">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Daftar Akun Baru
+                </Button>
+              </Link>
+
+              <button
+                onClick={() => setShowLoginModal(false)}
+                className="text-sm text-gray-500 hover:text-gray-700 py-2 cursor-pointer"
+              >
+                Nanti saja
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

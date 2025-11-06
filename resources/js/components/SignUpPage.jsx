@@ -67,7 +67,6 @@ export default function SignUpPage() {
 
   return (
     <>
-      <NavbarBeforeLogin/>
       <div className="min-h-screen flex flex-col items-center justify-center bg-white px-6 mb-10 mt-10">
         {/* Logo */}
         <div className="flex items-center justify-center mb-6">

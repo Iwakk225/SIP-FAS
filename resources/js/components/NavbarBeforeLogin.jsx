@@ -83,7 +83,7 @@ export default function NavbarBeforeLogin() {
               </Link>
             ))}
 
-            <Link to="/login" className="w-full mt-2">
+            <Link to="/LoginPage" className="w-full mt-2">
               <Button className="w-full bg-[#FDBD59] text-black hover:bg-[#fcae3b] rounded-md font-semibold">
                 Login
               </Button>

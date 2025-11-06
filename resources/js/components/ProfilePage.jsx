@@ -1,15 +1,18 @@
 import React, { useState } from "react";
 import { User, Mail, Phone, MapPin, Edit2, Save, X, Camera, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import NavbarAfterLogin from "./NavbarAfterLogin";
 import Footer from "./Footer";
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
+import { useAuth } from "../contexts/AuthContext";
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  
+  // ✅ GUNAKAN useAuth HOOK
+  const { user, logout } = useAuth();
+  
   const API_URL = '/api';
   
   const [formData, setFormData] = useState({
@@ -27,12 +30,34 @@ export default function ProfilePage() {
     });
   };
 
-  const handleSave = () => {
-    // Simpan perubahan ke localStorage atau API
-    const updatedUser = { ...user, ...formData };
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-    setIsEditing(false);
-    // Di sini bisa tambahkan API call untuk update ke backend
+  const handleSave = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      
+      // Update ke backend
+      const response = await axios.put(`${API_URL}/profile`, formData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // Update localStorage dengan data terbaru
+      const updatedUser = { ...user, ...formData };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      setIsEditing(false);
+      
+      // Refresh page untuk update data user di context
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      // Fallback: update localStorage saja jika API error
+      const updatedUser = { ...user, ...formData };
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setIsEditing(false);
+    }
   };
 
   const handleCancel = () => {
@@ -51,7 +76,6 @@ export default function ProfilePage() {
       const token = localStorage.getItem('auth_token');
       
       if (token) {
-        // Panggil API logout di backend
         await axios.post(`${API_URL}/logout`, {}, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -61,14 +85,10 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.log('Logout API error:', error);
-      // Tetap lanjut logout meski API error
     } finally {
-      // Bersihkan localStorage
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      
-      // Redirect ke login page
-      navigate('/LoginPage');
+      // ✅ GUNAKAN logout DARI CONTEXT
+      logout();
+      navigate('/');
     }
   };
 
@@ -81,8 +101,6 @@ export default function ProfilePage() {
 
   return (
     <>
-      <NavbarAfterLogin />
-      
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}

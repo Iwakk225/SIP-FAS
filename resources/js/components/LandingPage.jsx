@@ -20,7 +20,6 @@ import Footer from "./Footer";
 export default function LandingPage() {
     return (
         <>
-            <NavbarBeforeLogin />
             {/* HERO SECTION */}
             <section
                 className="relative min-h-screen flex flex-col justify-center bg-cover bg-center"
@@ -49,7 +48,7 @@ export default function LandingPage() {
 
                         <div className="flex flex-col sm:flex-row gap-4 mt-10">
                             <Link
-                                to="/buat-laporan"
+                                to="/LaporPage"
                                 className="w-full sm:w-auto"
                             >
                                 <Button className="bg-[#FDBD59] hover:bg-[#fda94b] text-black font-normal px-12 py-6 rounded shadow-md flex items-center justify-center gap-2 text-lg w-full sm:w-auto cursor-pointer">
