@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { MapPin, Camera, Info, LogIn, UserPlus, X } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { MapPin, Camera, Info, LogIn, UserPlus, X, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
 import Footer from "./Footer";
+import axios from 'axios';
 
 // ✅ Import dari react-leaflet
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
@@ -34,19 +35,42 @@ const LaporPage = () => {
     judul: "",
     lokasi: "",
     deskripsi: "",
+    kategori: "",
+    pelapor_nama: "",
+    pelapor_email: "",
+    pelapor_telepon: ""
   });
   const [photos, setPhotos] = useState([]);
   const [mapCenter, setMapCenter] = useState({ lat: -7.2575, lng: 112.7521 }); // Default Surabaya
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
   
- // ✅ GUNAKAN isLoggedIn DARI CONTEXT
+  // ✅ GUNAKAN isLoggedIn DARI CONTEXT
   const { isLoggedIn, user } = useAuth();
+
+  const fileInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
 
   // Batas map hanya dikota Surabaya
   const surabayaBounds = L.latLngBounds(
     L.latLng(-7.37, 112.55), // barat daya (SW)
     L.latLng(-7.18, 112.85)  // timur laut (NE)
   );
+
+  // Auto isi data pelapor jika user sudah login
+  useEffect(() => {
+    if (isLoggedIn && user) {
+      setFormData(prev => ({
+        ...prev,
+        pelapor_nama: user.name || "",
+        pelapor_email: user.email || ""
+      }));
+    }
+  }, [isLoggedIn, user]);
 
   // Auto geser setelah user menginput alamat/lokasi (Hanya didaerah Kota Surabaya)
   useEffect(() => {
@@ -80,7 +104,50 @@ const LaporPage = () => {
     }));
   };
 
-  // upload foto
+  // Handle drag and drop events
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    if (isLoggedIn) {
+      setIsDragOver(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    if (!isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    const files = Array.from(e.dataTransfer.files);
+    handleFiles(files);
+  };
+
+  // Process uploaded files
+  const handleFiles = (files) => {
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length === 0) {
+      alert("Hanya file gambar yang diizinkan");
+      return;
+    }
+
+    const newPhotos = imageFiles.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    
+    setPhotos((prev) => [...prev, ...newPhotos]);
+  };
+
+  // upload foto dari file input
   const handlePhotoUpload = (e) => {
     if (!isLoggedIn) {
       setShowLoginModal(true);
@@ -88,11 +155,79 @@ const LaporPage = () => {
     }
     
     const files = Array.from(e.target.files);
-    const newPhotos = files.map((file) => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
-    setPhotos((prev) => [...prev, ...newPhotos]);
+    handleFiles(files);
+  };
+
+  // Buka kamera
+  const startCamera = async () => {
+    if (!isLoggedIn) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment', // Gunakan kamera belakang
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        } 
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+      }
+      setShowCameraModal(true);
+    } catch (error) {
+      console.error("Error accessing camera:", error);
+      alert("Tidak dapat mengakses kamera. Pastikan izin kamera sudah diberikan.");
+    }
+  };
+
+  // Ambil foto dari kamera
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const context = canvas.getContext('2d');
+      context.drawImage(videoRef.current, 0, 0);
+      
+      canvas.toBlob((blob) => {
+        const file = new File([blob], `camera-photo-${Date.now()}.jpg`, { 
+          type: 'image/jpeg' 
+        });
+        
+        const newPhoto = {
+          file,
+          preview: URL.createObjectURL(blob)
+        };
+        
+        setPhotos((prev) => [...prev, newPhoto]);
+        stopCamera();
+        setShowCameraModal(false);
+      }, 'image/jpeg', 0.9);
+    }
+  };
+
+  // Stop kamera
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  // Tutup modal kamera
+  const closeCameraModal = () => {
+    stopCamera();
+    setShowCameraModal(false);
+  };
+
+  // Hapus foto
+  const removePhoto = (index) => {
+    setPhotos(photos.filter((_, i) => i !== index));
   };
 
   // gunakan lokasi user
@@ -128,50 +263,70 @@ const LaporPage = () => {
     }
   };
 
-  // kirim laporan ke backend Laravel
+  // kirim laporan ke backend Laravel dengan axios
   const handleSubmit = async () => {
     if (!isLoggedIn) {
       setShowLoginModal(true);
       return;
     }
 
-    if (
-      !formData.judul ||
-      !formData.lokasi ||
-      !formData.deskripsi ||
-      photos.length === 0
-    ) {
-      alert("Mohon lengkapi semua field yang wajib diisi");
+    // Validasi form
+    if (!formData.judul || !formData.lokasi || !formData.deskripsi || !formData.pelapor_nama) {
+      alert("Mohon lengkapi semua field yang wajib diisi (*)");
       return;
     }
 
-    const formDataToSend = new FormData();
-    formDataToSend.append("judul", formData.judul);
-    formDataToSend.append("lokasi", formData.lokasi);
-    formDataToSend.append("deskripsi", formData.deskripsi);
-    photos.forEach((photo, index) => {
-      formDataToSend.append(`photos[${index}]`, photo.file);
-    });
+    setIsSubmitting(true);
+    setMessage("");
 
     try {
-      const response = await fetch("http://localhost:8000/api/laporan", {
-        method: "POST",
+      const laporanData = {
+        judul: formData.judul,
+        lokasi: formData.lokasi,
+        deskripsi: formData.deskripsi,
+        kategori: formData.kategori || 'Lainnya',
+        pelapor_nama: formData.pelapor_nama,
+        pelapor_email: formData.pelapor_email || '',
+        pelapor_telepon: formData.pelapor_telepon || ''
+      };
+
+      const response = await axios.post('http://localhost:8000/api/laporan', laporanData, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+          'Content-Type': 'application/json',
         },
-        body: formDataToSend,
+        timeout: 10000
       });
 
-      if (response.ok) {
-        alert("Laporan berhasil dikirim!");
-        setFormData({ judul: "", lokasi: "", deskripsi: "" });
-        setPhotos([]);
-      } else {
-        alert("Gagal mengirim laporan");
-      }
+      setMessage("success:Laporan berhasil dikirim! Tim kami akan segera menindaklanjuti.");
+      
+      // Reset form
+      setFormData({
+        judul: "",
+        lokasi: "",
+        deskripsi: "",
+        kategori: "",
+        pelapor_nama: user?.name || "",
+        pelapor_email: user?.email || "",
+        pelapor_telepon: ""
+      });
+      setPhotos([]);
+
     } catch (error) {
-      console.error(error);
-      alert("Terjadi kesalahan koneksi ke server");
+      console.error("Error details:", error);
+      
+      if (error.response) {
+        // Server responded with error status
+        const errorMsg = error.response.data?.error || error.response.data?.message || error.response.statusText;
+        setMessage(`error:${errorMsg}`);
+      } else if (error.request) {
+        // No response received
+        setMessage('error:Tidak ada respon dari server. Periksa koneksi internet.');
+      } else {
+        // Other errors
+        setMessage(`error:${error.message}`);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -181,6 +336,8 @@ const LaporPage = () => {
       setShowLoginModal(true);
     }
   };
+
+  const [messageType, messageText] = message.split(':');
 
   return (
     <>
@@ -194,6 +351,16 @@ const LaporPage = () => {
           </div>
 
           <div className="bg-white rounded-b-lg shadow-lg p-6 space-y-6">
+            {/* Alert Status Pengiriman */}
+            {message && (
+              <Alert className={messageType === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}>
+                <Info className={`w-4 h-4 ${messageType === 'success' ? 'text-green-600' : 'text-red-600'}`} />
+                <AlertDescription className={`text-sm ${messageType === 'success' ? 'text-green-800' : 'text-red-800'}`}>
+                  {messageText}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Alert untuk Guest */}
             {!isLoggedIn && (
               <Alert className="bg-amber-50 border-amber-200">
@@ -223,6 +390,53 @@ const LaporPage = () => {
               </Alert>
             )}
 
+            {/* Informasi Pelapor (Hanya untuk yang sudah login) */}
+            {isLoggedIn && (
+              <div className="border-b pb-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-3">Informasi Pelapor</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nama Pelapor <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      name="pelapor_nama"
+                      value={formData.pelapor_nama}
+                      onChange={handleInputChange}
+                      placeholder="Nama lengkap anda"
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email
+                    </label>
+                    <Input
+                      name="pelapor_email"
+                      value={formData.pelapor_email}
+                      onChange={handleInputChange}
+                      placeholder="email@contoh.com"
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Nomor Telepon
+                    </label>
+                    <Input
+                      name="pelapor_telepon"
+                      value={formData.pelapor_telepon}
+                      onChange={handleInputChange}
+                      placeholder="08xxxxxxxxxx"
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Judul Laporan */}
             <div onClick={handleGuestInteraction}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -241,7 +455,7 @@ const LaporPage = () => {
             {/* Lokasi */}
             <div onClick={handleGuestInteraction}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Lokasi
+                Lokasi <span className="text-red-500">*</span>
               </label>
               <Input
                 name="lokasi"
@@ -256,7 +470,7 @@ const LaporPage = () => {
             {/* Deskripsi */}
             <div onClick={handleGuestInteraction}>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Deskripsi
+                Deskripsi <span className="text-red-500">*</span>
               </label>
               <Textarea
                 name="deskripsi"
@@ -270,6 +484,102 @@ const LaporPage = () => {
               <div className="text-right text-xs text-gray-500 mt-1">
                 {formData.deskripsi.length}/500 kata
               </div>
+            </div>
+
+            {/* Foto Fasilitas dengan Drag & Drop */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Foto fasilitas <span className="text-red-500">*</span>
+              </label>
+              
+              {/* Tombol Pilihan Upload */}
+              <div className="flex gap-3 mb-4">
+                <Button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!isLoggedIn}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer disabled:opacity-50"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Pilih dari Galeri
+                </Button>
+                
+                <Button
+                  type="button"
+                  onClick={startCamera}
+                  disabled={!isLoggedIn}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white cursor-pointer disabled:opacity-50"
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  Ambil Foto
+                </Button>
+              </div>
+
+              {/* Area Drag & Drop */}
+              <div 
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer ${
+                  isDragOver 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : isLoggedIn 
+                      ? 'border-gray-300 hover:border-gray-400 bg-gray-50' 
+                      : 'border-gray-200 bg-gray-100 opacity-50 cursor-not-allowed'
+                }`}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={handleGuestInteraction}
+              >
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                  ref={fileInputRef}
+                  disabled={!isLoggedIn}
+                />
+                
+                <div className="flex flex-col items-center">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                    <Camera className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-sm text-gray-600 mb-1">
+                    Drag & drop gambar disini
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    atau klik untuk memilih file
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    PNG, JPG, JPEG hingga 10MB
+                  </p>
+                </div>
+              </div>
+
+              {/* Preview Foto */}
+              {photos.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700 mb-2">
+                    Foto yang diupload ({photos.length})
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {photos.map((photo, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={photo.preview}
+                          alt={`Preview ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                        <button
+                          onClick={() => removePhoto(index)}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Map Interaktif */}
@@ -303,68 +613,6 @@ const LaporPage = () => {
               </Button>
             </div>
 
-            {/* Foto Fasilitas */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Foto fasilitas <span className="text-red-500">*</span>
-              </label>
-              <div 
-                className={`border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-colors cursor-pointer ${
-                  isLoggedIn ? 'hover:border-gray-400' : 'opacity-50 cursor-not-allowed'
-                }`}
-                onClick={handleGuestInteraction}
-              >
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                  id="photo-upload"
-                  disabled={!isLoggedIn}
-                />
-                <label 
-                  htmlFor="photo-upload" 
-                  className={`cursor-pointer ${!isLoggedIn ? 'cursor-not-allowed' : ''}`}
-                >
-                  <div className="flex flex-col items-center">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                      <Camera className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      Klik atau drop gambar disini
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      PNG, JPG hingga 10 MB
-                    </p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Preview Foto */}
-              {photos.length > 0 && (
-                <div className="grid grid-cols-3 gap-4 mt-4">
-                  {photos.map((photo, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={photo.preview}
-                        alt={`Preview ${index + 1}`}
-                        className="w-full h-24 object-cover rounded-lg"
-                      />
-                      <button
-                        onClick={() =>
-                          setPhotos(photos.filter((_, i) => i !== index))
-                        }
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Tips */}
             <Alert className="bg-blue-50 border-blue-200">
               <Info className="w-4 h-4 text-blue-600" />
@@ -372,10 +620,10 @@ const LaporPage = () => {
                 <p className="font-medium mb-2">Tips laporan yang baik</p>
                 <ol className="list-decimal list-inside space-y-1 text-xs">
                   <li>Ambil foto yang jelas dan menunjukkan kerusakan fasilitas</li>
+                  <li>Gunakan fitur kamera untuk mengambil foto langsung di lokasi</li>
                   <li>Berikan deskripsi yang detail dan spesifik</li>
-                  <li>
-                    Cantumkan alamat dan bila perlu gunakan fitur "Gunakan Lokasi Saya"
-                  </li>
+                  <li>Cantumkan alamat dan gunakan fitur "Gunakan Lokasi Saya"</li>
+                  <li>Pastikan informasi pelapor lengkap untuk follow-up</li>
                 </ol>
               </AlertDescription>
             </Alert>
@@ -383,11 +631,11 @@ const LaporPage = () => {
             {/* Tombol Submit */}
             <Button
               onClick={handleSubmit}
-              disabled={!isLoggedIn}
+              disabled={!isLoggedIn || isSubmitting}
               className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold py-6 text-base cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Info className="w-5 h-5 mr-2" />
-              {isLoggedIn ? 'Kirim Laporan' : 'Login untuk Melaporkan'}
+              {isSubmitting ? 'Mengirim...' : (isLoggedIn ? 'Kirim Laporan' : 'Login untuk Melaporkan')}
             </Button>
           </div>
         </div>
@@ -444,6 +692,57 @@ const LaporPage = () => {
                 Nanti saja
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Camera Modal */}
+      {showCameraModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 backdrop-blur-lg flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Ambil Foto
+              </h3>
+              <button
+                onClick={closeCameraModal}
+                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="bg-black rounded-lg overflow-hidden mb-4">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-64 object-cover"
+              />
+            </div>
+
+            <div className="flex justify-center space-x-4">
+              <Button
+                onClick={capturePhoto}
+                className="bg-red-500 hover:bg-red-600 text-white font-medium cursor-pointer"
+              >
+                <Camera className="w-4 h-4 mr-2" />
+                Ambil Foto
+              </Button>
+              
+              <Button
+                onClick={closeCameraModal}
+                variant="outline"
+                className="cursor-pointer"
+              >
+                Batal
+              </Button>
+            </div>
+
+            <p className="text-xs text-gray-500 text-center mt-3">
+              Pastikan foto jelas menunjukkan kondisi fasilitas
+            </p>
           </div>
         </div>
       )}
