@@ -3,7 +3,7 @@ import { Mail, Lock, Chrome, Eye, EyeOff, LogIn } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
 import Footer from "./Footer";
-import { useAuth } from "../contexts/AuthContext"; // Import useAuth
+import { useAuth } from "../contexts/AuthContext"; 
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({

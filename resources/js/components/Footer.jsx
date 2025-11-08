@@ -53,7 +53,7 @@ export default function Footer() {
               <Phone size={16} /> <span>+62 812-345-678</span>
             </li>
             <li className="flex items-center space-x-2">
-              <Mail size={16} /> <span>info@sipfas.go.id</span>
+              <Mail size={16} /> <span>sipfassby@gmail.com</span>
             </li>
             <li className="flex items-center space-x-2">
               <MapPin size={16} /> <span>Surabaya, Indonesia</span>

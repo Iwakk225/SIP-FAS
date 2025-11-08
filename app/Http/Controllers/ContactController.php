@@ -28,7 +28,7 @@ class ContactController extends Controller
                 "--\nEmail otomatis dari SIP-FAS",
                 
                 function ($message) use ($data) {
-                    $message->to('muhammadadityarahmansyah18@gmail.com')
+                    $message->to('sipfassby@gmail.com')
                             ->subject('Pesan Kontak SIP-FAS dari: ' . $data['name'])
                             ->replyTo($data['email']);
                 }

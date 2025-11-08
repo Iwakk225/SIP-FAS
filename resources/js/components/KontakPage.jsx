@@ -116,7 +116,7 @@ export default function KontakPage() {
                         </div>
                         <div>
                           <p className="text-sm text-white text-opacity-80">Email</p>
-                          <p className="font-semibold">muhammadadityarahmansyah18@gmail.com</p>
+                          <p className="font-semibold">sipfassby@gmail.com</p>
                         </div>
                       </div>
 

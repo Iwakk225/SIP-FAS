@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { AdminAuthProvider, useAdminAuth } from "./contexts/AdminAuthContext"; 
 import LandingPage from "./components/LandingPage";
 import LoginPage from "./components/LoginPage";
 import SignUpPage from "./components/SignUpPage";
@@ -14,10 +15,19 @@ import VerifyCodePage from "./components/VerifyCodePage";
 import KontakPage from "./components/KontakPage";
 import NavbarBeforeLogin from "./components/NavbarBeforeLogin";
 import NavbarAfterLogin from "./components/NavbarAfterLogin";
+import LoginAdmin from "./components/LoginAdmin";
+import DashboardAdmin from "./components/DashboardAdmin";
+import NotFoundPage from "./components/NotFoundPage";
 
 // Komponen wrapper untuk conditional navbar
 function AppLayout() {
   const { isLoggedIn, loading } = useAuth();
+  const { isAdminLoggedIn } = useAdminAuth(); 
+  const location = useLocation();
+  
+  // Route yang TIDAK butuh navbar public
+  const noNavbarRoutes = ['/LoginAdmin', '/DashboardAdmin'];
+  const shouldShowNavbar = !noNavbarRoutes.includes(location.pathname);
   
   if (loading) {
     return (
@@ -32,8 +42,9 @@ function AppLayout() {
   
   return (
     <>
-      {isLoggedIn ? <NavbarAfterLogin /> : <NavbarBeforeLogin />}
+      {shouldShowNavbar && (isLoggedIn ? <NavbarAfterLogin /> : <NavbarBeforeLogin />)}
       <Routes>
+        {/* ✅ Defined Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/LoginPage" element={<LoginPage />} />
         <Route path="/SignUpPage" element={<SignUpPage />} />
@@ -44,6 +55,11 @@ function AppLayout() {
         <Route path="/ResetPasswordPage" element={<ResetPasswordPage />} />
         <Route path="/VerifyCodePage" element={<VerifyCodePage />} />
         <Route path="/KontakPage" element={<KontakPage />} />
+        <Route path="/LoginAdmin" element={<LoginAdmin />} />
+        <Route path="/DashboardAdmin" element={<DashboardAdmin />} />
+        
+        {/* Catch-all Route - HARUS di paling bawah */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </>
   );
@@ -54,7 +70,9 @@ function App() {
     <React.StrictMode>
       <BrowserRouter>
         <AuthProvider>
-          <AppLayout />
+          <AdminAuthProvider> {/* ✅ Tambahkan AdminAuthProvider */}
+            <AppLayout />
+          </AdminAuthProvider>
         </AuthProvider>
       </BrowserRouter>
     </React.StrictMode>

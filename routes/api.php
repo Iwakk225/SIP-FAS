@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ContactController;
+use App\Http\Controllers\AdminAuthController;
 
 // Public routes - tidak perlu auth
 Route::post('/register', [AuthController::class, 'register']);
@@ -18,4 +19,10 @@ Route::post('/contact', [ContactController::class, 'sendEmail']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
+});
+
+Route::prefix('admin')->group(function () {
+    Route::post('/login', [AdminAuthController::class, 'login']);
+    Route::post('/logout', [AdminAuthController::class, 'logout'])->middleware('auth:sanctum');
+    Route::get('/me', [AdminAuthController::class, 'me'])->middleware('auth:sanctum');
 });
