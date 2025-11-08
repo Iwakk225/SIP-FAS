@@ -4,107 +4,156 @@ namespace App\Http\Controllers;
 
 use App\Models\Laporan;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 class LaporanController extends Controller
 {
-    // Simpan laporan baru dari masyarakat
-    public function store(Request $request)
+    // Method untuk mendapatkan semua laporan (untuk admin)
+    public function index()
     {
-        $validator = Validator::make($request->all(), [
-            'judul' => 'required|string|max:255',
-            'lokasi' => 'required|string',
-            'deskripsi' => 'required|string',
-            'kategori' => 'nullable|string',
-            'pelapor_nama' => 'required|string|max:255',
-            'pelapor_email' => 'nullable|email',
-            'pelapor_telepon' => 'nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'error' => $validator->errors()
-            ], 400);
-        }
-
         try {
-            $laporan = Laporan::create([
-                'judul' => $request->judul,
-                'lokasi' => $request->lokasi,
-                'deskripsi' => $request->deskripsi,
-                'kategori' => $request->kategori,
-                'pelapor_nama' => $request->pelapor_nama,
-                'pelapor_email' => $request->pelapor_email,
-                'pelapor_telepon' => $request->pelapor_telepon,
-                'status' => 'Validasi'
-            ]);
-
+            $laporans = Laporan::orderBy('created_at', 'desc')->get();
+            
             return response()->json([
-                'message' => 'Laporan berhasil dikirim!',
-                'data' => $laporan
-            ], 201);
-
+                'success' => true,
+                'data' => $laporans,
+                'message' => 'Data laporan berhasil diambil'
+            ], 200);
+            
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Gagal mengirim laporan: ' . $e->getMessage()
+                'success' => false,
+                'message' => 'Gagal mengambil data laporan: ' . $e->getMessage()
             ], 500);
         }
     }
 
-    // Ambil semua laporan untuk admin
-    public function index()
+    // Method untuk menyimpan laporan baru
+    public function store(Request $request)
     {
-        $laporans = Laporan::orderBy('created_at', 'desc')->get();
-        
-        return response()->json([
-            'data' => $laporans
-        ]);
+        try {
+            $validated = $request->validate([
+                'judul' => 'required|string|max:255',
+                'lokasi' => 'required|string',
+                'deskripsi' => 'required|string',
+                'kategori' => 'nullable|string',
+                'pelapor_nama' => 'required|string|max:255',
+                'pelapor_email' => 'nullable|email',
+                'pelapor_telepon' => 'nullable|string'
+            ]);
+
+            $laporan = Laporan::create($validated);
+
+            return response()->json([
+                'success' => true,
+                'data' => $laporan,
+                'message' => 'Laporan berhasil dikirim!'
+            ], 201);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengirim laporan: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    // Ambil detail laporan
+    // Method untuk menampilkan detail laporan
     public function show($id)
     {
-        $laporan = Laporan::find($id);
-        
-        if (!$laporan) {
-            return response()->json([
-                'error' => 'Laporan tidak ditemukan'
-            ], 404);
-        }
+        try {
+            $laporan = Laporan::find($id);
+            
+            if (!$laporan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Laporan tidak ditemukan'
+                ], 404);
+            }
 
-        return response()->json([
-            'data' => $laporan
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => $laporan
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data laporan: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    // Update status laporan (untuk admin)
-    public function updateStatus(Request $request, $id)
+    // Method untuk update status laporan
+    public function update(Request $request, $id)
     {
-        $laporan = Laporan::find($id);
-        
-        if (!$laporan) {
+        try {
+            $laporan = Laporan::find($id);
+            
+            if (!$laporan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Laporan tidak ditemukan'
+                ], 404);
+            }
+
+            $validated = $request->validate([
+                'status' => 'required|string|in:Validasi,Tervalidasi,Dalam Proses,Selesai'
+            ]);
+
+            $laporan->update($validated);
+
             return response()->json([
-                'error' => 'Laporan tidak ditemukan'
-            ], 404);
-        }
+                'success' => true,
+                'data' => $laporan,
+                'message' => 'Status laporan berhasil diupdate'
+            ], 200);
 
-        $validator = Validator::make($request->all(), [
-            'status' => 'required|in:Validasi,Tervalidasi,Dalam Proses,Selesai'
-        ]);
-
-        if ($validator->fails()) {
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
-                'error' => $validator->errors()
-            ], 400);
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal update laporan: ' . $e->getMessage()
+            ], 500);
         }
+    }
 
-        $laporan->update([
-            'status' => $request->status
-        ]);
+    // Method khusus untuk validasi laporan
+    public function validateLaporan($id)
+    {
+        try {
+            $laporan = Laporan::find($id);
+            
+            if (!$laporan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Laporan tidak ditemukan'
+                ], 404);
+            }
 
-        return response()->json([
-            'message' => 'Status laporan berhasil diupdate',
-            'data' => $laporan
-        ]);
+            $laporan->update(['status' => 'Tervalidasi']);
+
+            return response()->json([
+                'success' => true,
+                'data' => $laporan,
+                'message' => 'Laporan berhasil divalidasi'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memvalidasi laporan: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

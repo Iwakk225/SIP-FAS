@@ -24,8 +24,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 });
 
+// Admin routes
 Route::prefix('admin')->group(function () {
     Route::post('/login', [AdminAuthController::class, 'login']);
-    Route::post('/logout', [AdminAuthController::class, 'logout'])->middleware('auth:sanctum');
-    Route::get('/me', [AdminAuthController::class, 'me'])->middleware('auth:sanctum');
+    
+    // Protected admin routes
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/logout', [AdminAuthController::class, 'logout']);
+        Route::get('/me', [AdminAuthController::class, 'me']);
+        
+        // Routes untuk manage laporan
+        Route::get('/laporan', [LaporanController::class, 'index']);
+        Route::put('/laporan/{id}', [LaporanController::class, 'update']);
+        Route::put('/laporan/{id}/validate', [LaporanController::class, 'validateLaporan']);
+    });
 });
