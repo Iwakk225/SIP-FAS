@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
         <div className="max-w-md w-full">
           {/* Back Button */}
           <Link 
-            to="/login" 
+            to="/LoginPage" 
             className="inline-flex items-center text-sm text-gray-600 hover:text-[#FDBD59] mb-6"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -123,7 +123,7 @@ export default function ForgotPasswordPage() {
               <p className="text-sm text-gray-600">
                 Ingat kata sandi?{" "}
                 <Link 
-                  to="/login" 
+                  to="/LoginPage" 
                   className="text-[#FDBD59] font-medium hover:underline"
                 >
                   Masuk di sini

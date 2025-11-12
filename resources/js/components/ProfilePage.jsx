@@ -19,8 +19,7 @@ export default function ProfilePage() {
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    address: 'Surabaya, Jawa Timur',
-    bio: 'Aktif melaporkan fasilitas publik sejak 2024'
+    address: 'Surabaya, Jawa Timur'
   });
 
   const handleChange = (e) => {
@@ -65,8 +64,7 @@ export default function ProfilePage() {
       name: user?.name || '',
       email: user?.email || '',
       phone: user?.phone || '',
-      address: 'Surabaya, Jawa Timur',
-      bio: 'Aktif melaporkan fasilitas publik sejak 2024'
+      address: 'Surabaya, Jawa Timur'
     });
     setIsEditing(false);
   };
@@ -235,22 +233,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Bio
-                  </label>
-                  {isEditing ? (
-                    <textarea
-                      name="bio"
-                      value={formData.bio}
-                      onChange={handleChange}
-                      rows="3"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FDBD59]"
-                    />
-                  ) : (
-                    <p className="text-gray-900">{formData.bio}</p>
-                  )}
-                </div>
               </div>
             </div>
           </div>

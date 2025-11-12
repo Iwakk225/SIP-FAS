@@ -13,7 +13,6 @@ class Laporan extends Model
         'judul',
         'lokasi', 
         'deskripsi',
-        'kategori',
         'pelapor_nama',
         'pelapor_email',
         'pelapor_telepon',

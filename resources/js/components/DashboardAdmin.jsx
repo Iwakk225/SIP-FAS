@@ -47,7 +47,6 @@ export default function DashboardAdmin() {
     const [recentActivities, setRecentActivities] = useState([]);
 
     // Fungsi untuk fetch data dari API Laravel
-    // Fungsi untuk fetch data dari API Laravel
     const fetchLaporanData = async () => {
         setIsLoading(true);
         try {

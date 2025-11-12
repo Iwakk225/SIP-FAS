@@ -44,7 +44,6 @@ function AppLayout() {
     <>
       {shouldShowNavbar && (isLoggedIn ? <NavbarAfterLogin /> : <NavbarBeforeLogin />)}
       <Routes>
-        {/* ✅ Defined Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/LoginPage" element={<LoginPage />} />
         <Route path="/SignUpPage" element={<SignUpPage />} />

@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Laporan;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class LaporanController extends Controller
 {
     // Method untuk mendapatkan semua laporan (untuk admin)
-    public function index()
+    public function index(): JsonResponse
     {
         try {
             $laporans = Laporan::orderBy('created_at', 'desc')->get();
@@ -20,6 +22,7 @@ class LaporanController extends Controller
             ], 200);
             
         } catch (\Exception $e) {
+            Log::error('Error fetching laporan: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data laporan: ' . $e->getMessage()
@@ -28,14 +31,13 @@ class LaporanController extends Controller
     }
 
     // Method untuk menyimpan laporan baru
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         try {
             $validated = $request->validate([
                 'judul' => 'required|string|max:255',
                 'lokasi' => 'required|string',
                 'deskripsi' => 'required|string',
-                'kategori' => 'nullable|string',
                 'pelapor_nama' => 'required|string|max:255',
                 'pelapor_email' => 'nullable|email',
                 'pelapor_telepon' => 'nullable|string'
@@ -56,6 +58,7 @@ class LaporanController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            Log::error('Error storing laporan: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengirim laporan: ' . $e->getMessage()
@@ -64,7 +67,7 @@ class LaporanController extends Controller
     }
 
     // Method untuk menampilkan detail laporan
-    public function show($id)
+    public function show($id): JsonResponse
     {
         try {
             $laporan = Laporan::find($id);
@@ -82,6 +85,7 @@ class LaporanController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            Log::error('Error showing laporan: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data laporan: ' . $e->getMessage()
@@ -90,7 +94,7 @@ class LaporanController extends Controller
     }
 
     // Method untuk update status laporan
-    public function update(Request $request, $id)
+    public function update(Request $request, $id): JsonResponse
     {
         try {
             $laporan = Laporan::find($id);
@@ -121,6 +125,7 @@ class LaporanController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
+            Log::error('Error updating laporan: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal update laporan: ' . $e->getMessage()
@@ -129,7 +134,7 @@ class LaporanController extends Controller
     }
 
     // Method khusus untuk validasi laporan
-    public function validateLaporan($id)
+    public function validateLaporan($id): JsonResponse
     {
         try {
             $laporan = Laporan::find($id);
@@ -150,6 +155,7 @@ class LaporanController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            Log::error('Error validating laporan: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memvalidasi laporan: ' . $e->getMessage()

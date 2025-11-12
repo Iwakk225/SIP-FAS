@@ -7,6 +7,7 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\LaporanController;
+use App\Http\Controllers\StatistikController;
 
 // Public routes - tidak perlu auth
 Route::post('/register', [AuthController::class, 'register']);
@@ -17,6 +18,12 @@ Route::post('/reset-password', [PasswordResetController::class, 'reset']);
 Route::post('/contact', [ContactController::class, 'sendEmail']);
 Route::post('/laporan', [LaporanController::class, 'store']);
 Route::get('/laporan/{id}', [LaporanController::class, 'show']);
+
+// Routes untuk statistik (public bisa akses)
+Route::prefix('statistik')->group(function () {
+    Route::get('/', [StatistikController::class, 'getStatistik']);
+    Route::get('/waktu-respon', [StatistikController::class, 'getWaktuRespon']);
+});
 
 // Protected routes - butuh auth
 Route::middleware('auth:sanctum')->group(function () {
