@@ -18,6 +18,7 @@ import NavbarAfterLogin from "./components/NavbarAfterLogin";
 import LoginAdmin from "./components/LoginAdmin";
 import DashboardAdmin from "./components/DashboardAdmin";
 import NotFoundPage from "./components/NotFoundPage";
+import StatusPage from "./components/StatusPage";
 
 // Komponen wrapper untuk conditional navbar
 function AppLayout() {
@@ -54,6 +55,7 @@ function AppLayout() {
         <Route path="/ResetPasswordPage" element={<ResetPasswordPage />} />
         <Route path="/VerifyCodePage" element={<VerifyCodePage />} />
         <Route path="/KontakPage" element={<KontakPage />} />
+        <Route path="/StatusPage" element={<StatusPage />} />
         <Route path="/LoginAdmin" element={<LoginAdmin />} />
         <Route path="/DashboardAdmin" element={<DashboardAdmin />} />
         

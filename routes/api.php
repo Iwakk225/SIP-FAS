@@ -29,6 +29,7 @@ Route::prefix('statistik')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/laporan-user', [LaporanController::class, 'getLaporanByUser']);
 });
 
 // Admin routes

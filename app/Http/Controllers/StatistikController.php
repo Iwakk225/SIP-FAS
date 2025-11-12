@@ -68,74 +68,190 @@ class StatistikController extends Controller
         }
     }
 
-    private function getLaporanPerWilayah($query)
-    {
-        // Ambil semua data lokasi
-        $allLokasi = $query->select('lokasi')->get();
-        
-        // Mapping wilayah Surabaya
-        $wilayahMapping = [
-            'Surabaya Pusat' => 0,
-            'Surabaya Utara' => 0,
-            'Surabaya Timur' => 0,
-            'Surabaya Selatan' => 0,
-            'Surabaya Barat' => 0
-        ];
+   private function getLaporanPerWilayah($query)
+{
+    // Ambil semua data lokasi
+    $allLokasi = $query->select('lokasi')->get();
+    
+    // Definisikan urutan tetap untuk semua wilayah
+    $fixedOrder = [
+        'Surabaya Pusat',
+        'Surabaya Utara', 
+        'Surabaya Timur',
+        'Surabaya Selatan',
+        'Surabaya Barat',
+        'Lokasi Lain'
+    ];
+    
+    // Inisialisasi semua wilayah dengan 0
+    $wilayahMapping = [];
+    foreach ($fixedOrder as $wilayah) {
+        $wilayahMapping[$wilayah] = 0;
+    }
 
-        // Mapping detail untuk setiap wilayah Surabaya
-        $kecamatanMapping = [
-            'Surabaya Pusat' => [
-                'genteng', 'gubeng', 'tegalsari', 'simolawang', 'tambaksari', 'bubutan', 
-                'krembangan', 'pabean cantian', 'semampir', 'bulak', 'kenjeran'
-            ],
-            'Surabaya Utara' => [
-                'semampir', 'pabean cantian', 'krembangan', 'bulak', 'kenjeran'
-            ],
-            'Surabaya Timur' => [
-                'gubeng', 'gunung anyar', 'sukolilo', 'rungkut', 'tenggilis mejoyo', 'mulyorejo'
-            ],
-            'Surabaya Selatan' => [
-                'wonokromo', 'jambangan', 'gayungan', 'darmo', 'wiyung', 'karang pilang'
-            ],
-            'Surabaya Barat' => [
-                'dukuh pakis', 'gayungan', 'jambangan', 'karang pilang', 'rungkut', 'sukomanunggal',
-                'tandes', 'tenggilis mejoyo', 'wiyung', 'lakarsantri', 'benowo', 'pakal', 'asemrowo'
-            ]
-        ];
-
-        foreach ($allLokasi as $lokasi) {
-            $lokasiLower = strtolower($lokasi->lokasi);
-            $wilayahTerpilih = 'Surabaya Pusat'; // default
-            
-            // Cari kecamatan yang match
-            foreach ($kecamatanMapping as $wilayah => $kecamatans) {
-                foreach ($kecamatans as $kecamatan) {
-                    if (strpos($lokasiLower, $kecamatan) !== false) {
-                        $wilayahTerpilih = $wilayah;
-                        break 2; // Keluar dari kedua loop
-                    }
-                }
-            }
-            
+    foreach ($allLokasi as $lokasi) {
+        $lokasiLower = strtolower(trim($lokasi->lokasi));
+        $wilayahTerpilih = $this->detectWilayahSmart($lokasiLower);
+        if (isset($wilayahMapping[$wilayahTerpilih])) {
             $wilayahMapping[$wilayahTerpilih]++;
         }
-
-        // Konversi ke format yang diinginkan
-        $result = [];
-        foreach ($wilayahMapping as $wilayah => $total) {
-            $result[] = [
-                'lokasi' => $wilayah,
-                'total' => $total
-            ];
-        }
-
-        // Urutkan berdasarkan total descending
-        usort($result, function($a, $b) {
-            return $b['total'] - $a['total'];
-        });
-
-        return $result;
     }
+
+    // Konversi ke format yang diinginkan - TAMPILKAN SEMUA
+    $result = [];
+    foreach ($fixedOrder as $wilayah) {
+        $result[] = [
+            'lokasi' => $wilayah,
+            'total' => $wilayahMapping[$wilayah] ?? 0
+        ];
+    }
+
+    return $result;
+}
+
+private function detectWilayahSmart($locationText)
+{
+    // Mapping yang LEBIH LENGKAP berdasarkan kecamatan dan kelurahan di Surabaya
+    $wilayahMapping = [
+        'Surabaya Pusat' => [
+            // Kecamatan Genteng
+            'genteng', 'ketabang', 'embong kaliasin', 'tambaksari', 'pacarkeling',
+            // Kecamatan Gubeng
+            'gubeng', 'airlangga', 'barata jaya', 'kertajaya', 'mojo', 'pucang sewu',
+            // Kecamatan Tegalsari
+            'tegalsari', 'keputran', 'dr. soetomo', 'kedungdoro',
+            // Kecamatan Simolawang
+            'simolawang', 'perak timur', 'pegirian', 'tidar',
+            // Kecamatan Bubutan
+            'bubutan', 'alun-alun contong', 'gundih', 'jepara', 'tembok dukuh'
+        ],
+        'Surabaya Utara' => [
+            // Kecamatan Pabean Cantian
+            'pabean cantian', 'kapasan', 'nyamplungan', 'perak barat', 'kemayoran',
+            // Kecamatan Krembangan
+            'krembangan', 'perak utara', 'morokrembangan', 'krembangan selatan',
+            // Kecamatan Semampir
+            'semampir', 'dukuh kupang', 'dukuh sutorejo', 'dukuh pakis', 'kandangan',
+            // Kecamatan Kenjeran
+            'kenjeran', 'bulak', 'kedung cowek', 'sukolilo barat', 'sukolilo timur',
+            // Kecamatan Bulak
+            'bulak banteng', 'kedung asem', 'komplek kenjeran'
+        ],
+        'Surabaya Timur' => [
+            // Kecamatan Gunung Anyar
+            'gunung anyar', 'gunung anyar tambak', 'rungkut tengah', 'rungkut menanggal',
+            // Kecamatan Sukolilo
+            'sukolilo', 'keputih', 'gebang putih', 'klampis ngasem', 'nginden',
+            // Kecamatan Rungkut
+            'rungkut', 'kali rungkut', 'rungkut kidul', 'rungkut lor', 'wonoayu',
+            // Kecamatan Tenggilis Mejoyo
+            'tenggilis mejoyo', 'tenggilis', 'mejoyo', 'panjang jiwo', 'kebonsari',
+            // Kecamatan Mulyorejo
+            'mulyorejo', 'kalijudan', 'manyar sabrangan', 'kejawan putih tambak'
+        ],
+        'Surabaya Selatan' => [
+            // Kecamatan Wonokromo
+            'wonokromo', 'wonokromo', 'jagir', 'ngagel', 'ngagel rejo', 'sawunggaling',
+            // Kecamatan Jambangan
+            'jambangan', 'karah', 'kebonsari', 'pagesangan', 'pagesangan jaya',
+            // Kecamatan Gayungan
+            'gayungan', 'darmo', 'darmo satrio', 'gunung sari', 'ketintang',
+            // Kecamatan Wiyung
+            'wiyung', 'babatan', 'balas klumprik', 'wiyung', 'jatimulyo',
+            // Kecamatan Karang Pilang
+            'karang pilang', 'kebraon', 'kedurus', 'karang pilang'
+        ],
+        'Surabaya Barat' => [
+            // Kecamatan Tandes
+            'tandes', 'banjar sugihan', 'balongsari', 'bangking', 'krembangan selatan',
+            // Kecamatan Sukomanunggal
+            'sukomanunggal', 'tanjungsari', 'sonokwijenan', 'simo', 'simomulyo',
+            // Kecamatan Lakarsantri
+            'lakarsantri', 'lakarsantri', 'bangking', 'jeruk', 'lidah kulon',
+            // Kecamatan Benowo
+            'benowo', 'banjarsari', 'klampis', 'putat gede', 'sememi',
+            // Kecamatan Pakal
+            'pakal', 'babatan', 'bangking', 'balas klumprik'
+        ]
+    ];
+
+    // Cari di semua mapping
+    foreach ($wilayahMapping as $wilayah => $keywords) {
+        foreach ($keywords as $keyword) {
+            if (strpos($locationText, $keyword) !== false) {
+                return $wilayah;
+            }
+        }
+    }
+
+    // Deteksi berdasarkan pola umum
+    return $this->detectByPattern($locationText);
+}
+
+private function detectByPattern($locationText)
+{
+    // Deteksi berdasarkan pola nama jalan/daerah
+    $patterns = [
+        'Surabaya Pusat' => [
+            'pasar atom', 'tunjungan', 'jalan tunjungan', 'jalan basuki rakhmat',
+            'jalan pemuda', 'jalan embong malang', 'jalan darmo', 'jalan kupang',
+            'kupang jaya', 'kupang krajan', 'petemon', 'peterongan'
+        ],
+        'Surabaya Utara' => [
+            'jalan perak', 'tanjung perak', 'jalan krembangan', 'jalan kapasan',
+            'jalan dupak', 'jalan gading', 'kenjeran park', 'pantai kenjeran'
+        ],
+        'Surabaya Timur' => [
+            'jalan rungkut', 'rungkut industri', 'jalan ahmad yani', 'gunung anyar',
+            'sukolilo', 'jalan manyar', 'kampus its', 'kampus unair'
+        ],
+        'Surabaya Selatan' => [
+            'jalan wonokromo', 'jalan darmo', 'jalan jemursari', 'jalan ahmad yani',
+            'royal plaza', 'city of tomorrow', 'jalan karang menur'
+        ],
+        'Surabaya Barat' => [
+            'jalan lakarsantri', 'jalan benowo', 'jalan pakal', 'tandes',
+            'sukomanunggal', 'simomulyo', 'jalan margomulyo'
+        ]
+    ];
+
+    foreach ($patterns as $wilayah => $patternList) {
+        foreach ($patternList as $pattern) {
+            if (strpos($locationText, $pattern) !== false) {
+                return $wilayah;
+            }
+        }
+    }
+
+    // Deteksi koordinat
+    if (preg_match('/^(-?\d+\.\d+),\s*(-?\d+\.\d+)$/', $locationText, $matches)) {
+        $lat = (float)$matches[1];
+        $lng = (float)$matches[2];
+        return $this->getWilayahFromCoordinates($lat, $lng);
+    }
+
+    // Default: jika mengandung "surabaya" tapi tidak terdeteksi, anggap Pusat
+    if (strpos($locationText, 'surabaya') !== false) {
+        return 'Surabaya Pusat';
+    }
+
+    return 'Lokasi Lain';
+}
+
+private function getWilayahFromCoordinates($lat, $lng)
+{
+    // Batas koordinat Surabaya yang lebih akurat
+    if ($lat >= -7.30 && $lat <= -7.20 && $lng >= 112.65 && $lng <= 112.85) {
+        // Lebih detail berdasarkan koordinat
+        if ($lng >= 112.73 && $lng <= 112.77) return 'Surabaya Pusat';
+        if ($lng >= 112.77 && $lng <= 112.85) return 'Surabaya Timur';
+        if ($lat >= -7.30 && $lat <= -7.25) return 'Surabaya Selatan';
+        if ($lng >= 112.65 && $lng <= 112.73) return 'Surabaya Barat';
+        if ($lat >= -7.20 && $lat <= -7.25) return 'Surabaya Utara';
+    }
+    
+    return 'Lokasi Lain';
+}
 
     private function getPreviousPeriodTotal($periode)
     {
