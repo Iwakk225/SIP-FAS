@@ -10,7 +10,7 @@ export default function NavbarBeforeLogin() {
   const navLinks = [
     { name: "Beranda", path: "/" },
     { name: "Statistik", path: "/Statistik" },
-    { name: "Status", path: "/status" },
+    { name: "Status", path: "/StatusPage" },
     { name: "Lapor", path: "/LaporPage" },
     { name: "Kontak", path: "/KontakPage" },
   ];

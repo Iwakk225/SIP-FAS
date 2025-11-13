@@ -213,4 +213,46 @@ class LaporanController extends Controller
         
         return $location;
     }
+    // Tambahkan method ini di LaporanController.php
+public function getStatistikUser(Request $request): JsonResponse
+{
+    try {
+        $user = Auth::user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User tidak terautentikasi'
+            ], 401);
+        }
+
+        // Hitung statistik berdasarkan user yang login
+        $statistik = Laporan::where('pelapor_email', $user->email)
+            ->orWhere('pelapor_nama', $user->name)
+            ->selectRaw('COUNT(*) as total')
+            ->selectRaw('SUM(CASE WHEN status = "Selesai" THEN 1 ELSE 0 END) as selesai')
+            ->selectRaw('SUM(CASE WHEN status = "Dalam Proses" THEN 1 ELSE 0 END) as dalam_proses')
+            ->selectRaw('SUM(CASE WHEN status = "Validasi" THEN 1 ELSE 0 END) as menunggu')
+            ->selectRaw('SUM(CASE WHEN status = "Ditolak" THEN 1 ELSE 0 END) as ditolak')
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total' => $statistik->total ?? 0,
+                'selesai' => $statistik->selesai ?? 0,
+                'dalam_proses' => $statistik->dalam_proses ?? 0,
+                'menunggu' => $statistik->menunggu ?? 0,
+                'ditolak' => $statistik->ditolak ?? 0
+            ]
+        ], 200);
+
+    } catch (\Exception $e) {
+        Log::error('Error fetching user statistik: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal mengambil statistik user: ' . $e->getMessage()
+        ], 500);
+    }
+}
 }

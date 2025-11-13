@@ -30,6 +30,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/laporan-user', [LaporanController::class, 'getLaporanByUser']);
+    Route::get('/statistik-user', [LaporanController::class, 'getStatistikUser']);
 });
 
 // Admin routes

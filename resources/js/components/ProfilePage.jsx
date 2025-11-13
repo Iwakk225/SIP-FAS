@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { User, Mail, Phone, MapPin, Edit2, Save, X, Camera, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Footer from "./Footer";
@@ -8,12 +8,13 @@ import { useAuth } from "../contexts/AuthContext";
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
+  const [userStats, setUserStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
   const navigate = useNavigate();
   
-  // ✅ GUNAKAN useAuth HOOK
   const { user, logout } = useAuth();
   
-  const API_URL = '/api';
+  const API_URL = 'http://localhost:8000/api';
   
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -21,6 +22,42 @@ export default function ProfilePage() {
     phone: user?.phone || '',
     address: 'Surabaya, Jawa Timur'
   });
+
+  // Fetch user statistics
+  const fetchUserStats = async () => {
+    try {
+      setLoadingStats(true);
+      const token = localStorage.getItem('auth_token');
+      const response = await axios.get(`${API_URL}/statistik-user`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        setUserStats(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+      // Fallback stats jika API error
+      setUserStats({
+        total: 0,
+        selesai: 0,
+        dalam_proses: 0,
+        menunggu: 0,
+        ditolak: 0
+      });
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchUserStats();
+    }
+  }, [user]);
 
   const handleChange = (e) => {
     setFormData({
@@ -47,7 +84,6 @@ export default function ProfilePage() {
       
       setIsEditing(false);
       
-      // Refresh page untuk update data user di context
       window.location.reload();
       
     } catch (error) {
@@ -84,17 +120,38 @@ export default function ProfilePage() {
     } catch (error) {
       console.log('Logout API error:', error);
     } finally {
-      // ✅ GUNAKAN logout DARI CONTEXT
       logout();
       navigate('/');
     }
   };
 
+  // Stats data dengan data real dari API
   const stats = [
-    { label: "Total Laporan", value: "24", color: "bg-blue-500" },
-    { label: "Selesai", value: "18", color: "bg-green-500" },
-    { label: "Dalam Proses", value: "4", color: "bg-yellow-500" },
-    { label: "Menunggu", value: "2", color: "bg-gray-500" }
+    { 
+      label: "Total Laporan", 
+      value: userStats?.total ?? 0, 
+      color: "bg-blue-500" 
+    },
+    { 
+      label: "Selesai", 
+      value: userStats?.selesai ?? 0, 
+      color: "bg-green-500" 
+    },
+    { 
+      label: "Dalam Proses", 
+      value: userStats?.dalam_proses ?? 0, 
+      color: "bg-yellow-500" 
+    },
+    { 
+      label: "Menunggu", 
+      value: userStats?.menunggu ?? 0, 
+      color: "bg-gray-500" 
+    },
+    { 
+      label: "Ditolak", 
+      value: userStats?.ditolak ?? 0, 
+      color: "bg-red-500" 
+    }
   ];
 
   return (
@@ -232,24 +289,31 @@ export default function ProfilePage() {
                     )}
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
 
           {/* Stats Section */}
           <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Statistik Laporan</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {stats.map((stat, index) => (
-                <div key={index} className="text-center p-4 bg-gray-50 rounded-lg">
-                  <div className={`w-12 h-12 ${stat.color} rounded-full flex items-center justify-center mx-auto mb-2`}>
-                    <span className="text-white font-bold text-lg">{stat.value}</span>
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Statistik Laporan Saya</h2>
+            
+            {loadingStats ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#FDBD59] mx-auto"></div>
+                <p className="text-gray-600 mt-2">Memuat statistik...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {stats.map((stat, index) => (
+                  <div key={index} className="text-center p-4 bg-gray-50 rounded-lg">
+                    <div className={`w-12 h-12 ${stat.color} rounded-full flex items-center justify-center mx-auto mb-2`}>
+                      <span className="text-white font-bold text-lg">{stat.value}</span>
+                    </div>
+                    <p className="text-sm text-gray-600">{stat.label}</p>
                   </div>
-                  <p className="text-sm text-gray-600">{stat.label}</p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Logout Section */}
@@ -270,7 +334,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-
       <Footer />
     </>
   );
