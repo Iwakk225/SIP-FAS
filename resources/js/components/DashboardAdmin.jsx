@@ -15,6 +15,9 @@ import {
     AlertCircle,
     RefreshCw,
     Info,
+    CheckCircle,
+    XCircle,
+    AlertTriangle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -26,6 +29,12 @@ export default function DashboardAdmin() {
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+
+    const [notification, setNotification] = useState({
+        show: false,
+        message: "",
+        type: "success", // success, error, warning
+    });
 
     // State untuk data dinamis dari database
     const [statsData, setStatsData] = useState({
@@ -45,6 +54,50 @@ export default function DashboardAdmin() {
 
     const [laporanData, setLaporanData] = useState([]);
     const [recentActivities, setRecentActivities] = useState([]);
+
+    // Komponen Notification Popup
+    const NotificationPopup = () => {
+        if (!notification.show) return null;
+
+        const bgColor = {
+            success: "bg-green-500",
+            error: "bg-red-500", 
+            warning: "bg-yellow-500"
+        };
+
+        const icon = {
+            success: <CheckCircle className="w-5 h-5" />,
+            error: <XCircle className="w-5 h-5" />,
+            warning: <AlertTriangle className="w-5 h-5" />
+        };
+
+        // Auto hide setelah 3 detik
+        useEffect(() => {
+            const timer = setTimeout(() => {
+                setNotification({ show: false, message: "", type: "success" });
+            }, 3000);
+
+            return () => clearTimeout(timer);
+        }, [notification.show]);
+
+        return (
+            <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right duration-300">
+                <div className={`${bgColor[notification.type]} text-white px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 min-w-80`}>
+                    {icon[notification.type]}
+                    <span className="font-medium">{notification.message}</span>
+                </div>
+            </div>
+        );
+    };
+
+    // Fungsi untuk show notification
+    const showNotification = (message, type = "success") => {
+        setNotification({
+            show: true,
+            message,
+            type
+        });
+    };
 
     // Fungsi untuk fetch data dari API Laravel
     const fetchLaporanData = async () => {
@@ -210,6 +263,7 @@ export default function DashboardAdmin() {
             setRecentActivities(activities);
         } catch (error) {
             console.error("Error fetching laporan data:", error);
+            showNotification("Gagal memuat data laporan", "error");
 
             // Fallback ke localStorage jika API error
             try {
@@ -273,13 +327,13 @@ export default function DashboardAdmin() {
         return () => clearInterval(interval);
     }, []);
 
-    // Fungsi untuk validasi laporan
+    // Fungsi untuk validasi laporan - PERBAIKI
     const handleValidateLaporan = async (laporanId) => {
         try {
             const token = localStorage.getItem("admin_token");
 
             const response = await axios.put(
-                `http://localhost:8000/api/laporan/${laporanId}/validate`,
+                `http://localhost:8000/api/admin/laporan/${laporanId}/validate`,
                 { status: "Tervalidasi" },
                 {
                     headers: {
@@ -290,24 +344,27 @@ export default function DashboardAdmin() {
             );
 
             if (response.data.success) {
-                // Refresh data setelah update
+                // Refresh data untuk melihat perubahan
                 fetchLaporanData();
                 setShowDetailModal(false);
+                showNotification("Laporan berhasil divalidasi!", "success");
             }
         } catch (error) {
             console.error("Error validating laporan:", error);
-            alert("Gagal memvalidasi laporan");
+            showNotification("Gagal memvalidasi laporan", "error");
         }
     };
 
-    // Fungsi untuk update status laporan
+    // Fungsi untuk update status laporan - PERBAIKI
     const handleUpdateStatus = async (laporanId, newStatus) => {
         try {
             const token = localStorage.getItem("admin_token");
 
             const response = await axios.put(
-                `http://localhost:8000/api/laporan/${laporanId}`,
-                { status: newStatus },
+                `http://localhost:8000/api/admin/laporan/${laporanId}`,
+                {
+                    status: newStatus,
+                },
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -317,13 +374,14 @@ export default function DashboardAdmin() {
             );
 
             if (response.data.success) {
-                // Refresh data setelah update
+                // Refresh data untuk melihat perubahan
                 fetchLaporanData();
                 setShowDetailModal(false);
+                showNotification(`Status berhasil diubah menjadi: ${newStatus}`, "success");
             }
         } catch (error) {
             console.error("Error updating laporan status:", error);
-            alert("Gagal mengupdate status laporan");
+            showNotification("Gagal mengupdate status laporan", "error");
         }
     };
 
@@ -496,40 +554,11 @@ export default function DashboardAdmin() {
                                     </p>
                                 </div>
                             </div>
-
-                            {/* Kategori */}
-                            {selectedLaporan.kategori && (
-                                <div className="flex items-start space-x-3">
-                                    <Info className="w-5 h-5 text-gray-400 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-500">
-                                            Kategori
-                                        </p>
-                                        <p className="text-sm text-gray-900">
-                                            {selectedLaporan.kategori}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Email Pelapor */}
-                            {selectedLaporan.pelapor_email && (
-                                <div className="flex items-start space-x-3">
-                                    <UserIcon className="w-5 h-5 text-gray-400 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-500">
-                                            Email
-                                        </p>
-                                        <p className="text-sm text-gray-900">
-                                            {selectedLaporan.pelapor_email}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         {/* Action Buttons */}
-                        <div className="flex space-x-3 pt-4 border-t border-gray-200">
+                        <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
+                            {/* Tombol Validasi Khusus untuk status Validasi */}
                             {(selectedLaporan.status === "Validasi" ||
                                 selectedLaporan.status === "validasi") && (
                                 <button
@@ -538,28 +567,34 @@ export default function DashboardAdmin() {
                                             selectedLaporan.id
                                         )
                                     }
-                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-medium cursor-pointer transition-colors"
+                                    className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-medium cursor-pointer transition-colors"
                                 >
                                     Validasi Laporan
                                 </button>
                             )}
-                            <select
-                                onChange={(e) =>
-                                    handleUpdateStatus(
-                                        selectedLaporan.id,
-                                        e.target.value
-                                    )
-                                }
-                                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg font-medium cursor-pointer transition-colors"
-                                value={selectedLaporan.status}
-                            >
-                                <option value="Validasi">Validasi</option>
-                                <option value="Tervalidasi">Tervalidasi</option>
-                                <option value="Dalam Proses">
-                                    Dalam Proses
-                                </option>
-                                <option value="Selesai">Selesai</option>
-                            </select>
+                            
+                            {/* Dropdown untuk semua status */}
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Ubah Status:
+                                </label>
+                                <select
+                                    onChange={(e) =>
+                                        handleUpdateStatus(
+                                            selectedLaporan.id,
+                                            e.target.value
+                                        )
+                                    }
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    value={selectedLaporan.status}
+                                >
+                                    <option value="Validasi">Menunggu Validasi</option>
+                                    <option value="Tervalidasi">Tervalidasi</option>
+                                    <option value="Dalam Proses">Dalam Proses</option>
+                                    <option value="Selesai">Selesai</option>
+                                    <option value="Ditolak">Ditolak</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1054,8 +1089,6 @@ export default function DashboardAdmin() {
         );
     };
 
-    // ... (Komponen DataPetugasPage, ProfilPage, PengaturanPage tetap sama)
-
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Header */}
@@ -1178,6 +1211,9 @@ export default function DashboardAdmin() {
 
             {/* Render Modal */}
             {showDetailModal && <DetailLaporanModal />}
+
+            {/* Notification Popup */}
+            <NotificationPopup />
         </div>
     );
 }

@@ -10,7 +10,6 @@ use Illuminate\Support\Facades\Auth;
 
 class LaporanController extends Controller
 {
-    // Method untuk mendapatkan semua laporan (untuk admin)
     public function index(): JsonResponse
     {
         try {
@@ -97,29 +96,22 @@ class LaporanController extends Controller
         }
     }
 
-    // Method untuk update status laporan
+    // METHOD YANG DIPERBAIKI: Update laporan (harus match Route::put('/admin/laporan/{id}'))
     public function update(Request $request, $id): JsonResponse
     {
         try {
-            $laporan = Laporan::find($id);
+            $laporan = Laporan::findOrFail($id);
             
-            if (!$laporan) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Laporan tidak ditemukan'
-                ], 404);
-            }
-
             $validated = $request->validate([
-                'status' => 'required|string|in:Validasi,Tervalidasi,Dalam Proses,Selesai'
+                'status' => 'required|in:Validasi,Tervalidasi,Dalam Proses,Selesai,Ditolak'
             ]);
 
             $laporan->update($validated);
 
             return response()->json([
                 'success' => true,
-                'data' => $laporan,
-                'message' => 'Status laporan berhasil diupdate'
+                'message' => 'Status laporan berhasil diupdate',
+                'data' => $laporan
             ], 200);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -132,13 +124,13 @@ class LaporanController extends Controller
             Log::error('Error updating laporan: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal update laporan: ' . $e->getMessage()
+                'message' => 'Gagal mengupdate status laporan: ' . $e->getMessage()
             ], 500);
         }
     }
 
-    // Method khusus untuk validasi laporan
-    public function validateLaporan($id): JsonResponse
+    // Method khusus untuk validasi laporan - SESUAI ROUTE
+    public function validateLaporan(Request $request, $id): JsonResponse
     {
         try {
             $laporan = Laporan::find($id);
@@ -201,6 +193,49 @@ class LaporanController extends Controller
         }
     }
 
+    // Method untuk statistik user
+    public function getStatistikUser(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak terautentikasi'
+                ], 401);
+            }
+
+            // Hitung statistik berdasarkan user yang login
+            $statistik = Laporan::where('pelapor_email', $user->email)
+                ->orWhere('pelapor_nama', $user->name)
+                ->selectRaw('COUNT(*) as total')
+                ->selectRaw('SUM(CASE WHEN status = "Selesai" THEN 1 ELSE 0 END) as selesai')
+                ->selectRaw('SUM(CASE WHEN status = "Dalam Proses" THEN 1 ELSE 0 END) as dalam_proses')
+                ->selectRaw('SUM(CASE WHEN status = "Validasi" THEN 1 ELSE 0 END) as menunggu')
+                ->selectRaw('SUM(CASE WHEN status = "Ditolak" THEN 1 ELSE 0 END) as ditolak')
+                ->first();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total' => $statistik->total ?? 0,
+                    'selesai' => $statistik->selesai ?? 0,
+                    'dalam_proses' => $statistik->dalam_proses ?? 0,
+                    'menunggu' => $statistik->menunggu ?? 0,
+                    'ditolak' => $statistik->ditolak ?? 0
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching user statistik: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil statistik user: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
     private function normalizeLocation($location)
     {
         // Bersihkan dan normalisasi teks lokasi
@@ -213,46 +248,4 @@ class LaporanController extends Controller
         
         return $location;
     }
-    // Tambahkan method ini di LaporanController.php
-public function getStatistikUser(Request $request): JsonResponse
-{
-    try {
-        $user = Auth::user();
-        
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User tidak terautentikasi'
-            ], 401);
-        }
-
-        // Hitung statistik berdasarkan user yang login
-        $statistik = Laporan::where('pelapor_email', $user->email)
-            ->orWhere('pelapor_nama', $user->name)
-            ->selectRaw('COUNT(*) as total')
-            ->selectRaw('SUM(CASE WHEN status = "Selesai" THEN 1 ELSE 0 END) as selesai')
-            ->selectRaw('SUM(CASE WHEN status = "Dalam Proses" THEN 1 ELSE 0 END) as dalam_proses')
-            ->selectRaw('SUM(CASE WHEN status = "Validasi" THEN 1 ELSE 0 END) as menunggu')
-            ->selectRaw('SUM(CASE WHEN status = "Ditolak" THEN 1 ELSE 0 END) as ditolak')
-            ->first();
-
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'total' => $statistik->total ?? 0,
-                'selesai' => $statistik->selesai ?? 0,
-                'dalam_proses' => $statistik->dalam_proses ?? 0,
-                'menunggu' => $statistik->menunggu ?? 0,
-                'ditolak' => $statistik->ditolak ?? 0
-            ]
-        ], 200);
-
-    } catch (\Exception $e) {
-        Log::error('Error fetching user statistik: ' . $e->getMessage());
-        return response()->json([
-            'success' => false,
-            'message' => 'Gagal mengambil statistik user: ' . $e->getMessage()
-        ], 500);
-    }
-}
 }
