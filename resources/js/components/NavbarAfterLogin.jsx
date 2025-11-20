@@ -166,14 +166,14 @@ export default function NavbarAfterLogin() {
                             </div>
 
                             <Link
-                                to="/profile"
+                                to="/ProfilePage"
                                 className="block w-full py-2 text-sm text-gray-700 hover:text-[#FDBD59]"
                                 onClick={() => setIsMenuOpen(false)}
                             >
                                 Profil Saya
                             </Link>
                             <Link
-                                to="/laporan-saya"
+                                to="/StatusPage"
                                 className="block w-full py-2 text-sm text-gray-700 hover:text-[#FDBD59]"
                                 onClick={() => setIsMenuOpen(false)}
                             >

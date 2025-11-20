@@ -57,7 +57,7 @@ export default function LandingPage() {
                             </Link>
 
                             <Link
-                                to="/status-laporan"
+                                to="/StatusPage"
                                 className="w-full sm:w-auto"
                             >
                                 <Button
@@ -311,7 +311,7 @@ export default function LandingPage() {
                         Setiap laporan yang anda buat membantu menciptakan
                         lingkungan yang lebih baik untuk kita semua
                     </p>
-                    <Link to="/buat-laporan">
+                    <Link to="/LaporPage">
                         <Button className="bg-[#FDBD59] hover:bg-[#fda94b] text-black font-medium px-8 py-5 rounded-lg shadow cursor-pointer">
                             Mulai melaporkan
                         </Button>

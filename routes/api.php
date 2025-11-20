@@ -46,5 +46,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/laporan', [LaporanController::class, 'index']);
         Route::put('/laporan/{id}', [LaporanController::class, 'update']);
         Route::put('/laporan/{id}/validate', [LaporanController::class, 'validateLaporan']);
+        Route::post('/laporan/{id}/upload-bukti', [LaporanController::class, 'uploadBuktiPerbaikan']);
+        Route::post('/laporan/{id}/upload-rincian-biaya', [LaporanController::class, 'uploadRincianBiaya']);
     });
 });

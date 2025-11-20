@@ -13,14 +13,19 @@ class Laporan extends Model
         'judul',
         'lokasi', 
         'deskripsi',
+        'kategori',
         'pelapor_nama',
         'pelapor_email',
         'pelapor_telepon',
+        'foto_laporan',
+        'foto_bukti_perbaikan',
+        'rincian_biaya_pdf',
         'status',
-        'foto'
+        'alasan_penolakan'
     ];
 
-    protected $attributes = [
-        'status' => 'Validasi'
+    protected $casts = [
+        'foto_laporan' => 'array',
+        'foto_bukti_perbaikan' => 'array'
     ];
 }

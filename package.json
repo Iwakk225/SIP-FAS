@@ -12,6 +12,7 @@
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.1.15",
+        "@types/node": "^24.10.1",
         "@vitejs/plugin-react": "^5.0.4",
         "autoprefixer": "^10.4.21",
         "concurrently": "^9.0.1",
@@ -22,6 +23,8 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
+        "@cloudinary/react": "^1.14.3",
+        "@cloudinary/url-gen": "^1.22.0",
         "@radix-ui/react-slot": "^1.2.3",
         "axios": "^1.11.0",
         "class-variance-authority": "^0.7.1",

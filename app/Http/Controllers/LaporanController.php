@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class LaporanController extends Controller
 {
@@ -30,7 +31,7 @@ class LaporanController extends Controller
         }
     }
 
-    // Method untuk menyimpan laporan baru
+    // Method untuk menyimpan laporan baru DENGAN FOTO
     public function store(Request $request): JsonResponse
     {
         try {
@@ -40,7 +41,11 @@ class LaporanController extends Controller
                 'deskripsi' => 'required|string',
                 'pelapor_nama' => 'required|string|max:255',
                 'pelapor_email' => 'nullable|email',
-                'pelapor_telepon' => 'nullable|string'
+                'pelapor_telepon' => 'nullable|string',
+                'foto_laporan' => 'required|array',
+                'foto_laporan.*' => 'url',
+                'kategori' => 'nullable|string',
+                'status' => 'nullable|string'
             ]);
 
             // Normalisasi lokasi sebelum disimpan
@@ -155,6 +160,95 @@ class LaporanController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal memvalidasi laporan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Method untuk upload bukti perbaikan
+    public function uploadBuktiPerbaikan(Request $request, $id): JsonResponse
+    {
+        try {
+            $laporan = Laporan::findOrFail($id);
+            
+            $request->validate([
+                'foto_bukti_perbaikan' => 'required|array',
+                'foto_bukti_perbaikan.*' => 'image|mimes:jpeg,png,jpg,gif|max:5120'
+            ]);
+
+            $uploadedUrls = [];
+            
+            if ($request->hasFile('foto_bukti_perbaikan')) {
+                foreach ($request->file('foto_bukti_perbaikan') as $file) {
+                    $uploadedFile = Cloudinary::upload($file->getRealPath(), [
+                        'folder' => 'bukti-perbaikan',
+                        'transformation' => [
+                            'quality' => 'auto',
+                            'fetch_format' => 'auto'
+                        ]
+                    ]);
+                    
+                    $uploadedUrls[] = $uploadedFile->getSecurePath();
+                }
+            }
+
+            $laporan->update([
+                'foto_bukti_perbaikan' => $uploadedUrls,
+                'status' => 'Selesai'
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Bukti perbaikan berhasil diupload',
+                'data' => $laporan
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error uploading bukti perbaikan: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal upload bukti perbaikan: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    // Method untuk upload rincian biaya PDF
+    public function uploadRincianBiaya(Request $request, $id): JsonResponse
+    {
+        try {
+            $laporan = Laporan::findOrFail($id);
+            
+            $request->validate([
+                'rincian_biaya_pdf' => 'required|file|mimes:pdf|max:10240'
+            ]);
+
+            $pdfUrl = null;
+
+            if ($request->hasFile('rincian_biaya_pdf')) {
+                $file = $request->file('rincian_biaya_pdf');
+                
+                $uploadedFile = Cloudinary::upload($file->getRealPath(), [
+                    'folder' => 'rincian-biaya',
+                    'resource_type' => 'raw'
+                ]);
+                
+                $pdfUrl = $uploadedFile->getSecurePath();
+            }
+
+            $laporan->update([
+                'rincian_biaya_pdf' => $pdfUrl
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Rincian biaya berhasil diupload',
+                'data' => $laporan
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error uploading rincian biaya: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal upload rincian biaya: ' . $e->getMessage()
             ], 500);
         }
     }
