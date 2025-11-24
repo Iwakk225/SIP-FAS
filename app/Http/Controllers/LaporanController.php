@@ -330,6 +330,37 @@ class LaporanController extends Controller
         }
     }
 
+    public function getPetugasByLaporan($laporanId): JsonResponse
+    {
+        try {
+            $laporan = Laporan::find($laporanId);
+            
+            if (!$laporan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Laporan tidak ditemukan'
+                ], 404);
+            }
+
+            // Ambil data petugas yang terkait dengan laporan ini
+            $petugas = $laporan->petugas()
+                ->withPivot('status_tugas', 'catatan', 'dikirim_pada')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $petugas,
+                'message' => 'Data petugas berhasil diambil'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error fetching petugas for laporan: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil data petugas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
     private function normalizeLocation($location)
     {
         // Bersihkan dan normalisasi teks lokasi

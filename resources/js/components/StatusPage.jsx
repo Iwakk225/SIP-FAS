@@ -14,6 +14,10 @@ import {
     Eye,
     ArrowUpDown,
     X,
+    Users,
+    User,
+    Phone,
+    MapPin as MapIcon,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -29,9 +33,10 @@ const StatusPage = () => {
     const [selectedLaporan, setSelectedLaporan] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [petugasLaporan, setPetugasLaporan] = useState([]);
+    const [isLoadingPetugas, setIsLoadingPetugas] = useState(false);
     const { user } = useAuth();
 
-    // Data tracking steps
     const trackingSteps = [
         {
             id: 1,
@@ -80,7 +85,7 @@ const StatusPage = () => {
         },
     ];
 
-    // Fetch data dari database - VERSI CLEAN
+    // Fetch data laporan user
     const fetchLaporanUser = async () => {
         if (!user) return;
 
@@ -103,26 +108,49 @@ const StatusPage = () => {
             setFilteredData(data);
         } catch (error) {
             console.error("Error fetching user laporan:", error);
-
-            // Fallback ke localStorage jika API error
-            try {
-                const storedLaporan = localStorage.getItem("laporan_data");
-                if (storedLaporan) {
-                    const laporanArray = JSON.parse(storedLaporan);
-                    const userLaporan = laporanArray.filter(
-                        (l) =>
-                            l.pelapor_email === user?.email ||
-                            l.pelapor_nama === user?.name
-                    );
-                    setLaporanData(userLaporan);
-                    setFilteredData(userLaporan);
-                }
-            } catch (fallbackError) {
-                console.error("Error fallback ke localStorage:", fallbackError);
-            }
+            // Fallback logic...
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // 🔥 NEW: Fetch data petugas untuk laporan tertentu
+    const fetchPetugasLaporan = async (laporanId) => {
+        if (!laporanId) return;
+
+        setIsLoadingPetugas(true);
+        try {
+            const token = localStorage.getItem("auth_token");
+
+            const response = await axios.get(
+                `http://localhost:8000/api/laporan/${laporanId}/petugas`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Accept: "application/json",
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                setPetugasLaporan(response.data.data || []);
+            } else {
+                setPetugasLaporan([]);
+            }
+        } catch (error) {
+            console.error("Error fetching petugas laporan:", error);
+            setPetugasLaporan([]);
+        } finally {
+            setIsLoadingPetugas(false);
+        }
+    };
+
+    // Handle detail click - tambah fetch petugas
+    const handleDetailClick = async (laporan) => {
+        setSelectedLaporan(laporan);
+        setShowDetailModal(true);
+        // Fetch data petugas saat modal dibuka
+        await fetchPetugasLaporan(laporan.id);
     };
 
     // Filter dan search data
@@ -176,7 +204,6 @@ const StatusPage = () => {
     }, [user]);
 
     // Stats calculation
-    // Stats calculation - sesuaikan dengan status di database
     const stats = {
         total: laporanData.length,
         menunggu: laporanData.filter((l) => l.status === "Validasi").length,
@@ -187,7 +214,6 @@ const StatusPage = () => {
     };
 
     // Get current step based on status
-    // StatusPage.jsx - Update getCurrentStep function
     const getCurrentStep = (status) => {
         const statusLower = status?.toLowerCase();
 
@@ -197,10 +223,9 @@ const StatusPage = () => {
         if (statusLower === "selesai") return 4;
         if (statusLower === "ditolak") return 5;
 
-        return 1; // Default ke step 1
+        return 1;
     };
 
-    // Update getStatusText function
     const getStatusText = (status) => {
         const statusLower = status?.toLowerCase();
         if (statusLower === "validasi") return "Menunggu Validasi";
@@ -211,7 +236,6 @@ const StatusPage = () => {
         return status;
     };
 
-    // Update getStatusColor function
     const getStatusColor = (status) => {
         const statusLower = status?.toLowerCase();
         if (statusLower === "validasi") return "bg-yellow-100 text-yellow-800";
@@ -221,12 +245,6 @@ const StatusPage = () => {
         if (statusLower === "selesai") return "bg-green-100 text-green-800";
         if (statusLower === "ditolak") return "bg-red-100 text-red-800";
         return "bg-gray-100 text-gray-800";
-    };
-
-    // Handle detail click
-    const handleDetailClick = (laporan) => {
-        setSelectedLaporan(laporan);
-        setShowDetailModal(true);
     };
 
     // Format date
@@ -240,10 +258,23 @@ const StatusPage = () => {
         });
     };
 
+    // Format datetime untuk info petugas
+    const formatDateTime = (dateString) => {
+        if (!dateString) return "-";
+        const date = new Date(dateString);
+        return date.toLocaleDateString("id-ID", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 py-8">
             <div className="max-w-4xl mx-auto px-4">
-                {/* Header */}
+                {/* Header & Stats - tetap sama */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">
                         Laporan Saya
@@ -252,7 +283,6 @@ const StatusPage = () => {
                         Pantau progress laporan yang telah Anda kirim
                     </p>
 
-                    {/* Stats Cards */}
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
                         <div className="bg-blue-50 rounded-lg p-4 text-center">
                             <div className="text-2xl font-bold text-blue-600">
@@ -295,10 +325,9 @@ const StatusPage = () => {
                     </div>
                 </div>
 
-                {/* Filter & Search Section */}
+                {/* Filter & Search - tetap sama */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                     <div className="flex flex-col md:flex-row gap-4">
-                        {/* Search Input */}
                         <div className="flex-1">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -313,8 +342,6 @@ const StatusPage = () => {
                                 />
                             </div>
                         </div>
-
-                        {/* Status Filter */}
                         <div className="w-full md:w-48">
                             <select
                                 value={statusFilter}
@@ -330,8 +357,6 @@ const StatusPage = () => {
                                 <option>Ditolak</option>
                             </select>
                         </div>
-
-                        {/* Sort By */}
                         <div className="w-full md:w-48">
                             <div className="relative">
                                 <select
@@ -348,7 +373,7 @@ const StatusPage = () => {
                     </div>
                 </div>
 
-                {/* Loading State */}
+                {/* Loading State & Laporan List - tetap sama */}
                 {isLoading && (
                     <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -356,7 +381,6 @@ const StatusPage = () => {
                     </div>
                 )}
 
-                {/* Laporan List */}
                 {!isLoading && (
                     <div className="space-y-4">
                         {filteredData.length > 0 ? (
@@ -443,7 +467,7 @@ const StatusPage = () => {
                 )}
             </div>
 
-            {/* Detail Modal */}
+            {/* Detail Modal - DITAMBAH SECTION PETUGAS */}
             {showDetailModal && selectedLaporan && (
                 <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -518,41 +542,83 @@ const StatusPage = () => {
                                                         {step.description}
                                                     </p>
 
-                                                    {/* Additional info for specific steps */}
-                                                    {isCurrent &&
-                                                        step.id === 4 && (
-                                                            <div className="mt-3 space-y-2">
-                                                                <Button className="bg-green-600 hover:bg-green-700 text-white cursor-pointer text-sm">
-                                                                    <Camera className="w-4 h-4 mr-2" />
-                                                                    Lihat Foto
-                                                                    Hasil
-                                                                    Perbaikan
-                                                                </Button>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    className="cursor-pointer text-sm"
-                                                                >
-                                                                    <Download className="w-4 h-4 mr-2" />
-                                                                    Download
-                                                                    Rincian
-                                                                    Biaya (PDF)
-                                                                </Button>
-                                                            </div>
-                                                        )}
+                                                    {/* 🔥 NEW: Tampilkan info petugas di step 3 (Dalam Proses) */}
+                                                    {isCurrent && step.id === 3 && (
+                                                        <div className="mt-3">
+                                                            {isLoadingPetugas ? (
+                                                                <div className="flex items-center text-sm text-gray-500">
+                                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                                                    Memuat data petugas...
+                                                                </div>
+                                                            ) : petugasLaporan.length > 0 ? (
+                                                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                                                    <p className="text-sm font-medium text-blue-900 mb-2">
+                                                                        Petugas yang Dikerahkan:
+                                                                    </p>
+                                                                    {petugasLaporan.map((petugas) => (
+                                                                        <div key={petugas.id} className="flex items-start space-x-3 mb-2 last:mb-0">
+                                                                            <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                                                <User className="w-4 h-4 text-blue-600" />
+                                                                            </div>
+                                                                            <div className="flex-1">
+                                                                                <p className="text-sm font-medium text-blue-800">
+                                                                                    {petugas.nama}
+                                                                                </p>
+                                                                                <div className="flex items-center text-xs text-blue-700 mt-1">
+                                                                                    <Phone className="w-3 h-3 mr-1" />
+                                                                                    <span>{petugas.nomor_telepon}</span>
+                                                                                </div>
+                                                                                <div className="flex items-center text-xs text-blue-600 mt-1">
+                                                                                    <MapIcon className="w-3 h-3 mr-1" />
+                                                                                    <span>{petugas.alamat}</span>
+                                                                                </div>
+                                                                                {petugas.pivot?.dikirim_pada && (
+                                                                                    <p className="text-xs text-blue-500 mt-1">
+                                                                                        Dikirim: {formatDateTime(petugas.pivot.dikirim_pada)}
+                                                                                    </p>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                                                    <p className="text-sm text-yellow-800">
+                                                                        Menunggu penugasan petugas...
+                                                                    </p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
 
-                                                    {isCurrent &&
-                                                        step.id === 5 && (
-                                                            <div className="mt-3 p-3 bg-red-50 rounded-lg">
-                                                                <p className="text-sm text-red-800 font-medium">
-                                                                    Alasan
-                                                                    penolakan:
-                                                                </p>
-                                                                <p className="text-sm text-red-700 mt-1">
-                                                                    {selectedLaporan.alasan_penolakan ||
-                                                                        "Fasilitas baru saja diperbaiki / Data tidak valid"}
-                                                                </p>
-                                                            </div>
-                                                        )}
+                                                    {/* Additional info untuk step lainnya */}
+                                                    {isCurrent && step.id === 4 && (
+                                                        <div className="mt-3 space-y-2">
+                                                            <Button className="bg-green-600 hover:bg-green-700 text-white cursor-pointer text-sm">
+                                                                <Camera className="w-4 h-4 mr-2" />
+                                                                Lihat Foto Hasil Perbaikan
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                className="cursor-pointer text-sm"
+                                                            >
+                                                                <Download className="w-4 h-4 mr-2" />
+                                                                Download Rincian Biaya (PDF)
+                                                            </Button>
+                                                        </div>
+                                                    )}
+
+                                                    {isCurrent && step.id === 5 && (
+                                                        <div className="mt-3 p-3 bg-red-50 rounded-lg">
+                                                            <p className="text-sm text-red-800 font-medium">
+                                                                Alasan penolakan:
+                                                            </p>
+                                                            <p className="text-sm text-red-700 mt-1">
+                                                                {selectedLaporan.alasan_penolakan ||
+                                                                    "Fasilitas baru saja diperbaiki / Data tidak valid"}
+                                                            </p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
@@ -560,7 +626,66 @@ const StatusPage = () => {
                                 </div>
                             </div>
 
-                            {/* Laporan Details */}
+                            {/* 🔥 NEW: Section Petugas (di luar tracking) */}
+                            {(selectedLaporan.status === "Dalam Proses" || selectedLaporan.status === "Selesai") && (
+                                <div className="border-t border-gray-200 pt-6">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                        Tim Petugas
+                                    </h3>
+                                    {isLoadingPetugas ? (
+                                        <div className="flex items-center justify-center py-4">
+                                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
+                                            <span className="text-gray-600">Memuat data petugas...</span>
+                                        </div>
+                                    ) : petugasLaporan.length > 0 ? (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {petugasLaporan.map((petugas) => (
+                                                <div key={petugas.id} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                    <div className="flex items-start space-x-3">
+                                                        <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                                            <Users className="w-5 h-5 text-green-600" />
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <h4 className="font-semibold text-green-900">
+                                                                {petugas.nama}
+                                                            </h4>
+                                                            <div className="mt-2 space-y-1">
+                                                                <div className="flex items-center text-sm text-green-700">
+                                                                    <Phone className="w-4 h-4 mr-2" />
+                                                                    <span>{petugas.nomor_telepon}</span>
+                                                                </div>
+                                                                <div className="flex items-start text-sm text-green-700">
+                                                                    <MapIcon className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
+                                                                    <span>{petugas.alamat}</span>
+                                                                </div>
+                                                                {petugas.pivot?.dikirim_pada && (
+                                                                    <div className="text-xs text-green-600 mt-2">
+                                                                        Ditugaskan pada: {formatDateTime(petugas.pivot.dikirim_pada)}
+                                                                    </div>
+                                                                )}
+                                                                {petugas.pivot?.status_tugas && (
+                                                                    <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-2">
+                                                                        Status: {petugas.pivot.status_tugas}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                                            <Users className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
+                                            <p className="text-yellow-800">
+                                                Belum ada petugas yang ditugaskan
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Informasi Laporan */}
                             <div className="border-t border-gray-200 pt-6">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
                                     Informasi Laporan
@@ -602,21 +727,49 @@ const StatusPage = () => {
                                         </p>
                                     </div>
                                 </div>
-                                {/* Foto Laporan */}
+                            </div>
+
+                            {/* Foto Laporan */}
+                            {selectedLaporan.foto_laporan && (
                                 <div className="border-t border-gray-200 pt-6">
                                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
                                         Foto Laporan
                                     </h3>
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                        {selectedLaporan.foto_laporan &&
-                                            selectedLaporan.foto_laporan.map(
+                                        {selectedLaporan.foto_laporan.map(
+                                            (foto, index) => (
+                                                <img
+                                                    key={index}
+                                                    src={foto}
+                                                    alt={`Foto laporan ${index + 1}`}
+                                                    className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
+                                                    onClick={() =>
+                                                        window.open(
+                                                            foto,
+                                                            "_blank"
+                                                        )
+                                                    }
+                                                />
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Foto Bukti Perbaikan */}
+                            {selectedLaporan.foto_bukti_perbaikan &&
+                                selectedLaporan.foto_bukti_perbaikan.length > 0 && (
+                                    <div className="border-t border-gray-200 pt-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                            Foto Bukti Perbaikan
+                                        </h3>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            {selectedLaporan.foto_bukti_perbaikan.map(
                                                 (foto, index) => (
                                                     <img
                                                         key={index}
                                                         src={foto}
-                                                        alt={`Foto laporan ${
-                                                            index + 1
-                                                        }`}
+                                                        alt={`Bukti perbaikan ${index + 1}`}
                                                         className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
                                                         onClick={() =>
                                                             window.open(
@@ -627,59 +780,30 @@ const StatusPage = () => {
                                                     />
                                                 )
                                             )}
-                                    </div>
-                                </div>
-                                {/* Foto Bukti Perbaikan (jika ada) */}
-                                {selectedLaporan.foto_bukti_perbaikan &&
-                                    selectedLaporan.foto_bukti_perbaikan
-                                        .length > 0 && (
-                                        <div className="border-t border-gray-200 pt-6">
-                                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                                                Foto Bukti Perbaikan
-                                            </h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                                {selectedLaporan.foto_bukti_perbaikan.map(
-                                                    (foto, index) => (
-                                                        <img
-                                                            key={index}
-                                                            src={foto}
-                                                            alt={`Bukti perbaikan ${
-                                                                index + 1
-                                                            }`}
-                                                            className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
-                                                            onClick={() =>
-                                                                window.open(
-                                                                    foto,
-                                                                    "_blank"
-                                                                )
-                                                            }
-                                                        />
-                                                    )
-                                                )}
-                                            </div>
                                         </div>
-                                    )}
-                                {/* Rincian Biaya PDF (jika ada) */}
-                                {selectedLaporan.rincian_biaya_pdf && (
-                                    <div className="border-t border-gray-200 pt-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                                            Rincian Biaya
-                                        </h3>
-                                        <Button
-                                            onClick={() =>
-                                                window.open(
-                                                    selectedLaporan.rincian_biaya_pdf,
-                                                    "_blank"
-                                                )
-                                            }
-                                            className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
-                                        >
-                                            <Download className="w-4 h-4 mr-2" />
-                                            Download Rincian Biaya (PDF)
-                                        </Button>
                                     </div>
                                 )}
-                            </div>
+
+                            {/* Rincian Biaya PDF */}
+                            {selectedLaporan.rincian_biaya_pdf && (
+                                <div className="border-t border-gray-200 pt-6">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                        Rincian Biaya
+                                    </h3>
+                                    <Button
+                                        onClick={() =>
+                                            window.open(
+                                                selectedLaporan.rincian_biaya_pdf,
+                                                "_blank"
+                                            )
+                                        }
+                                        className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
+                                    >
+                                        <Download className="w-4 h-4 mr-2" />
+                                        Download Rincian Biaya (PDF)
+                                    </Button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

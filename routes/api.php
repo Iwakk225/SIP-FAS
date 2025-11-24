@@ -8,6 +8,7 @@ use App\Http\Controllers\ContactController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\StatistikController;
+use App\Http\Controllers\PetugasController;
 
 // Public routes - tidak perlu auth
 Route::post('/register', [AuthController::class, 'register']);
@@ -31,6 +32,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/laporan-user', [LaporanController::class, 'getLaporanByUser']);
     Route::get('/statistik-user', [LaporanController::class, 'getStatistikUser']);
+    
+    // 🔥 FIXED: Route untuk mendapatkan petugas berdasarkan laporan
+    Route::get('/laporan/{id}/petugas', [LaporanController::class, 'getPetugasByLaporan']);
 });
 
 // Admin routes
@@ -48,5 +52,13 @@ Route::prefix('admin')->group(function () {
         Route::put('/laporan/{id}/validate', [LaporanController::class, 'validateLaporan']);
         Route::post('/laporan/{id}/upload-bukti', [LaporanController::class, 'uploadBuktiPerbaikan']);
         Route::post('/laporan/{id}/upload-rincian-biaya', [LaporanController::class, 'uploadRincianBiaya']);
+        
+        // Admin petugas routes
+        Route::get('/petugas', [PetugasController::class, 'index']);
+        Route::get('/petugas/aktif', [PetugasController::class, 'getPetugasAktif']);
+        Route::post('/petugas', [PetugasController::class, 'store']);
+        Route::put('/petugas/{id}', [PetugasController::class, 'update']);
+        Route::delete('/petugas/{id}', [PetugasController::class, 'destroy']);
+        Route::post('/petugas/assign-laporan', [PetugasController::class, 'assignToLaporan']);
     });
 });

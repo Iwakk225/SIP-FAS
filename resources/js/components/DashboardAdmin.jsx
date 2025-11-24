@@ -18,7 +18,10 @@ import {
     CheckCircle,
     XCircle,
     AlertTriangle,
-    Upload // ✅ TAMBAHKAN IMPORT UPLOAD
+    Upload,
+    Plus,
+    Edit,
+    Trash2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -30,11 +33,29 @@ export default function DashboardAdmin() {
     const [selectedLaporan, setSelectedLaporan] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
-    const [selectedLaporanForUpload, setSelectedLaporanForUpload] = useState(null);
+    const [showPetugasModal, setShowPetugasModal] = useState(false);
+    const [showAssignPetugasModal, setShowAssignPetugasModal] = useState(false);
+    const [selectedLaporanForUpload, setSelectedLaporanForUpload] =
+        useState(null);
+    const [selectedLaporanForAssign, setSelectedLaporanForAssign] =
+        useState(null);
     const [buktiPhotos, setBuktiPhotos] = useState([]);
     const [pdfFile, setPdfFile] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const navigate = useNavigate();
+
+    // State untuk data petugas
+    const [petugasData, setPetugasData] = useState([]);
+    const [petugasLaporan, setPetugasLaporan] = useState([]);
+    const [formPetugas, setFormPetugas] = useState({
+        nama: "",
+        alamat: "",
+        nomor_telepon: "",
+        status: "Aktif",
+    });
+
+    const [isEditingPetugas, setIsEditingPetugas] = useState(false);
+    const [editingPetugasId, setEditingPetugasId] = useState(null);
 
     const [notification, setNotification] = useState({
         show: false,
@@ -89,7 +110,9 @@ export default function DashboardAdmin() {
         return (
             <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right duration-300">
                 <div
-                    className={`${bgColor[notification.type]} text-white px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 min-w-80`}
+                    className={`${
+                        bgColor[notification.type]
+                    } text-white px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 min-w-80`}
                 >
                     {icon[notification.type]}
                     <span className="font-medium">{notification.message}</span>
@@ -105,6 +128,179 @@ export default function DashboardAdmin() {
             message,
             type,
         });
+    };
+
+    // Fungsi untuk fetch data petugas dari API
+    const fetchPetugasData = async () => {
+        try {
+            const token = localStorage.getItem("admin_token");
+            const response = await axios.get(
+                "http://localhost:8000/api/admin/petugas",
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Accept: "application/json",
+                    },
+                }
+            );
+
+            console.log("Data petugas:", response.data);
+            setPetugasData(response.data.data || response.data);
+        } catch (error) {
+            console.error("Error fetching petugas data:", error);
+            showNotification("Gagal memuat data petugas", "error");
+        }
+    };
+
+    // Fungsi untuk fetch petugas yang ditugaskan ke laporan
+    const fetchPetugasLaporan = async (laporanId) => {
+        try {
+            const token = localStorage.getItem("admin_token");
+            const response = await axios.get(
+                `http://localhost:8000/api/admin/laporan/${laporanId}/petugas`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Accept: "application/json",
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                setPetugasLaporan(response.data.data || []);
+            }
+        } catch (error) {
+            console.error("Error fetching petugas laporan:", error);
+        }
+    };
+
+    // Fungsi untuk tambah/edit petugas
+    const handleSubmitPetugas = async () => {
+        try {
+            const token = localStorage.getItem("admin_token");
+            const url = isEditingPetugas
+                ? `http://localhost:8000/api/admin/petugas/${editingPetugasId}`
+                : "http://localhost:8000/api/admin/petugas";
+
+            const method = isEditingPetugas ? "put" : "post";
+
+            const response = await axios[method](url, formPetugas, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            });
+
+            if (response.data.success) {
+                showNotification(
+                    isEditingPetugas
+                        ? "Petugas berhasil diupdate"
+                        : "Petugas berhasil ditambahkan",
+                    "success"
+                );
+                setShowPetugasModal(false);
+                resetFormPetugas();
+                fetchPetugasData();
+            }
+        } catch (error) {
+            console.error("Error submitting petugas:", error);
+            showNotification("Gagal menyimpan data petugas", "error");
+        }
+    };
+
+    // Fungsi untuk hapus petugas
+    const handleDeletePetugas = async (petugasId) => {
+        if (!window.confirm("Apakah Anda yakin ingin menghapus petugas ini?")) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem("admin_token");
+            const response = await axios.delete(
+                `http://localhost:8000/api/admin/petugas/${petugasId}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                showNotification("Petugas berhasil dihapus", "success");
+                fetchPetugasData();
+            }
+        } catch (error) {
+            console.error("Error deleting petugas:", error);
+            const errorMessage =
+                error.response?.data?.message || "Gagal menghapus petugas";
+            showNotification(errorMessage, "error");
+        }
+    };
+
+    // Fungsi untuk assign petugas ke laporan
+    const handleAssignPetugas = async (petugasId) => {
+        try {
+            const token = localStorage.getItem("admin_token");
+            const response = await axios.post(
+                "http://localhost:8000/api/admin/petugas/assign-laporan",
+                {
+                    laporan_id: selectedLaporanForAssign.id,
+                    petugas_id: petugasId,
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+
+            if (response.data.success) {
+                showNotification(
+                    "Petugas berhasil ditugaskan ke laporan",
+                    "success"
+                );
+                setShowAssignPetugasModal(false);
+                setSelectedLaporanForAssign(null);
+                fetchLaporanData();
+                fetchPetugasLaporan(selectedLaporanForAssign.id);
+            }
+        } catch (error) {
+            console.error("Error assigning petugas:", error);
+            const errorMessage =
+                error.response?.data?.message || "Gagal menugaskan petugas";
+            showNotification(errorMessage, "error");
+        }
+    };
+
+    const resetFormPetugas = () => {
+        setFormPetugas({
+            nama: "",
+            alamat: "", 
+            nomor_telepon: "",
+            status: "Aktif",
+        });
+        setIsEditingPetugas(false);
+        setEditingPetugasId(null);
+    };
+
+    // Fungsi untuk edit petugas
+    const handleEditPetugas = (petugas) => {
+        setShowPetugasModal(true);
+        setFormPetugas({
+            nama: petugas.nama,
+            alamat: petugas.alamat,
+            nomor_telepon: petugas.nomor_telepon,
+            status: petugas.status,
+        });
+        setIsEditingPetugas(true);
+        setEditingPetugasId(petugas.id);
+    };
+
+    // Fungsi untuk buka modal assign petugas
+    const handleOpenAssignModal = (laporan) => {
+        setSelectedLaporanForAssign(laporan);
+        setShowAssignPetugasModal(true);
     };
 
     // Fungsi untuk fetch data dari API Laravel
@@ -176,11 +372,18 @@ export default function DashboardAdmin() {
                 const lokasi = laporan.lokasi || "";
                 const lokasiLower = lokasi.toLowerCase();
 
-                if (lokasiLower.includes("barat")) wilayahCount["Surabaya Barat"]++;
-                else if (lokasiLower.includes("timur")) wilayahCount["Surabaya Timur"]++;
-                else if (lokasiLower.includes("utara")) wilayahCount["Surabaya Utara"]++;
-                else if (lokasiLower.includes("selatan")) wilayahCount["Surabaya Selatan"]++;
-                else if (lokasiLower.includes("pusat") || lokasiLower.includes("tengah"))
+                if (lokasiLower.includes("barat"))
+                    wilayahCount["Surabaya Barat"]++;
+                else if (lokasiLower.includes("timur"))
+                    wilayahCount["Surabaya Timur"]++;
+                else if (lokasiLower.includes("utara"))
+                    wilayahCount["Surabaya Utara"]++;
+                else if (lokasiLower.includes("selatan"))
+                    wilayahCount["Surabaya Selatan"]++;
+                else if (
+                    lokasiLower.includes("pusat") ||
+                    lokasiLower.includes("tengah")
+                )
                     wilayahCount["Surabaya Pusat"]++;
                 else {
                     wilayahCount["Surabaya Pusat"]++;
@@ -188,18 +391,37 @@ export default function DashboardAdmin() {
             });
 
             setWilayahData([
-                { name: "Surabaya Barat", laporan: wilayahCount["Surabaya Barat"] },
-                { name: "Surabaya Timur", laporan: wilayahCount["Surabaya Timur"] },
-                { name: "Surabaya Utara", laporan: wilayahCount["Surabaya Utara"] },
-                { name: "Surabaya Selatan", laporan: wilayahCount["Surabaya Selatan"] },
-                { name: "Surabaya Pusat", laporan: wilayahCount["Surabaya Pusat"] },
+                {
+                    name: "Surabaya Barat",
+                    laporan: wilayahCount["Surabaya Barat"],
+                },
+                {
+                    name: "Surabaya Timur",
+                    laporan: wilayahCount["Surabaya Timur"],
+                },
+                {
+                    name: "Surabaya Utara",
+                    laporan: wilayahCount["Surabaya Utara"],
+                },
+                {
+                    name: "Surabaya Selatan",
+                    laporan: wilayahCount["Surabaya Selatan"],
+                },
+                {
+                    name: "Surabaya Pusat",
+                    laporan: wilayahCount["Surabaya Pusat"],
+                },
             ]);
 
             setLaporanData(laporanArray);
 
             // Generate recent activities
             const sortedLaporan = [...laporanArray]
-                .sort((a, b) => new Date(b.created_at || b.tanggal) - new Date(a.created_at || a.tanggal))
+                .sort(
+                    (a, b) =>
+                        new Date(b.created_at || b.tanggal) -
+                        new Date(a.created_at || a.tanggal)
+                )
                 .slice(0, 3);
 
             const activities = sortedLaporan.map((laporan) => {
@@ -218,7 +440,11 @@ export default function DashboardAdmin() {
                         description: laporan.judul,
                         time: formatTimeAgo(laporan.created_at),
                     };
-                } else if (status === "dalam_proses" || status === "dalam proses" || status === "in_progress") {
+                } else if (
+                    status === "dalam_proses" ||
+                    status === "dalam proses" ||
+                    status === "in_progress"
+                ) {
                     activity = {
                         type: "Petugas dikirim",
                         description: laporan.judul,
@@ -243,12 +469,21 @@ export default function DashboardAdmin() {
                 const storedLaporan = localStorage.getItem("laporan_data");
                 if (storedLaporan) {
                     const laporanArray = JSON.parse(storedLaporan);
-                    console.log("Menggunakan data dari localStorage:", laporanArray);
+                    console.log(
+                        "Menggunakan data dari localStorage:",
+                        laporanArray
+                    );
 
                     const total = laporanArray.length;
-                    const validated = laporanArray.filter((l) => l.status === "Tervalidasi").length;
-                    const inProgress = laporanArray.filter((l) => l.status === "Dalam Proses").length;
-                    const completed = laporanArray.filter((l) => l.status === "Selesai").length;
+                    const validated = laporanArray.filter(
+                        (l) => l.status === "Tervalidasi"
+                    ).length;
+                    const inProgress = laporanArray.filter(
+                        (l) => l.status === "Dalam Proses"
+                    ).length;
+                    const completed = laporanArray.filter(
+                        (l) => l.status === "Selesai"
+                    ).length;
 
                     setStatsData({ total, validated, inProgress, completed });
                     setLaporanData(laporanArray);
@@ -283,6 +518,7 @@ export default function DashboardAdmin() {
     // Load data saat component mount
     useEffect(() => {
         fetchLaporanData();
+        fetchPetugasData();
 
         const interval = setInterval(fetchLaporanData, 30000);
 
@@ -335,7 +571,10 @@ export default function DashboardAdmin() {
             if (response.data.success) {
                 fetchLaporanData();
                 setShowDetailModal(false);
-                showNotification(`Status berhasil diubah menjadi: ${newStatus}`, "success");
+                showNotification(
+                    `Status berhasil diubah menjadi: ${newStatus}`,
+                    "success"
+                );
             }
         } catch (error) {
             console.error("Error updating laporan status:", error);
@@ -351,7 +590,9 @@ export default function DashboardAdmin() {
 
     const handleFileUpload = (e) => {
         const files = Array.from(e.target.files);
-        const imageFiles = files.filter((file) => file.type.startsWith("image/"));
+        const imageFiles = files.filter((file) =>
+            file.type.startsWith("image/")
+        );
 
         const newPhotos = imageFiles.map((file) => ({
             file,
@@ -389,7 +630,10 @@ export default function DashboardAdmin() {
             );
 
             if (response.data.success) {
-                showNotification("Bukti perbaikan berhasil diupload!", "success");
+                showNotification(
+                    "Bukti perbaikan berhasil diupload!",
+                    "success"
+                );
                 setShowUploadModal(false);
                 setBuktiPhotos([]);
                 fetchLaporanData();
@@ -436,36 +680,18 @@ export default function DashboardAdmin() {
         setPdfFile(null);
     };
 
-    // Data petugas
-    const petugasData = [
-        {
-            id: 1,
-            nama: "Agus Setiawan",
-            kontak: "081234567890",
-            wilayah: "Surabaya Barat, Surabaya Utara",
-            status: "Aktif",
-            tugas: "Menangani 2 laporan jalan rusak",
-        },
-        {
-            id: 2,
-            nama: "Bambang Wijaya",
-            kontak: "081234567891",
-            wilayah: "Surabaya Timur, Surabaya Selatan",
-            status: "Aktif",
-            tugas: "Perbaikan lampu jalan",
-        },
-    ];
-
     // Fungsi untuk membuka modal detail
     const handleDetailClick = (laporan) => {
         setSelectedLaporan(laporan);
         setShowDetailModal(true);
+        fetchPetugasLaporan(laporan.id);
     };
 
     // Fungsi untuk menutup modal
     const handleCloseModal = () => {
         setShowDetailModal(false);
         setSelectedLaporan(null);
+        setPetugasLaporan([]);
     };
 
     // Fungsi Logout
@@ -473,6 +699,111 @@ export default function DashboardAdmin() {
         localStorage.removeItem("admin_token");
         localStorage.removeItem("admin_user");
         navigate("/LoginAdmin");
+    };
+
+
+        const PetugasModal = () => {
+        return (
+            <div className="fixed inset-0 backdrop-blur bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-lg max-w-md w-full">
+                    <div className="border-b border-gray-200 p-6">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-gray-900">
+                                {isEditingPetugas ? 'Edit Petugas' : 'Tambah Petugas'}
+                            </h2>
+                            <button
+                                onClick={() => {
+                                    setShowPetugasModal(false);
+                                    resetFormPetugas();
+                                }}
+                                className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="p-6 space-y-4">
+                        {/* Field Nama */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Nama Petugas
+                            </label>
+                            <input
+                                type="text"
+                                value={formPetugas.nama}
+                                onChange={(e) => setFormPetugas(prev => ({ ...prev, nama: e.target.value }))}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Masukkan nama petugas"
+                            />
+                        </div>
+
+                        {/* Field Alamat */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Alamat
+                            </label>
+                            <textarea
+                                value={formPetugas.alamat}
+                                onChange={(e) => setFormPetugas(prev => ({ ...prev, alamat: e.target.value }))}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                placeholder="Masukkan alamat petugas"
+                                rows="3"
+                            />
+                        </div>
+
+                        {/* Field Nomor Telepon */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Nomor Telepon
+                            </label>
+                            <input
+                                type="text"
+                                value={formPetugas.nomor_telepon}
+                                onChange={(e) => setFormPetugas(prev => ({ ...prev, nomor_telepon: e.target.value }))}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="Masukkan nomor telepon"
+                            />
+                        </div>
+
+                        {/* Field Status */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Status
+                            </label>
+                            <select
+                                value={formPetugas.status}
+                                onChange={(e) => setFormPetugas(prev => ({ ...prev, status: e.target.value }))}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                                <option value="Aktif">Aktif</option>
+                                <option value="Nonaktif">Nonaktif</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="border-t border-gray-200 p-6">
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={() => {
+                                    setShowPetugasModal(false);
+                                    resetFormPetugas();
+                                }}
+                                className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium cursor-pointer transition-colors hover:bg-gray-50"
+                            >
+                                Batal
+                            </button>
+                            <button
+                                onClick={handleSubmitPetugas}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium cursor-pointer transition-colors"
+                            >
+                                {isEditingPetugas ? 'Update' : 'Simpan'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     // Komponen Modal Detail Laporan
@@ -485,7 +816,11 @@ export default function DashboardAdmin() {
                 return "bg-yellow-100 text-yellow-800";
             if (statusLower === "tervalidasi" || statusLower === "validated")
                 return "bg-green-100 text-green-800";
-            if (statusLower === "dalam_proses" || statusLower === "dalam proses" || statusLower === "in_progress")
+            if (
+                statusLower === "dalam_proses" ||
+                statusLower === "dalam proses" ||
+                statusLower === "in_progress"
+            )
                 return "bg-blue-100 text-blue-800";
             if (statusLower === "selesai" || statusLower === "completed")
                 return "bg-gray-100 text-gray-800";
@@ -498,7 +833,11 @@ export default function DashboardAdmin() {
                 return "Validasi";
             if (statusLower === "tervalidasi" || statusLower === "validated")
                 return "Tervalidasi";
-            if (statusLower === "dalam_proses" || statusLower === "dalam proses" || statusLower === "in_progress")
+            if (
+                statusLower === "dalam_proses" ||
+                statusLower === "dalam proses" ||
+                statusLower === "in_progress"
+            )
                 return "Dalam Proses";
             if (statusLower === "selesai" || statusLower === "completed")
                 return "Selesai";
@@ -510,7 +849,9 @@ export default function DashboardAdmin() {
                 <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                     <div className="border-b border-gray-200 p-6">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-gray-900">Detail Laporan</h2>
+                            <h2 className="text-xl font-bold text-gray-900">
+                                Detail Laporan
+                            </h2>
                             <button
                                 onClick={handleCloseModal}
                                 className="text-gray-400 hover:text-gray-600 cursor-pointer"
@@ -536,15 +877,21 @@ export default function DashboardAdmin() {
                             <div className="flex items-start space-x-3">
                                 <MapPin className="w-5 h-5 text-gray-400 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-gray-500">Lokasi</p>
-                                    <p className="text-sm text-gray-900">{selectedLaporan.lokasi}</p>
+                                    <p className="text-sm font-medium text-gray-500">
+                                        Lokasi
+                                    </p>
+                                    <p className="text-sm text-gray-900">
+                                        {selectedLaporan.lokasi}
+                                    </p>
                                 </div>
                             </div>
 
                             <div className="flex items-start space-x-3">
                                 <AlertCircle className="w-5 h-5 text-gray-400 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-gray-500">Status</p>
+                                    <p className="text-sm font-medium text-gray-500">
+                                        Status
+                                    </p>
                                     <span
                                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
                                             selectedLaporan.status
@@ -558,9 +905,14 @@ export default function DashboardAdmin() {
                             <div className="flex items-start space-x-3">
                                 <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-gray-500">Tanggal Laporan</p>
+                                    <p className="text-sm font-medium text-gray-500">
+                                        Tanggal Laporan
+                                    </p>
                                     <p className="text-sm text-gray-900">
-                                        {selectedLaporan.tanggal || selectedLaporan.created_at?.split("T")[0]}
+                                        {selectedLaporan.tanggal ||
+                                            selectedLaporan.created_at?.split(
+                                                "T"
+                                            )[0]}
                                     </p>
                                 </div>
                             </div>
@@ -568,41 +920,123 @@ export default function DashboardAdmin() {
                             <div className="flex items-start space-x-3">
                                 <UserIcon className="w-5 h-5 text-gray-400 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-medium text-gray-500">Pelapor</p>
-                                    <p className="text-sm text-gray-900">{selectedLaporan.pelapor_nama}</p>
+                                    <p className="text-sm font-medium text-gray-500">
+                                        Pelapor
+                                    </p>
+                                    <p className="text-sm text-gray-900">
+                                        {selectedLaporan.pelapor_nama}
+                                    </p>
                                 </div>
                             </div>
                         </div>
 
-                        {selectedLaporan.foto_laporan && selectedLaporan.foto_laporan.length > 0 && (
+                        {/* Section Petugas yang Ditugaskan */}
+                        {petugasLaporan.length > 0 && (
                             <div className="border-t border-gray-200 pt-6">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4">Foto Laporan</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {selectedLaporan.foto_laporan.map((foto, index) => (
-                                        <img
-                                            key={index}
-                                            src={foto}
-                                            alt={`Foto laporan ${index + 1}`}
-                                            className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
-                                            onClick={() => window.open(foto, "_blank")}
-                                        />
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                    Petugas yang Ditugaskan
+                                </h3>
+                                <div className="space-y-3">
+                                    {petugasLaporan.map((petugas) => (
+                                        <div
+                                            key={petugas.id}
+                                            className="bg-green-50 border border-green-200 rounded-lg p-4"
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h4 className="font-semibold text-green-900">
+                                                        {petugas.nama}
+                                                    </h4>
+                                                    <p className="text-sm text-green-700">
+                                                        {petugas.alamat}
+                                                    </p>
+                                                    <p className="text-sm text-green-700">
+                                                        {petugas.nomor_telepon}
+                                                    </p>
+                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-2">
+                                                        {petugas.pivot
+                                                            ?.status_tugas ||
+                                                            "Dikirim"}
+                                                    </span>
+                                                </div>
+                                                <div className="text-sm text-green-600">
+                                                    Dikirim:{" "}
+                                                    {new Date(
+                                                        petugas.pivot?.dikirim_pada
+                                                    ).toLocaleDateString(
+                                                        "id-ID"
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
                         )}
 
+                        {selectedLaporan.foto_laporan &&
+                            selectedLaporan.foto_laporan.length > 0 && (
+                                <div className="border-t border-gray-200 pt-6">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                        Foto Laporan
+                                    </h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                        {selectedLaporan.foto_laporan.map(
+                                            (foto, index) => (
+                                                <img
+                                                    key={index}
+                                                    src={foto}
+                                                    alt={`Foto laporan ${
+                                                        index + 1
+                                                    }`}
+                                                    className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
+                                                    onClick={() =>
+                                                        window.open(
+                                                            foto,
+                                                            "_blank"
+                                                        )
+                                                    }
+                                                />
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                         <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
                             <button
-                                onClick={() => handleOpenUploadModal(selectedLaporan)}
+                                onClick={() =>
+                                    handleOpenUploadModal(selectedLaporan)
+                                }
                                 className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-medium cursor-pointer transition-colors flex items-center"
                             >
                                 <Upload className="w-4 h-4 mr-2" />
                                 Upload Bukti Perbaikan
                             </button>
 
-                            {(selectedLaporan.status === "Validasi" || selectedLaporan.status === "validasi") && (
+                            {(selectedLaporan.status === "Tervalidasi" ||
+                                selectedLaporan.status === "tervalidasi") &&
+                                !petugasLaporan.length && (
+                                    <button
+                                        onClick={() =>
+                                            handleOpenAssignModal(
+                                                selectedLaporan
+                                            )
+                                        }
+                                        className="bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-lg font-medium cursor-pointer transition-colors"
+                                    >
+                                        Kirim Petugas
+                                    </button>
+                                )}
+
+                            {(selectedLaporan.status === "Validasi" ||
+                                selectedLaporan.status === "validasi") && (
                                 <button
-                                    onClick={() => handleValidateLaporan(selectedLaporan.id)}
+                                    onClick={() =>
+                                        handleValidateLaporan(
+                                            selectedLaporan.id
+                                        )
+                                    }
                                     className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg font-medium cursor-pointer transition-colors"
                                 >
                                     Validasi Laporan
@@ -614,13 +1048,24 @@ export default function DashboardAdmin() {
                                     Ubah Status:
                                 </label>
                                 <select
-                                    onChange={(e) => handleUpdateStatus(selectedLaporan.id, e.target.value)}
+                                    onChange={(e) =>
+                                        handleUpdateStatus(
+                                            selectedLaporan.id,
+                                            e.target.value
+                                        )
+                                    }
                                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     value={selectedLaporan.status}
                                 >
-                                    <option value="Validasi">Menunggu Validasi</option>
-                                    <option value="Tervalidasi">Tervalidasi</option>
-                                    <option value="Dalam Proses">Dalam Proses</option>
+                                    <option value="Validasi">
+                                        Menunggu Validasi
+                                    </option>
+                                    <option value="Tervalidasi">
+                                        Tervalidasi
+                                    </option>
+                                    <option value="Dalam Proses">
+                                        Dalam Proses
+                                    </option>
                                     <option value="Selesai">Selesai</option>
                                     <option value="Ditolak">Ditolak</option>
                                 </select>
@@ -639,7 +1084,9 @@ export default function DashboardAdmin() {
                 <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                     <div className="border-b border-gray-200 p-6">
                         <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-gray-900">Upload Bukti Perbaikan</h2>
+                            <h2 className="text-xl font-bold text-gray-900">
+                                Upload Bukti Perbaikan
+                            </h2>
                             <button
                                 onClick={handleCloseUploadModal}
                                 className="text-gray-400 hover:text-gray-600 cursor-pointer"
@@ -660,7 +1107,9 @@ export default function DashboardAdmin() {
                         </div>
 
                         <div>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Foto Bukti Perbaikan</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                Foto Bukti Perbaikan
+                            </h3>
                             <input
                                 type="file"
                                 multiple
@@ -679,7 +1128,14 @@ export default function DashboardAdmin() {
                                                 className="w-full h-24 object-cover rounded-lg"
                                             />
                                             <button
-                                                onClick={() => setBuktiPhotos(buktiPhotos.filter((_, i) => i !== index))}
+                                                onClick={() =>
+                                                    setBuktiPhotos(
+                                                        buktiPhotos.filter(
+                                                            (_, i) =>
+                                                                i !== index
+                                                        )
+                                                    )
+                                                }
                                                 className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm cursor-pointer"
                                             >
                                                 ×
@@ -700,7 +1156,9 @@ export default function DashboardAdmin() {
                         </div>
 
                         <div className="border-t border-gray-200 pt-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Rincian Biaya (PDF)</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                Rincian Biaya (PDF)
+                            </h3>
                             <input
                                 type="file"
                                 accept=".pdf"
@@ -714,7 +1172,11 @@ export default function DashboardAdmin() {
                                         File terpilih: {pdfFile.name}
                                     </p>
                                     <p className="text-xs text-green-600">
-                                        Size: {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
+                                        Size:{" "}
+                                        {(pdfFile.size / 1024 / 1024).toFixed(
+                                            2
+                                        )}{" "}
+                                        MB
                                     </p>
                                 </div>
                             )}
@@ -740,15 +1202,26 @@ export default function DashboardAdmin() {
             <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg p-6">
                 <div className="flex justify-between items-center">
                     <div>
-                        <h1 className="text-2xl font-bold mb-2">Selamat Datang, Admin</h1>
-                        <p className="text-blue-100">Kelola laporan fasilitas Kota Surabaya</p>
+                        <h1 className="text-2xl font-bold mb-2">
+                            Selamat Datang, Admin
+                        </h1>
+                        <p className="text-blue-100">
+                            Kelola laporan fasilitas Kota Surabaya
+                        </p>
                     </div>
                     <button
-                        onClick={fetchLaporanData}
+                        onClick={() => {
+                            fetchLaporanData();
+                            fetchPetugasData();
+                        }}
                         disabled={isLoading}
                         className="bg-blue-500 hover:bg-blue-400 text-white p-2 rounded-lg cursor-pointer transition-colors disabled:opacity-50"
                     >
-                        <RefreshCw className={`w-5 h-5 ${isLoading ? "animate-spin" : ""}`} />
+                        <RefreshCw
+                            className={`w-5 h-5 ${
+                                isLoading ? "animate-spin" : ""
+                            }`}
+                        />
                     </button>
                 </div>
             </div>
@@ -756,7 +1229,9 @@ export default function DashboardAdmin() {
             {isLoading && (
                 <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
                     <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
-                    <p className="text-gray-600">Memuat data laporan dari database...</p>
+                    <p className="text-gray-600">
+                        Memuat data laporan dari database...
+                    </p>
                 </div>
             )}
 
@@ -764,54 +1239,90 @@ export default function DashboardAdmin() {
                 <>
                     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-                            <div className="text-2xl font-bold text-gray-900">{statsData.total}</div>
-                            <div className="text-sm text-gray-500">Total Laporan</div>
+                            <div className="text-2xl font-bold text-gray-900">
+                                {statsData.total}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                                Total Laporan
+                            </div>
                         </div>
                         <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-                            <div className="text-2xl font-bold text-green-600">{statsData.validated}</div>
-                            <div className="text-sm text-gray-500">Tervalidasi</div>
+                            <div className="text-2xl font-bold text-green-600">
+                                {statsData.validated}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                                Tervalidasi
+                            </div>
                         </div>
                         <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-                            <div className="text-2xl font-bold text-yellow-600">{statsData.inProgress}</div>
-                            <div className="text-sm text-gray-500">Dalam Proses</div>
+                            <div className="text-2xl font-bold text-yellow-600">
+                                {statsData.inProgress}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                                Dalam Proses
+                            </div>
                         </div>
                         <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-                            <div className="text-2xl font-bold text-blue-600">{statsData.completed}</div>
+                            <div className="text-2xl font-bold text-blue-600">
+                                {statsData.completed}
+                            </div>
                             <div className="text-sm text-gray-500">Selesai</div>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="bg-white rounded-lg border border-gray-200 p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Laporan per Wilayah</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                Laporan per Wilayah
+                            </h3>
                             <div className="space-y-3">
                                 {wilayahData.map((wilayah, index) => (
-                                    <div key={index} className="flex justify-between items-center p-2 hover:bg-gray-50 rounded">
-                                        <span className="text-sm text-gray-700">{wilayah.name}</span>
-                                        <span className="font-semibold text-gray-900">{wilayah.laporan}</span>
+                                    <div
+                                        key={index}
+                                        className="flex justify-between items-center p-2 hover:bg-gray-50 rounded"
+                                    >
+                                        <span className="text-sm text-gray-700">
+                                            {wilayah.name}
+                                        </span>
+                                        <span className="font-semibold text-gray-900">
+                                            {wilayah.laporan}
+                                        </span>
                                     </div>
                                 ))}
                             </div>
                         </div>
 
                         <div className="bg-white rounded-lg border border-gray-200 p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4">Aktivitas Terbaru</h3>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                                Aktivitas Terbaru
+                            </h3>
                             <div className="space-y-4">
                                 {recentActivities.map((activity, index) => (
-                                    <div key={index} className="flex items-start space-x-3">
+                                    <div
+                                        key={index}
+                                        className="flex items-start space-x-3"
+                                    >
                                         <div
                                             className={`w-2 h-2 rounded-full mt-2 ${
                                                 activity.type.includes("baru")
                                                     ? "bg-green-500"
-                                                    : activity.type.includes("validasi")
+                                                    : activity.type.includes(
+                                                          "validasi"
+                                                      )
                                                     ? "bg-blue-500"
                                                     : "bg-yellow-500"
                                             }`}
                                         ></div>
                                         <div>
-                                            <p className="text-sm font-medium text-gray-900">{activity.type}</p>
-                                            <p className="text-sm text-gray-600">{activity.description}</p>
-                                            <p className="text-xs text-gray-400">{activity.time}</p>
+                                            <p className="text-sm font-medium text-gray-900">
+                                                {activity.type}
+                                            </p>
+                                            <p className="text-sm text-gray-600">
+                                                {activity.description}
+                                            </p>
+                                            <p className="text-xs text-gray-400">
+                                                {activity.time}
+                                            </p>
                                         </div>
                                     </div>
                                 ))}
@@ -826,9 +1337,22 @@ export default function DashboardAdmin() {
     // Komponen Data Petugas
     const DataPetugasPage = () => (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900">Data Petugas</h1>
-                <p className="text-gray-600">Kelola petugas lapangan</p>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900">
+                        Data Petugas
+                    </h1>
+                    <p className="text-gray-600">Kelola petugas lapangan</p>
+                </div>
+                <button
+                    onClick={() => 
+                        setShowPetugasModal(true)
+                    }
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium cursor-pointer transition-colors flex items-center space-x-2"
+                >
+                    <Plus className="w-4 h-4" />
+                    <span>Tambah Petugas</span>
+                </button>
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -836,24 +1360,40 @@ export default function DashboardAdmin() {
                     <table className="w-full">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NAMA</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">KONTAK</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">WILAYAH TUGAS</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">STATUS</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">AKSI</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    NAMA
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    ALAMAT
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    NOMOR TELEPON
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    STATUS
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                    AKSI
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                             {petugasData.map((petugas) => (
-                                <tr key={petugas.id} className="hover:bg-gray-50">
+                                <tr
+                                    key={petugas.id}
+                                    className="hover:bg-gray-50"
+                                >
                                     <td className="px-6 py-4">
-                                        <div>
-                                            <div className="text-sm font-medium text-gray-900">{petugas.nama}</div>
-                                            <div className="text-sm text-gray-500">{petugas.tugas}</div>
+                                        <div className="text-sm font-medium text-gray-900">
+                                            {petugas.nama}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-sm text-gray-900">{petugas.kontak}</td>
-                                    <td className="px-6 py-4 text-sm text-gray-900">{petugas.wilayah}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-900">
+                                        {petugas.alamat}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-gray-900">
+                                        {petugas.nomor_telepon}
+                                    </td>
                                     <td className="px-6 py-4">
                                         <span
                                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -866,9 +1406,28 @@ export default function DashboardAdmin() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <button className="text-blue-600 hover:text-blue-900 text-sm font-medium cursor-pointer">
-                                            Ubah Status
-                                        </button>
+                                        <div className="flex space-x-2">
+                                            <button
+                                                onClick={() =>
+                                                    handleEditPetugas(petugas)
+                                                }
+                                                className="text-blue-600 hover:text-blue-900 text-sm font-medium cursor-pointer flex items-center"
+                                            >
+                                                <Edit className="w-4 h-4 mr-1" />
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() =>
+                                                    handleDeletePetugas(
+                                                        petugas.id
+                                                    )
+                                                }
+                                                className="text-red-600 hover:text-red-900 text-sm font-medium cursor-pointer flex items-center"
+                                            >
+                                                <Trash2 className="w-4 h-4 mr-1" />
+                                                Hapus
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -876,6 +1435,8 @@ export default function DashboardAdmin() {
                     </table>
                 </div>
             </div>
+
+            {showPetugasModal && <PetugasModal />}
         </div>
     );
 
@@ -883,8 +1444,12 @@ export default function DashboardAdmin() {
     const ProfilPage = () => (
         <div className="space-y-6">
             <div>
-                <h1 className="text-2xl font-bold text-gray-900">Profil Admin</h1>
-                <p className="text-gray-600">Kelola informasi akun administrator</p>
+                <h1 className="text-2xl font-bold text-gray-900">
+                    Profil Admin
+                </h1>
+                <p className="text-gray-600">
+                    Kelola informasi akun administrator
+                </p>
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -901,23 +1466,31 @@ export default function DashboardAdmin() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Nama Lengkap</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Nama Lengkap
+                        </label>
                         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                             <span className="text-gray-900">Admin SIP-FAS</span>
                         </div>
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Telepon</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Nomor Telepon
+                        </label>
                         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
                             <span className="text-gray-900">031-1234567</span>
                         </div>
                     </div>
 
                     <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Instansi</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Instansi
+                        </label>
                         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                            <span className="text-gray-900">Dinas Pekerjaan Umum Kota Surabaya</span>
+                            <span className="text-gray-900">
+                                Dinas Pekerjaan Umum Kota Surabaya
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -940,7 +1513,9 @@ export default function DashboardAdmin() {
             </div>
 
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-gray-600">Fitur pengaturan akan segera tersedia.</p>
+                <p className="text-gray-600">
+                    Fitur pengaturan akan segera tersedia.
+                </p>
             </div>
         </div>
     );
@@ -953,7 +1528,11 @@ export default function DashboardAdmin() {
                 return "bg-yellow-100 text-yellow-800";
             if (statusLower === "tervalidasi" || statusLower === "validated")
                 return "bg-green-100 text-green-800";
-            if (statusLower === "dalam_proses" || statusLower === "dalam proses" || statusLower === "in_progress")
+            if (
+                statusLower === "dalam_proses" ||
+                statusLower === "dalam proses" ||
+                statusLower === "in_progress"
+            )
                 return "bg-blue-100 text-blue-800";
             if (statusLower === "selesai" || statusLower === "completed")
                 return "bg-gray-100 text-gray-800";
@@ -966,7 +1545,11 @@ export default function DashboardAdmin() {
                 return "Validasi";
             if (statusLower === "tervalidasi" || statusLower === "validated")
                 return "Tervalidasi";
-            if (statusLower === "dalam_proses" || statusLower === "dalam proses" || statusLower === "in_progress")
+            if (
+                statusLower === "dalam_proses" ||
+                statusLower === "dalam proses" ||
+                statusLower === "in_progress"
+            )
                 return "Dalam Proses";
             if (statusLower === "selesai" || statusLower === "completed")
                 return "Selesai";
@@ -977,8 +1560,12 @@ export default function DashboardAdmin() {
             <div className="space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">Data Laporan</h1>
-                        <p className="text-gray-600">Kelola semua laporan fasilitas umum dari database</p>
+                        <h1 className="text-2xl font-bold text-gray-900">
+                            Data Laporan
+                        </h1>
+                        <p className="text-gray-600">
+                            Kelola semua laporan fasilitas umum dari database
+                        </p>
                     </div>
                     <div className="flex space-x-2 mt-4 md:mt-0">
                         <button
@@ -986,7 +1573,11 @@ export default function DashboardAdmin() {
                             disabled={isLoading}
                             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium cursor-pointer transition-colors disabled:opacity-50 flex items-center space-x-2"
                         >
-                            <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+                            <RefreshCw
+                                className={`w-4 h-4 ${
+                                    isLoading ? "animate-spin" : ""
+                                }`}
+                            />
                             <span>Refresh</span>
                         </button>
                         <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
@@ -1008,7 +1599,9 @@ export default function DashboardAdmin() {
                 {isLoading ? (
                     <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
                         <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
-                        <p className="text-gray-600">Memuat data laporan dari database...</p>
+                        <p className="text-gray-600">
+                            Memuat data laporan dari database...
+                        </p>
                     </div>
                 ) : (
                     <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -1016,28 +1609,57 @@ export default function DashboardAdmin() {
                             <table className="w-full">
                                 <thead className="bg-gray-50">
                                     <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NO</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">JUDUL LAPORAN</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LOKASI</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">WAKTU</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">STATUS</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">AKSI</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                            NO
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                            JUDUL LAPORAN
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                            LOKASI
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                            WAKTU
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                            STATUS
+                                        </th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                                            AKSI
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
                                     {laporanData.length > 0 ? (
                                         laporanData.map((laporan, index) => (
-                                            <tr key={laporan.id} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 text-sm text-gray-900">{index + 1}</td>
+                                            <tr
+                                                key={laporan.id}
+                                                className="hover:bg-gray-50"
+                                            >
+                                                <td className="px-6 py-4 text-sm text-gray-900">
+                                                    {index + 1}
+                                                </td>
                                                 <td className="px-6 py-4">
                                                     <div>
-                                                        <div className="text-sm font-medium text-gray-900">{laporan.judul}</div>
-                                                        <div className="text-sm text-gray-500">Pelapor: {laporan.pelapor_nama}</div>
+                                                        <div className="text-sm font-medium text-gray-900">
+                                                            {laporan.judul}
+                                                        </div>
+                                                        <div className="text-sm text-gray-500">
+                                                            Pelapor:{" "}
+                                                            {
+                                                                laporan.pelapor_nama
+                                                            }
+                                                        </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 text-sm text-gray-900">{laporan.lokasi}</td>
+                                                <td className="px-6 py-4 text-sm text-gray-900">
+                                                    {laporan.lokasi}
+                                                </td>
                                                 <td className="px-6 py-4 text-sm text-gray-500">
-                                                    {laporan.tanggal || laporan.created_at?.split("T")[0]}
+                                                    {laporan.tanggal ||
+                                                        laporan.created_at?.split(
+                                                            "T"
+                                                        )[0]}
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <span
@@ -1045,12 +1667,18 @@ export default function DashboardAdmin() {
                                                             laporan.status
                                                         )}`}
                                                     >
-                                                        {getStatusText(laporan.status)}
+                                                        {getStatusText(
+                                                            laporan.status
+                                                        )}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
                                                     <button
-                                                        onClick={() => handleDetailClick(laporan)}
+                                                        onClick={() =>
+                                                            handleDetailClick(
+                                                                laporan
+                                                            )
+                                                        }
                                                         className="text-blue-600 hover:text-blue-900 text-sm font-medium cursor-pointer"
                                                     >
                                                         Detail
@@ -1060,7 +1688,10 @@ export default function DashboardAdmin() {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                                            <td
+                                                colSpan="6"
+                                                className="px-6 py-8 text-center text-gray-500"
+                                            >
                                                 Belum ada laporan yang masuk
                                             </td>
                                         </tr>
@@ -1086,15 +1717,23 @@ export default function DashboardAdmin() {
                                 <Building2 className="w-6 h-6 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-xl font-bold text-gray-900">SIP-FAS</h1>
-                                <p className="text-sm text-gray-500">Kota Surabaya</p>
+                                <h1 className="text-xl font-bold text-gray-900">
+                                    SIP-FAS
+                                </h1>
+                                <p className="text-sm text-gray-500">
+                                    Kota Surabaya
+                                </p>
                             </div>
                         </div>
 
                         <div className="flex items-center space-x-4">
                             <div className="hidden md:block text-right">
-                                <p className="text-sm font-medium text-gray-900">Admin Surabaya</p>
-                                <p className="text-xs text-gray-500">Administrator</p>
+                                <p className="text-sm font-medium text-gray-900">
+                                    Admin Surabaya
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    Administrator
+                                </p>
                             </div>
 
                             <button
@@ -1102,14 +1741,22 @@ export default function DashboardAdmin() {
                                 className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 cursor-pointer"
                             >
                                 <LogOut className="w-5 h-5" />
-                                <span className="hidden md:block text-sm font-medium">Logout</span>
+                                <span className="hidden md:block text-sm font-medium">
+                                    Logout
+                                </span>
                             </button>
 
                             <button
-                                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                                onClick={() =>
+                                    setIsMobileMenuOpen(!isMobileMenuOpen)
+                                }
                                 className="md:hidden p-2 rounded-lg hover:bg-gray-100 cursor-pointer"
                             >
-                                {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                                {isMobileMenuOpen ? (
+                                    <X className="w-5 h-5" />
+                                ) : (
+                                    <Menu className="w-5 h-5" />
+                                )}
                             </button>
                         </div>
                     </div>
@@ -1122,11 +1769,31 @@ export default function DashboardAdmin() {
                         <nav className="bg-white rounded-lg border border-gray-200 p-4 sticky top-8">
                             <div className="space-y-2">
                                 {[
-                                    { id: "dashboard", icon: BarChart3, label: "Dashboard" },
-                                    { id: "laporan", icon: FileText, label: "Data Laporan" },
-                                    { id: "petugas", icon: Users, label: "Data Petugas" },
-                                    { id: "profil", icon: User, label: "Profil" },
-                                    { id: "pengaturan", icon: Settings, label: "Pengaturan" },
+                                    {
+                                        id: "dashboard",
+                                        icon: BarChart3,
+                                        label: "Dashboard",
+                                    },
+                                    {
+                                        id: "laporan",
+                                        icon: FileText,
+                                        label: "Data Laporan",
+                                    },
+                                    {
+                                        id: "petugas",
+                                        icon: Users,
+                                        label: "Data Petugas",
+                                    },
+                                    {
+                                        id: "profil",
+                                        icon: User,
+                                        label: "Profil",
+                                    },
+                                    {
+                                        id: "pengaturan",
+                                        icon: Settings,
+                                        label: "Pengaturan",
+                                    },
                                 ].map((item) => (
                                     <button
                                         key={item.id}
@@ -1157,6 +1824,8 @@ export default function DashboardAdmin() {
 
             {showDetailModal && <DetailLaporanModal />}
             {showUploadModal && <UploadBuktiModal />}
+            {showAssignPetugasModal && <AssignPetugasModal />}
+            {showPetugasModal && <PetugasModal />}
 
             <NotificationPopup />
         </div>
