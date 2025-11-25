@@ -32,8 +32,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/laporan-user', [LaporanController::class, 'getLaporanByUser']);
     Route::get('/statistik-user', [LaporanController::class, 'getStatistikUser']);
-    
-    // 🔥 FIXED: Route untuk mendapatkan petugas berdasarkan laporan
     Route::get('/laporan/{id}/petugas', [LaporanController::class, 'getPetugasByLaporan']);
 });
 
