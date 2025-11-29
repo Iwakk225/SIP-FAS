@@ -15,8 +15,8 @@ import VerifyCodePage from "./components/VerifyCodePage";
 import KontakPage from "./components/KontakPage";
 import NavbarBeforeLogin from "./components/NavbarBeforeLogin";
 import NavbarAfterLogin from "./components/NavbarAfterLogin";
-import LoginAdmin from "./components/LoginAdmin";
-import DashboardAdmin from "./components/DashboardAdmin";
+import LoginAdmin from "./components/admin/LoginAdmin";
+import DashboardAdmin from "./components/admin/DashboardAdmin";
 import NotFoundPage from "./components/NotFoundPage";
 import StatusPage from "./components/StatusPage";
 
@@ -26,9 +26,9 @@ function AppLayout() {
   const { isAdminLoggedIn } = useAdminAuth(); 
   const location = useLocation();
   
-  // Route yang TIDAK butuh navbar public
-  const noNavbarRoutes = ['/LoginAdmin', '/DashboardAdmin'];
-  const shouldShowNavbar = !noNavbarRoutes.includes(location.pathname);
+  // ✅ FIX: Pakai startsWith untuk semua route admin
+  const isAdminRoute = location.pathname.startsWith('/admin');
+  const shouldShowNavbar = !isAdminRoute;
   
   if (loading) {
     return (
@@ -45,6 +45,7 @@ function AppLayout() {
     <>
       {shouldShowNavbar && (isLoggedIn ? <NavbarAfterLogin /> : <NavbarBeforeLogin />)}
       <Routes>
+        {/* User Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/LoginPage" element={<LoginPage />} />
         <Route path="/SignUpPage" element={<SignUpPage />} />
@@ -56,8 +57,11 @@ function AppLayout() {
         <Route path="/VerifyCodePage" element={<VerifyCodePage />} />
         <Route path="/KontakPage" element={<KontakPage />} />
         <Route path="/StatusPage" element={<StatusPage />} />
-        <Route path="/LoginAdmin" element={<LoginAdmin />} />
-        <Route path="/DashboardAdmin" element={<DashboardAdmin />} />
+        
+        {/* Admin Routes - TIDAK ada navbar */}
+        <Route path="/admin/LoginAdmin" element={<LoginAdmin />} />
+        <Route path="/admin/DashboardAdmin" element={<DashboardAdmin />} />
+        <Route path="/admin" element={<DashboardAdmin />} />
         
         {/* Catch-all Route - HARUS di paling bawah */}
         <Route path="*" element={<NotFoundPage />} />
@@ -71,7 +75,7 @@ function App() {
     <React.StrictMode>
       <BrowserRouter>
         <AuthProvider>
-          <AdminAuthProvider> {/* ✅ Tambahkan AdminAuthProvider */}
+          <AdminAuthProvider>
             <AppLayout />
           </AdminAuthProvider>
         </AuthProvider>

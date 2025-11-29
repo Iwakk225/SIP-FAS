@@ -3,7 +3,7 @@ import { Lock, User, Eye, EyeOff, Building2, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Link, useNavigate } from "react-router-dom";
-import { useAdminAuth } from "../contexts/AdminAuthContext"; 
+import { useAdminAuth } from "../../contexts/AdminAuthContext"; 
 
 export default function LoginAdmin() {
   const [formData, setFormData] = useState({
@@ -34,7 +34,7 @@ export default function LoginAdmin() {
     const result = await login(formData.email, formData.password);
     
     if (result.success) {
-      navigate('/DashboardAdmin');
+      navigate('/admin/DashboardAdmin');
     } else {
       setError(result.error);
     }
