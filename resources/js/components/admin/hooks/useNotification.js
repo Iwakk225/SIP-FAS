@@ -14,7 +14,6 @@ export const useNotification = () => {
             type,
         });
 
-        // Auto hide setelah 3 detik
         setTimeout(() => {
             setNotification({
                 show: false,

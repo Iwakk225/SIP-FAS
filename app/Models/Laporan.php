@@ -46,6 +46,48 @@ class Laporan extends Model
     // Get petugas yang sedang menangani laporan ini
     public function petugasAktif()
     {
-        return $this->petugas()->wherePivotIn('status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
+        return $this->petugas()
+                    ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
+                    ->withPivot('status_tugas', 'catatan', 'dikirim_pada');
+    }
+
+    // Get status tugas untuk laporan ini (jika ada petugas)
+    public function getStatusTugasAttribute()
+    {
+        $petugasAktif = $this->petugasAktif()->first();
+        return $petugasAktif ? $petugasAktif->pivot->status_tugas : null;
+    }
+
+    // Get petugas pertama yang menangani laporan
+    public function petugasPertama()
+    {
+        return $this->petugas()
+                    ->orderBy('laporan_petugas.created_at')
+                    ->first();
+    }
+
+    // Scope untuk laporan yang sudah ditugaskan ke petugas
+    public function scopeDitugaskan($query)
+    {
+        return $query->whereHas('petugas', function($q) {
+            $q->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
+        });
+    }
+
+    // Scope untuk laporan yang belum ditugaskan
+    public function scopeBelumDitugaskan($query)
+    {
+        return $query->whereDoesntHave('petugas', function($q) {
+            $q->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
+        });
+    }
+
+    // Update status tugas petugas di laporan ini
+    public function updateStatusTugasPetugas($petugasId, $statusTugas, $catatan = null)
+    {
+        return $this->petugas()->updateExistingPivot($petugasId, [
+            'status_tugas' => $statusTugas,
+            'catatan' => $catatan
+        ]);
     }
 }

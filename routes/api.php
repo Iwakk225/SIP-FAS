@@ -58,5 +58,8 @@ Route::prefix('admin')->group(function () {
         Route::put('/petugas/{id}', [PetugasController::class, 'update']);
         Route::delete('/petugas/{id}', [PetugasController::class, 'destroy']);
         Route::post('/petugas/assign-laporan', [PetugasController::class, 'assignToLaporan']);
+        Route::post('/petugas/release-laporan', [PetugasController::class, 'releaseFromLaporan']);
+        Route::get('/petugas/statistik', [PetugasController::class, 'getStatistik']);
+        Route::get('/petugas/dalam-tugas', [PetugasController::class, 'getPetugasDalamTugas']);
     });
 });
