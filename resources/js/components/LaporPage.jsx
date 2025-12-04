@@ -129,6 +129,21 @@ const LaporPage = () => {
         return () => clearTimeout(timeout);
     }, [formData.lokasi]);
 
+    useEffect(() => {
+        // Cleanup ketika komponen unmount
+        return () => {
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach((track) => track.stop());
+            }
+            // Cleanup URL preview foto
+            photos.forEach((photo) => {
+                if (photo.preview) {
+                    URL.revokeObjectURL(photo.preview);
+                }
+            });
+        };
+    }, []);
+
     // handle perubahan input
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -195,6 +210,8 @@ const LaporPage = () => {
     };
 
     // Buka kamera
+    // Buka kamera
+    // Buka kamera
     const startCamera = async () => {
         if (!isLoggedIn) {
             setShowLoginModal(true);
@@ -202,21 +219,54 @@ const LaporPage = () => {
         }
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
+            // Stop camera sebelumnya jika ada
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach((track) => track.stop());
+                streamRef.current = null;
+            }
+
+            console.log("Memulai kamera...");
+
+            // Tampilkan modal terlebih dahulu
+            setShowCameraModal(true);
+
+            // Constraint sederhana untuk laptop
+            const constraints = {
                 video: {
-                    facingMode: "environment", // Gunakan kamera belakang
-                    width: { ideal: 1920 },
-                    height: { ideal: 1080 },
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
                 },
-            });
+            };
+
+            // Coba dengan fallback
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (err) {
+                console.log(
+                    "Constraint pertama gagal, mencoba fallback...",
+                    err
+                );
+                // Fallback ke constraint minimal
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                });
+            }
+
+            console.log("Stream berhasil didapat:", stream);
 
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 streamRef.current = stream;
+
+                // Pastikan video mulai diputar
+                videoRef.current.play().catch((e) => {
+                    console.error("Gagal memutar video:", e);
+                });
             }
-            setShowCameraModal(true);
         } catch (error) {
             console.error("Error accessing camera:", error);
+            setShowCameraModal(false); // Tutup modal jika gagal
             alert(
                 "Tidak dapat mengakses kamera. Pastikan izin kamera sudah diberikan."
             );
@@ -224,16 +274,42 @@ const LaporPage = () => {
     };
 
     // Ambil foto dari kamera
+    // Ambil foto dari kamera
     const capturePhoto = () => {
-        if (videoRef.current) {
+        if (videoRef.current && videoRef.current.srcObject) {
             const canvas = document.createElement("canvas");
-            canvas.width = videoRef.current.videoWidth;
-            canvas.height = videoRef.current.videoHeight;
+            const video = videoRef.current;
+
+            // Tunggu sampai video siap
+            if (video.readyState < 2) {
+                alert("Kamera belum siap. Tunggu sebentar.");
+                return;
+            }
+
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+
             const context = canvas.getContext("2d");
-            context.drawImage(videoRef.current, 0, 0);
+
+            // Untuk kamera laptop, mirror secara manual
+            context.save();
+            context.scale(-1, 1);
+            context.drawImage(
+                video,
+                -canvas.width,
+                0,
+                canvas.width,
+                canvas.height
+            );
+            context.restore();
 
             canvas.toBlob(
                 (blob) => {
+                    if (!blob) {
+                        alert("Gagal mengambil foto. Coba lagi.");
+                        return;
+                    }
+
                     const file = new File(
                         [blob],
                         `camera-photo-${Date.now()}.jpg`,
@@ -252,16 +328,23 @@ const LaporPage = () => {
                     setShowCameraModal(false);
                 },
                 "image/jpeg",
-                0.9
+                0.85
             );
+        } else {
+            alert("Kamera belum siap. Tunggu sebentar.");
         }
     };
 
     // Stop kamera
     const stopCamera = () => {
         if (streamRef.current) {
-            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current.getTracks().forEach((track) => {
+                track.stop();
+            });
             streamRef.current = null;
+        }
+        if (videoRef.current) {
+            videoRef.current.srcObject = null;
         }
     };
 
@@ -275,6 +358,51 @@ const LaporPage = () => {
     const removePhoto = (index) => {
         setPhotos(photos.filter((_, i) => i !== index));
     };
+
+    // Tambahkan fungsi untuk mengecek kamera yang tersedia
+    const checkAvailableCameras = async () => {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(
+                (device) => device.kind === "videoinput"
+            );
+            console.log("Kamera yang tersedia:", videoDevices);
+            return videoDevices;
+        } catch (error) {
+            console.error("Error enumerating devices:", error);
+            return [];
+        }
+    };
+
+    // Panggil di useEffect awal
+    useEffect(() => {
+        if (isLoggedIn) {
+            checkAvailableCameras();
+        }
+    }, [isLoggedIn]);
+
+    // Handle video events
+    useEffect(() => {
+        if (!videoRef.current) return;
+
+        const video = videoRef.current;
+
+        const handleCanPlay = () => {
+            console.log("Video bisa diputar");
+        };
+
+        const handleLoadedMetadata = () => {
+            console.log("Metadata video dimuat");
+        };
+
+        video.addEventListener("canplay", handleCanPlay);
+        video.addEventListener("loadedmetadata", handleLoadedMetadata);
+
+        return () => {
+            video.removeEventListener("canplay", handleCanPlay);
+            video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+        };
+    }, [showCameraModal]);
 
     // gunakan lokasi user
     const handleUseMyLocation = () => {
@@ -361,7 +489,7 @@ const LaporPage = () => {
                 pelapor_nama: formData.pelapor_nama,
                 pelapor_email: formData.pelapor_email || "",
                 pelapor_telepon: formData.pelapor_telepon || "",
-                foto_laporan: photoUrls, 
+                foto_laporan: photoUrls,
                 status: "Validasi",
             };
 
@@ -859,7 +987,7 @@ const LaporPage = () => {
 
             {/* Camera Modal */}
             {showCameraModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-90 backdrop-blur-lg flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 backdrop-blur-lg flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-semibold text-gray-900">
@@ -868,25 +996,48 @@ const LaporPage = () => {
                             <button
                                 onClick={closeCameraModal}
                                 className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                                type="button"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <div className="bg-black rounded-lg overflow-hidden mb-4">
+                        <div className="bg-black rounded-lg overflow-hidden mb-4 relative min-h-64">
                             <video
                                 ref={videoRef}
                                 autoPlay
                                 playsInline
                                 muted
                                 className="w-full h-64 object-cover"
+                                style={{ transform: "scaleX(-1)" }}
+                                onLoadedData={() =>
+                                    console.log("Video data loaded")
+                                }
+                                onCanPlay={() => console.log("Video can play")}
                             />
+
+                            {/* Loading indicator - PERBAIKAN KONDISI INI */}
+                            {videoRef.current &&
+                                videoRef.current.readyState <
+                                    videoRef.current.HAVE_ENOUGH_DATA && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70">
+                                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+                                        <div className="text-white text-sm">
+                                            Memuat kamera...
+                                        </div>
+                                    </div>
+                                )}
                         </div>
 
                         <div className="flex justify-center space-x-4">
                             <Button
                                 onClick={capturePhoto}
                                 className="bg-red-500 hover:bg-red-600 text-white font-medium cursor-pointer"
+                                type="button"
+                                disabled={
+                                    videoRef.current?.readyState <
+                                    videoRef.current?.HAVE_ENOUGH_DATA
+                                }
                             >
                                 <Camera className="w-4 h-4 mr-2" />
                                 Ambil Foto
@@ -896,6 +1047,7 @@ const LaporPage = () => {
                                 onClick={closeCameraModal}
                                 variant="outline"
                                 className="cursor-pointer"
+                                type="button"
                             >
                                 Batal
                             </Button>
