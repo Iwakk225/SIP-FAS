@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { MapPin, Camera, Info, LogIn, UserPlus, X, Upload } from "lucide-react";
+import { MapPin, Camera, Info, LogIn, UserPlus, X, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,8 +7,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link } from "react-router-dom";
 import Footer from "./Footer";
 import axios from "axios";
-
-// ✅ Import dari react-leaflet
 import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -33,29 +31,33 @@ function ChangeMapView({ coords }) {
 const uploadToCloudinary = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
-    formData.append(
-        "upload_preset",
-        import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET
-    );
-    formData.append("cloud_name", "dlwfk4gly"); // Langsung pakai string atau dari env
-
+    formData.append("upload_preset", "sip-fas");
+    
+    // DEBUG: Cek apakah preset ada
+    console.log("Upload preset:", "ml_default");
+    
     try {
+        console.log("Uploading file:", file.name, file.size, file.type);
+        
         const response = await fetch(
-            `https://api.cloudinary.com/v1_1/dlwfk4gly/image/upload`,
+            `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dlwfk4gly'}/image/upload`,
             {
                 method: "POST",
                 body: formData,
             }
         );
 
+        const data = await response.json();
+        console.log("Response data:", data); // Debug response
+        
         if (!response.ok) {
-            const errorData = await response.json();
+            console.error("Cloudinary error:", data);
             throw new Error(
-                errorData.message || `Upload failed: ${response.statusText}`
+                data.error?.message || `Upload failed: ${response.statusText}`
             );
         }
 
-        const data = await response.json();
+        console.log("Upload success:", data.secure_url);
         return data.secure_url;
     } catch (error) {
         console.error("Error uploading to Cloudinary:", error);
@@ -79,6 +81,11 @@ const LaporPage = () => {
     const [message, setMessage] = useState("");
     const [isDragOver, setIsDragOver] = useState(false);
     const [showCameraModal, setShowCameraModal] = useState(false);
+    
+    // ✅ State baru untuk geocoding
+    const [geocodeError, setGeocodeError] = useState(null);
+    const [isGeocoding, setIsGeocoding] = useState(false);
+    const [isGettingLocation, setIsGettingLocation] = useState(false);
 
     // ✅ GUNAKAN isLoggedIn DARI CONTEXT
     const { isLoggedIn, user } = useAuth();
@@ -103,31 +110,47 @@ const LaporPage = () => {
         }
     }, [isLoggedIn, user]);
 
-    // Auto geser setelah user menginput alamat/lokasi (Hanya didaerah Kota Surabaya)
+    // Auto geser setelah user menginput alamat/lokasi
     useEffect(() => {
         const timeout = setTimeout(async () => {
-            if (formData.lokasi.trim().length > 3) {
+            if (formData.lokasi.trim().length > 3 && isLoggedIn) {
+                setGeocodeError(null);
+                setIsGeocoding(true);
+                
                 try {
-                    const response = await fetch(
-                        `https://nominatim.openstreetmap.org/search?format=json&viewbox=112.55,-7.18,112.85,-7.37&bounded=1&q=${encodeURIComponent(
-                            formData.lokasi + " Surabaya"
-                        )}`
-                    );
-                    const data = await response.json();
-                    if (data && data.length > 0) {
-                        const { lat, lon } = data[0];
+                    console.log('Searching location:', formData.lokasi);
+                    
+                    const response = await axios.get('/api/geocode/search', {
+                        params: {
+                            q: `${formData.lokasi} Surabaya`,
+                            viewbox: '112.55,-7.18,112.85,-7.37',
+                            bounded: 1,
+                        },
+                        timeout: 5000,
+                    });
+                    
+                    console.log('Geocode response:', response.data);
+                    
+                    if (response.data && response.data.length > 0 && !response.data.error) {
+                        const { lat, lon } = response.data[0];
                         setMapCenter({
                             lat: parseFloat(lat),
                             lng: parseFloat(lon),
                         });
+                    } else if (response.data?.error) {
+                        setGeocodeError(response.data.error);
                     }
                 } catch (error) {
                     console.error("Error fetching location:", error);
+                    setGeocodeError("Gagal mencari lokasi. Silakan coba lagi.");
+                } finally {
+                    setIsGeocoding(false);
                 }
             }
-        }, 1000);
+        }, 1500); // Debounce 1.5 detik
+        
         return () => clearTimeout(timeout);
-    }, [formData.lokasi]);
+    }, [formData.lokasi, isLoggedIn]);
 
     useEffect(() => {
         // Cleanup ketika komponen unmount
@@ -210,8 +233,6 @@ const LaporPage = () => {
     };
 
     // Buka kamera
-    // Buka kamera
-    // Buka kamera
     const startCamera = async () => {
         if (!isLoggedIn) {
             setShowLoginModal(true);
@@ -273,7 +294,6 @@ const LaporPage = () => {
         }
     };
 
-    // Ambil foto dari kamera
     // Ambil foto dari kamera
     const capturePhoto = () => {
         if (videoRef.current && videoRef.current.srcObject) {
@@ -411,29 +431,83 @@ const LaporPage = () => {
             return;
         }
 
+        setIsGettingLocation(true);
+
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                (position) => {
+                async (position) => {
                     const { latitude, longitude } = position.coords;
 
-                    // Memastikan Lokasi masih didaerah kota Surabaya
-                    if (surabayaBounds.contains([latitude, longitude])) {
-                        setMapCenter({ lat: latitude, lng: longitude });
-                        setFormData((prev) => ({
-                            ...prev,
-                            lokasi: `${latitude}, ${longitude}`,
-                        }));
-                    } else {
+                    // Pastikan lokasi di Surabaya
+                    if (!surabayaBounds.contains([latitude, longitude])) {
                         alert("Lokasi Anda di luar area Surabaya!");
+                        setIsGettingLocation(false);
+                        return;
+                    }
+
+                    // Update map center
+                    setMapCenter({ lat: latitude, lng: longitude });
+                    
+                    // Reverse geocoding untuk dapatkan alamat
+                    try {
+                        const response = await axios.get('/api/geocode/reverse', {
+                            params: {
+                                lat: latitude,
+                                lng: longitude
+                            },
+                            timeout: 5000
+                        });
+                        
+                        if (response.data && response.data.display_name) {
+                            setFormData(prev => ({
+                                ...prev,
+                                lokasi: response.data.display_name
+                            }));
+                        } else {
+                            setFormData(prev => ({
+                                ...prev,
+                                lokasi: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+                            }));
+                        }
+                    } catch (error) {
+                        console.error("Reverse geocode error:", error);
+                        // Fallback ke koordinat
+                        setFormData(prev => ({
+                            ...prev,
+                            lokasi: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+                        }));
+                    } finally {
+                        setIsGettingLocation(false);
                     }
                 },
                 (error) => {
                     console.error("Error getting location:", error);
-                    alert("Tidak dapat mengakses lokasi Anda");
+                    let errorMessage = "Tidak dapat mengakses lokasi Anda";
+                    
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMessage = "Izin lokasi ditolak. Silakan aktifkan di pengaturan browser.";
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMessage = "Informasi lokasi tidak tersedia.";
+                            break;
+                        case error.TIMEOUT:
+                            errorMessage = "Permintaan lokasi timeout.";
+                            break;
+                    }
+                    
+                    alert(errorMessage);
+                    setIsGettingLocation(false);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
                 }
             );
         } else {
             alert("Browser Anda tidak mendukung geolokasi");
+            setIsGettingLocation(false);
         }
     };
 
@@ -602,13 +676,10 @@ const LaporPage = () => {
                                 <Info className="w-4 h-4 text-amber-600" />
                                 <AlertDescription className="text-sm text-amber-800">
                                     <p className="font-medium">
-                                        ⚠️ Anda perlu login untuk membuat
-                                        laporan
+                                        ⚠️ Anda perlu login untuk membuat laporan
                                     </p>
                                     <p className="text-xs mt-1">
-                                        Silakan login atau daftar akun terlebih
-                                        dahulu untuk melaporkan kerusakan
-                                        fasilitas.
+                                        Silakan login atau daftar akun terlebih dahulu untuk melaporkan kerusakan fasilitas.
                                     </p>
                                     <div className="flex gap-2 mt-2">
                                         <Link to="/LoginPage">
@@ -640,10 +711,7 @@ const LaporPage = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Nama Pelapor{" "}
-                                            <span className="text-red-500">
-                                                *
-                                            </span>
+                                            Nama Pelapor <span className="text-red-500">*</span>
                                         </label>
                                         <Input
                                             name="pelapor_nama"
@@ -686,8 +754,7 @@ const LaporPage = () => {
                         {/* Judul Laporan */}
                         <div onClick={handleGuestInteraction}>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Judul laporan{" "}
-                                <span className="text-red-500">*</span>
+                                Judul laporan <span className="text-red-500">*</span>
                             </label>
                             <Input
                                 name="judul"
@@ -708,17 +775,31 @@ const LaporPage = () => {
                                 name="lokasi"
                                 value={formData.lokasi}
                                 onChange={handleInputChange}
-                                placeholder="Contoh : Jalan Patemon Kuburan"
+                                placeholder="Contoh : Jalan Patemon Kuburan, Surabaya"
                                 className="w-full"
                                 disabled={!isLoggedIn}
                             />
+                            
+                            {/* Geocoding status */}
+                            {isGeocoding && (
+                                <div className="text-xs text-blue-600 mt-1 flex items-center">
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                    Mencari lokasi...
+                                </div>
+                            )}
+                            
+                            {geocodeError && (
+                                <div className="text-xs text-red-600 mt-1 flex items-center">
+                                    <Info className="w-3 h-3 mr-1" />
+                                    {geocodeError}
+                                </div>
+                            )}
                         </div>
 
                         {/* Deskripsi */}
                         <div onClick={handleGuestInteraction}>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Deskripsi{" "}
-                                <span className="text-red-500">*</span>
+                                Deskripsi <span className="text-red-500">*</span>
                             </label>
                             <Textarea
                                 name="deskripsi"
@@ -737,17 +818,14 @@ const LaporPage = () => {
                         {/* Foto Fasilitas dengan Drag & Drop */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Foto fasilitas{" "}
-                                <span className="text-red-500">*</span>
+                                Foto fasilitas <span className="text-red-500">*</span>
                             </label>
 
                             {/* Tombol Pilihan Upload */}
                             <div className="flex gap-3 mb-4">
                                 <Button
                                     type="button"
-                                    onClick={() =>
-                                        fileInputRef.current?.click()
-                                    }
+                                    onClick={() => fileInputRef.current?.click()}
                                     disabled={!isLoggedIn}
                                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer disabled:opacity-50"
                                 >
@@ -824,9 +902,7 @@ const LaporPage = () => {
                                                     className="w-full h-24 object-cover rounded-lg"
                                                 />
                                                 <button
-                                                    onClick={() =>
-                                                        removePhoto(index)
-                                                    }
+                                                    onClick={() => removePhoto(index)}
                                                     className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                                 >
                                                     ×
@@ -863,11 +939,20 @@ const LaporPage = () => {
 
                             <Button
                                 onClick={handleUseMyLocation}
-                                disabled={!isLoggedIn}
+                                disabled={!isLoggedIn || isGettingLocation}
                                 className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                <MapPin className="w-4 h-4 mr-2" />
-                                Gunakan Lokasi Saya
+                                {isGettingLocation ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Mendapatkan lokasi...
+                                    </>
+                                ) : (
+                                    <>
+                                        <MapPin className="w-4 h-4 mr-2" />
+                                        Gunakan Lokasi Saya
+                                    </>
+                                )}
                             </Button>
                         </div>
 
@@ -880,24 +965,19 @@ const LaporPage = () => {
                                 </p>
                                 <ol className="list-decimal list-inside space-y-1 text-xs">
                                     <li>
-                                        Ambil foto yang jelas dan menunjukkan
-                                        kerusakan fasilitas
+                                        Ambil foto yang jelas dan menunjukkan kerusakan fasilitas
                                     </li>
                                     <li>
-                                        Gunakan fitur kamera untuk mengambil
-                                        foto langsung di lokasi
+                                        Gunakan fitur kamera untuk mengambil foto langsung di lokasi
                                     </li>
                                     <li>
-                                        Berikan deskripsi yang detail dan
-                                        spesifik
+                                        Berikan deskripsi yang detail dan spesifik
                                     </li>
                                     <li>
-                                        Cantumkan alamat dan gunakan fitur
-                                        "Gunakan Lokasi Saya"
+                                        Cantumkan alamat dan gunakan fitur "Gunakan Lokasi Saya"
                                     </li>
                                     <li>
-                                        Pastikan informasi pelapor lengkap untuk
-                                        follow-up
+                                        Pastikan informasi pelapor lengkap untuk follow-up
                                     </li>
                                 </ol>
                             </AlertDescription>
@@ -909,12 +989,17 @@ const LaporPage = () => {
                             disabled={!isLoggedIn || isSubmitting}
                             className="w-full bg-yellow-500 hover:bg-yellow-600 text-gray-900 font-semibold py-6 text-base cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <Info className="w-5 h-5 mr-2" />
-                            {isSubmitting
-                                ? "Mengirim..."
-                                : isLoggedIn
-                                ? "Kirim Laporan"
-                                : "Login untuk Melaporkan"}
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                    Mengirim...
+                                </>
+                            ) : (
+                                <>
+                                    <Info className="w-5 h-5 mr-2" />
+                                    {isLoggedIn ? "Kirim Laporan" : "Login untuk Melaporkan"}
+                                </>
+                            )}
                         </Button>
                     </div>
                 </div>
@@ -945,8 +1030,7 @@ const LaporPage = () => {
                                 Anda perlu login untuk membuat laporan
                             </p>
                             <p className="text-sm text-gray-500">
-                                Login atau daftar akun untuk melaporkan
-                                kerusakan fasilitas
+                                Login atau daftar akun untuk melaporkan kerusakan fasilitas
                             </p>
                         </div>
 
@@ -1010,16 +1094,13 @@ const LaporPage = () => {
                                 muted
                                 className="w-full h-64 object-cover"
                                 style={{ transform: "scaleX(-1)" }}
-                                onLoadedData={() =>
-                                    console.log("Video data loaded")
-                                }
+                                onLoadedData={() => console.log("Video data loaded")}
                                 onCanPlay={() => console.log("Video can play")}
                             />
 
-                            {/* Loading indicator - PERBAIKAN KONDISI INI */}
+                            {/* Loading indicator */}
                             {videoRef.current &&
-                                videoRef.current.readyState <
-                                    videoRef.current.HAVE_ENOUGH_DATA && (
+                                videoRef.current.readyState < videoRef.current.HAVE_ENOUGH_DATA && (
                                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70">
                                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
                                         <div className="text-white text-sm">
@@ -1035,8 +1116,7 @@ const LaporPage = () => {
                                 className="bg-red-500 hover:bg-red-600 text-white font-medium cursor-pointer"
                                 type="button"
                                 disabled={
-                                    videoRef.current?.readyState <
-                                    videoRef.current?.HAVE_ENOUGH_DATA
+                                    videoRef.current?.readyState < videoRef.current?.HAVE_ENOUGH_DATA
                                 }
                             >
                                 <Camera className="w-4 h-4 mr-2" />

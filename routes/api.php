@@ -9,6 +9,7 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\StatistikController;
 use App\Http\Controllers\PetugasController;
+use App\Http\Controllers\GeocodeController;
 
 // Public routes - tidak perlu auth
 Route::post('/register', [AuthController::class, 'register']);
@@ -19,6 +20,9 @@ Route::post('/reset-password', [PasswordResetController::class, 'reset']);
 Route::post('/contact', [ContactController::class, 'sendEmail']);
 Route::post('/laporan', [LaporanController::class, 'store']);
 Route::get('/laporan/{id}', [LaporanController::class, 'show']);
+Route::get('/geocode/search', [GeocodeController::class, 'search']);
+Route::get('/geocode/reverse', [GeocodeController::class, 'reverse']);
+Route::get('/nominatim/search', [GeocodeController::class, 'search']);
 
 // Routes untuk statistik (public bisa akses)
 Route::prefix('statistik')->group(function () {
