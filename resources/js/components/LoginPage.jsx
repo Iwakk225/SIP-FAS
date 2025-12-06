@@ -1,3 +1,4 @@
+// LoginPage.jsx
 import React, { useState } from "react";
 import { Mail, Lock, Chrome, Eye, EyeOff, LogIn } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
@@ -16,7 +17,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   
   const navigate = useNavigate();
-  const { login } = useAuth(); // Gunakan auth context
+  const { login } = useAuth();
 
   const API_URL = '/api';
 
@@ -41,13 +42,27 @@ export default function LoginPage() {
     setErrors({});
 
     try {
-      const response = await axios.post(`${API_URL}/login`, formData);
+      const response = await axios.post(`${API_URL}/login`, {
+        ...formData,
+        remember_me: remember // Kirim preference remember me ke backend
+      });
       
-      // Gunakan login function dari context
-      await login(response.data.token, response.data.user);
+      const { token, user: userData, refresh_token } = response.data;
       
-      // Redirect ke halaman yang sesuai
-      navigate('/');
+      // Simpan refresh token jika ada (untuk remember me)
+      if (remember && refresh_token) {
+        localStorage.setItem('refresh_token', refresh_token);
+      }
+      
+      // Panggil login function dari context dengan remember preference
+      await login(token, userData, remember);
+      
+      // Redirect ke halaman yang sesuai berdasarkan role
+      if (userData.role === 'admin') {
+        navigate('/admin-dashboard');
+      } else {
+        navigate('/');
+      }
       
     } catch (error) {
       if (error.response && error.response.data.errors) {
@@ -135,14 +150,14 @@ export default function LoginPage() {
 
           {/* Ingat saya + Lupa sandi */}
           <div className="flex items-center justify-between text-sm mb-6">
-            <label className="flex items-center gap-2 text-gray-700">
+            <label className="flex items-center gap-2 text-gray-700 cursor-pointer">
               <input
                 type="checkbox"
                 checked={remember}
                 onChange={() => setRemember(!remember)}
                 className="accent-[#FDBD59] cursor-pointer"
               />
-              Ingat saya
+              <span>Ingat saya</span>
             </label>
             <Link
               to="/ForgotPassword"
@@ -150,6 +165,13 @@ export default function LoginPage() {
             >
               Lupa kata sandi?
             </Link>
+          </div>
+
+          {/* Informasi tentang "Ingat Saya" */}
+          <div className="text-xs text-gray-500 mb-4 p-2 bg-gray-50 rounded">
+            {remember 
+              ? "✓ Data login akan disimpan. Anda tetap masuk meski browser ditutup."
+              : "✗ Data login hanya disimpan untuk sesi ini. Anda akan logout saat browser ditutup."}
           </div>
 
           {/* Tombol Masuk */}

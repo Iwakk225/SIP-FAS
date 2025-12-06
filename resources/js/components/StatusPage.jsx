@@ -18,11 +18,13 @@ import {
     User,
     Phone,
     MapPin as MapIcon,
+    AlertCircle,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "../contexts/AuthContext";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const StatusPage = () => {
     const [laporanData, setLaporanData] = useState([]);
@@ -35,7 +37,9 @@ const StatusPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [petugasLaporan, setPetugasLaporan] = useState([]);
     const [isLoadingPetugas, setIsLoadingPetugas] = useState(false);
+    const [error, setError] = useState(null);
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     const trackingSteps = [
         {
@@ -85,30 +89,113 @@ const StatusPage = () => {
         },
     ];
 
+    // Function untuk mendapatkan token dari berbagai sumber
+    const getToken = () => {
+        // Cek localStorage dulu (untuk remember me)
+        const localStorageToken = localStorage.getItem('auth_token');
+        if (localStorageToken) return localStorageToken;
+        
+        // Cek sessionStorage
+        const sessionStorageToken = sessionStorage.getItem('auth_token');
+        if (sessionStorageToken) return sessionStorageToken;
+        
+        // Cek dari user context
+        if (user?.token) return user.token;
+        
+        return null;
+    };
+
+    // Function untuk mendapatkan headers dengan token
+    const getAuthHeaders = () => {
+        const token = getToken();
+        if (!token) return null;
+        
+        return {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+            "Content-Type": "application/json"
+        };
+    };
+
     // Fetch data laporan user
     const fetchLaporanUser = async () => {
-        if (!user) return;
+        if (!user) {
+            console.warn("User tidak ditemukan, redirect ke login");
+            navigate('/login');
+            return;
+        }
 
         setIsLoading(true);
+        setError(null);
+
         try {
-            const token = localStorage.getItem("auth_token");
+            const headers = getAuthHeaders();
+            
+            if (!headers) {
+                setError("Token tidak ditemukan. Silakan login kembali.");
+                setIsLoading(false);
+                return;
+            }
 
             const response = await axios.get(
                 "http://localhost:8000/api/laporan-user",
                 {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
+                    headers: headers,
+                    timeout: 10000 // 10 second timeout
                 }
             );
 
-            const data = response.data.data || response.data;
-            setLaporanData(data);
-            setFilteredData(data);
+            console.log("Response API laporan-user:", response.data);
+
+            if (response.data && (response.data.data || response.data)) {
+                const data = response.data.data || response.data;
+                setLaporanData(data);
+                setFilteredData(data);
+            } else {
+                setError("Format data tidak sesuai dari server.");
+                setLaporanData([]);
+                setFilteredData([]);
+            }
         } catch (error) {
             console.error("Error fetching user laporan:", error);
-            // Fallback logic...
+            
+            // Handle berbagai jenis error
+            if (error.code === 'ECONNABORTED') {
+                setError("Koneksi timeout. Silakan coba lagi.");
+            } else if (error.response) {
+                // Server responded with error status
+                const status = error.response.status;
+                
+                if (status === 401) {
+                    setError("Sesi Anda telah berakhir. Silakan login kembali.");
+                    // Clear token dan redirect ke login setelah 2 detik
+                    setTimeout(() => {
+                        localStorage.removeItem('auth_token');
+                        localStorage.removeItem('user');
+                        localStorage.removeItem('remember_me');
+                        sessionStorage.removeItem('auth_token');
+                        sessionStorage.removeItem('user');
+                        navigate('/login');
+                    }, 2000);
+                } else if (status === 403) {
+                    setError("Anda tidak memiliki akses ke halaman ini.");
+                } else if (status === 404) {
+                    setError("Endpoint tidak ditemukan. Silakan hubungi administrator.");
+                } else if (status === 500) {
+                    setError("Terjadi kesalahan server. Silakan coba lagi nanti.");
+                } else {
+                    setError(`Error ${status}: ${error.response.data?.message || 'Terjadi kesalahan'}`);
+                }
+            } else if (error.request) {
+                // Request dibuat tapi tidak ada response
+                setError("Tidak ada response dari server. Periksa koneksi internet Anda.");
+            } else {
+                // Error lainnya
+                setError(`Terjadi kesalahan: ${error.message}`);
+            }
+            
+            setLaporanData([]);
+            setFilteredData([]);
         } finally {
             setIsLoading(false);
         }
@@ -120,19 +207,26 @@ const StatusPage = () => {
 
         setIsLoadingPetugas(true);
         try {
-            const token = localStorage.getItem("auth_token");
+            const headers = getAuthHeaders();
+            
+            if (!headers) {
+                console.warn("Token tidak ditemukan untuk fetch petugas");
+                setPetugasLaporan([]);
+                setIsLoadingPetugas(false);
+                return;
+            }
 
             const response = await axios.get(
                 `http://localhost:8000/api/laporan/${laporanId}/petugas`,
                 {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                    },
+                    headers: headers,
+                    timeout: 10000
                 }
             );
 
-            if (response.data.success) {
+            console.log("Response petugas:", response.data);
+
+            if (response.data && response.data.success) {
                 setPetugasLaporan(response.data.data || []);
             } else {
                 setPetugasLaporan([]);
@@ -202,6 +296,11 @@ const StatusPage = () => {
     useEffect(() => {
         fetchLaporanUser();
     }, [user]);
+
+    // Retry function
+    const handleRetry = () => {
+        fetchLaporanUser();
+    };
 
     // Stats calculation
     const stats = {
@@ -274,7 +373,7 @@ const StatusPage = () => {
     return (
         <div className="min-h-screen bg-gray-50 py-8">
             <div className="max-w-4xl mx-auto px-4">
-                {/* Header & Stats - tetap sama */}
+                {/* Header & Stats */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">
                         Laporan Saya
@@ -325,7 +424,7 @@ const StatusPage = () => {
                     </div>
                 </div>
 
-                {/* Filter & Search - tetap sama */}
+                {/* Filter & Search */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                     <div className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1">
@@ -373,15 +472,43 @@ const StatusPage = () => {
                     </div>
                 </div>
 
-                {/* Loading State & Laporan List - tetap sama */}
-                {isLoading && (
+                {/* Error Message */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+                        <div className="flex items-start">
+                            <AlertCircle className="w-5 h-5 text-red-500 mr-3 mt-0.5 flex-shrink-0" />
+                            <div className="flex-1">
+                                <p className="text-red-700">{error}</p>
+                                <div className="flex gap-3 mt-3">
+                                    <Button
+                                        onClick={handleRetry}
+                                        className="bg-red-600 hover:bg-red-700 text-white cursor-pointer text-sm"
+                                    >
+                                        Coba Lagi
+                                    </Button>
+                                    <Button
+                                        onClick={() => navigate('/login')}
+                                        variant="outline"
+                                        className="cursor-pointer text-sm"
+                                    >
+                                        Login Ulang
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Loading State */}
+                {isLoading && !error && (
                     <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
                         <p className="text-gray-600">Memuat data laporan...</p>
                     </div>
                 )}
 
-                {!isLoading && (
+                {/* Laporan List */}
+                {!isLoading && !error && (
                     <div className="space-y-4">
                         {filteredData.length > 0 ? (
                             filteredData.map((laporan) => (
@@ -467,7 +594,7 @@ const StatusPage = () => {
                 )}
             </div>
 
-            {/* Detail Modal - DITAMBAH SECTION PETUGAS */}
+            {/* Detail Modal */}
             {showDetailModal && selectedLaporan && (
                 <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                     <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -542,83 +669,124 @@ const StatusPage = () => {
                                                         {step.description}
                                                     </p>
 
-                                                    {/* 🔥 NEW: Tampilkan info petugas di step 3 (Dalam Proses) */}
-                                                    {isCurrent && step.id === 3 && (
-                                                        <div className="mt-3">
-                                                            {isLoadingPetugas ? (
-                                                                <div className="flex items-center text-sm text-gray-500">
-                                                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                                                                    Memuat data petugas...
-                                                                </div>
-                                                            ) : petugasLaporan.length > 0 ? (
-                                                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                                                    <p className="text-sm font-medium text-blue-900 mb-2">
-                                                                        Petugas yang Dikerahkan:
-                                                                    </p>
-                                                                    {petugasLaporan.map((petugas) => (
-                                                                        <div key={petugas.id} className="flex items-start space-x-3 mb-2 last:mb-0">
-                                                                            <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                                                                <User className="w-4 h-4 text-blue-600" />
-                                                                            </div>
-                                                                            <div className="flex-1">
-                                                                                <p className="text-sm font-medium text-blue-800">
-                                                                                    {petugas.nama}
-                                                                                </p>
-                                                                                <div className="flex items-center text-xs text-blue-700 mt-1">
-                                                                                    <Phone className="w-3 h-3 mr-1" />
-                                                                                    <span>{petugas.nomor_telepon}</span>
+                                                    {/* Tampilkan info petugas di step 3 (Dalam Proses) */}
+                                                    {isCurrent &&
+                                                        step.id === 3 && (
+                                                            <div className="mt-3">
+                                                                {isLoadingPetugas ? (
+                                                                    <div className="flex items-center text-sm text-gray-500">
+                                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                                                        Memuat
+                                                                        data
+                                                                        petugas...
+                                                                    </div>
+                                                                ) : petugasLaporan.length >
+                                                                  0 ? (
+                                                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                                                        <p className="text-sm font-medium text-blue-900 mb-2">
+                                                                            Petugas
+                                                                            yang
+                                                                            Dikerahkan:
+                                                                        </p>
+                                                                        {petugasLaporan.map(
+                                                                            (
+                                                                                petugas
+                                                                            ) => (
+                                                                                <div
+                                                                                    key={
+                                                                                        petugas.id
+                                                                                    }
+                                                                                    className="flex items-start space-x-3 mb-2 last:mb-0"
+                                                                                >
+                                                                                    <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                                                        <User className="w-4 h-4 text-blue-600" />
+                                                                                    </div>
+                                                                                    <div className="flex-1">
+                                                                                        <p className="text-sm font-medium text-blue-800">
+                                                                                            {
+                                                                                                petugas.nama
+                                                                                            }
+                                                                                        </p>
+                                                                                        <div className="flex items-center text-xs text-blue-700 mt-1">
+                                                                                            <Phone className="w-3 h-3 mr-1" />
+                                                                                            <span>
+                                                                                                {
+                                                                                                    petugas.nomor_telepon
+                                                                                                }
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        <div className="flex items-center text-xs text-blue-600 mt-1">
+                                                                                            <MapIcon className="w-3 h-3 mr-1" />
+                                                                                            <span>
+                                                                                                {
+                                                                                                    petugas.alamat
+                                                                                                }
+                                                                                            </span>
+                                                                                        </div>
+                                                                                        {petugas
+                                                                                            .pivot
+                                                                                            ?.dikirim_pada && (
+                                                                                            <p className="text-xs text-blue-500 mt-1">
+                                                                                                Dikirim:{" "}
+                                                                                                {formatDateTime(
+                                                                                                    petugas
+                                                                                                        .pivot
+                                                                                                        .dikirim_pada
+                                                                                                )}
+                                                                                            </p>
+                                                                                        )}
+                                                                                    </div>
                                                                                 </div>
-                                                                                <div className="flex items-center text-xs text-blue-600 mt-1">
-                                                                                    <MapIcon className="w-3 h-3 mr-1" />
-                                                                                    <span>{petugas.alamat}</span>
-                                                                                </div>
-                                                                                {petugas.pivot?.dikirim_pada && (
-                                                                                    <p className="text-xs text-blue-500 mt-1">
-                                                                                        Dikirim: {formatDateTime(petugas.pivot.dikirim_pada)}
-                                                                                    </p>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            ) : (
-                                                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                                                                    <p className="text-sm text-yellow-800">
-                                                                        Menunggu penugasan petugas...
-                                                                    </p>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
+                                                                            )
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                                                        <p className="text-sm text-yellow-800">
+                                                                            Menunggu
+                                                                            penugasan
+                                                                            petugas...
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
 
                                                     {/* Additional info untuk step lainnya */}
-                                                    {isCurrent && step.id === 4 && (
-                                                        <div className="mt-3 space-y-2">
-                                                            <Button className="bg-green-600 hover:bg-green-700 text-white cursor-pointer text-sm">
-                                                                <Camera className="w-4 h-4 mr-2" />
-                                                                Lihat Foto Hasil Perbaikan
-                                                            </Button>
-                                                            <Button
-                                                                variant="outline"
-                                                                className="cursor-pointer text-sm"
-                                                            >
-                                                                <Download className="w-4 h-4 mr-2" />
-                                                                Download Rincian Biaya (PDF)
-                                                            </Button>
-                                                        </div>
-                                                    )}
+                                                    {isCurrent &&
+                                                        step.id === 4 && (
+                                                            <div className="mt-3 space-y-2">
+                                                                <Button className="bg-green-600 hover:bg-green-700 text-white cursor-pointer text-sm">
+                                                                    <Camera className="w-4 h-4 mr-2" />
+                                                                    Lihat Foto
+                                                                    Hasil
+                                                                    Perbaikan
+                                                                </Button>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    className="cursor-pointer text-sm"
+                                                                >
+                                                                    <Download className="w-4 h-4 mr-2" />
+                                                                    Download
+                                                                    Rincian
+                                                                    Biaya (PDF)
+                                                                </Button>
+                                                            </div>
+                                                        )}
 
-                                                    {isCurrent && step.id === 5 && (
-                                                        <div className="mt-3 p-3 bg-red-50 rounded-lg">
-                                                            <p className="text-sm text-red-800 font-medium">
-                                                                Alasan penolakan:
-                                                            </p>
-                                                            <p className="text-sm text-red-700 mt-1">
-                                                                {selectedLaporan.alasan_penolakan ||
-                                                                    "Fasilitas baru saja diperbaiki / Data tidak valid"}
-                                                            </p>
-                                                        </div>
-                                                    )}
+                                                    {isCurrent &&
+                                                        step.id === 5 && (
+                                                            <div className="mt-3 p-3 bg-red-50 rounded-lg">
+                                                                <p className="text-sm text-red-800 font-medium">
+                                                                    Alasan
+                                                                    penolakan:
+                                                                </p>
+                                                                <p className="text-sm text-red-700 mt-1">
+                                                                    {selectedLaporan.alasan_penolakan ||
+                                                                        "Fasilitas baru saja diperbaiki / Data tidak valid"}
+                                                                </p>
+                                                            </div>
+                                                        )}
                                                 </div>
                                             </div>
                                         );
@@ -626,8 +794,9 @@ const StatusPage = () => {
                                 </div>
                             </div>
 
-                            {/* 🔥 NEW: Section Petugas (di luar tracking) */}
-                            {(selectedLaporan.status === "Dalam Proses" || selectedLaporan.status === "Selesai") && (
+                            {/* Section Petugas (di luar tracking) */}
+                            {(selectedLaporan.status === "Dalam Proses" ||
+                                selectedLaporan.status === "Selesai") && (
                                 <div className="border-t border-gray-200 pt-6">
                                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
                                         Tim Petugas
@@ -635,12 +804,17 @@ const StatusPage = () => {
                                     {isLoadingPetugas ? (
                                         <div className="flex items-center justify-center py-4">
                                             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
-                                            <span className="text-gray-600">Memuat data petugas...</span>
+                                            <span className="text-gray-600">
+                                                Memuat data petugas...
+                                            </span>
                                         </div>
                                     ) : petugasLaporan.length > 0 ? (
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {petugasLaporan.map((petugas) => (
-                                                <div key={petugas.id} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                                <div
+                                                    key={petugas.id}
+                                                    className="bg-green-50 border border-green-200 rounded-lg p-4"
+                                                >
                                                     <div className="flex items-start space-x-3">
                                                         <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                                                             <Users className="w-5 h-5 text-green-600" />
@@ -652,20 +826,41 @@ const StatusPage = () => {
                                                             <div className="mt-2 space-y-1">
                                                                 <div className="flex items-center text-sm text-green-700">
                                                                     <Phone className="w-4 h-4 mr-2" />
-                                                                    <span>{petugas.nomor_telepon}</span>
+                                                                    <span>
+                                                                        {
+                                                                            petugas.nomor_telepon
+                                                                        }
+                                                                    </span>
                                                                 </div>
                                                                 <div className="flex items-start text-sm text-green-700">
                                                                     <MapIcon className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-                                                                    <span>{petugas.alamat}</span>
+                                                                    <span>
+                                                                        {
+                                                                            petugas.alamat
+                                                                        }
+                                                                    </span>
                                                                 </div>
-                                                                {petugas.pivot?.dikirim_pada && (
+                                                                {petugas.pivot
+                                                                    ?.dikirim_pada && (
                                                                     <div className="text-xs text-green-600 mt-2">
-                                                                        Ditugaskan pada: {formatDateTime(petugas.pivot.dikirim_pada)}
+                                                                        Ditugaskan
+                                                                        pada:{" "}
+                                                                        {formatDateTime(
+                                                                            petugas
+                                                                                .pivot
+                                                                                .dikirim_pada
+                                                                        )}
                                                                     </div>
                                                                 )}
-                                                                {petugas.pivot?.status_tugas && (
+                                                                {petugas.pivot
+                                                                    ?.status_tugas && (
                                                                     <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mt-2">
-                                                                        Status: {petugas.pivot.status_tugas}
+                                                                        Status:{" "}
+                                                                        {
+                                                                            petugas
+                                                                                .pivot
+                                                                                .status_tugas
+                                                                        }
                                                                     </div>
                                                                 )}
                                                             </div>
@@ -678,7 +873,8 @@ const StatusPage = () => {
                                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
                                             <Users className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
                                             <p className="text-yellow-800">
-                                                Belum ada petugas yang ditugaskan
+                                                Belum ada petugas yang
+                                                ditugaskan
                                             </p>
                                         </div>
                                     )}
@@ -741,7 +937,9 @@ const StatusPage = () => {
                                                 <img
                                                     key={index}
                                                     src={foto}
-                                                    alt={`Foto laporan ${index + 1}`}
+                                                    alt={`Foto laporan ${
+                                                        index + 1
+                                                    }`}
                                                     className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
                                                     onClick={() =>
                                                         window.open(
@@ -758,7 +956,8 @@ const StatusPage = () => {
 
                             {/* Foto Bukti Perbaikan */}
                             {selectedLaporan.foto_bukti_perbaikan &&
-                                selectedLaporan.foto_bukti_perbaikan.length > 0 && (
+                                selectedLaporan.foto_bukti_perbaikan.length >
+                                    0 && (
                                     <div className="border-t border-gray-200 pt-6">
                                         <h3 className="text-lg font-semibold text-gray-900 mb-4">
                                             Foto Bukti Perbaikan
@@ -769,7 +968,9 @@ const StatusPage = () => {
                                                     <img
                                                         key={index}
                                                         src={foto}
-                                                        alt={`Bukti perbaikan ${index + 1}`}
+                                                        alt={`Bukti perbaikan ${
+                                                            index + 1
+                                                        }`}
                                                         className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
                                                         onClick={() =>
                                                             window.open(

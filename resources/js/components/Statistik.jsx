@@ -42,30 +42,6 @@ export default function Statistik() {
     }
   };
 
-  const fetchWaktuRespon = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/statistik/waktu-respon`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setWaktuRespon(data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching waktu respon:', error);
-      // Set default values jika gagal
-      setWaktuRespon({
-        verifikasi: "1-2 Hari",
-        perbaikan: "5 Hari", 
-        selesai: "12 Hari"
-      });
-    }
-  };
-
   useEffect(() => {
     const loadData = async () => {
       await Promise.all([

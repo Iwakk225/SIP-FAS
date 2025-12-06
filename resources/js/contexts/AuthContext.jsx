@@ -1,4 +1,6 @@
+// contexts/AuthContext.jsx
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import axios from 'axios';
 
 const AuthContext = createContext();
 
@@ -17,7 +19,6 @@ const LogoutConfirmationModal = ({ isOpen, onConfirm, onCancel }) => {
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 mx-auto">
         <div className="text-center">
-          {/* Icon */}
           <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
             <svg 
               className="h-6 w-6 text-red-600" 
@@ -34,17 +35,14 @@ const LogoutConfirmationModal = ({ isOpen, onConfirm, onCancel }) => {
             </svg>
           </div>
           
-          {/* Title */}
           <h3 className="text-lg font-semibold text-gray-900 mb-2">
             Konfirmasi Logout
           </h3>
           
-          {/* Message */}
           <p className="text-sm text-gray-500 mb-6">
             Apakah Anda yakin ingin keluar dari akun Anda?
           </p>
           
-          {/* Actions */}
           <div className="flex gap-3 justify-center">
             <button
               onClick={onCancel}
@@ -70,15 +68,69 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
+  // Cek status auth saat mount
   useEffect(() => {
     checkAuthStatus();
+    // Cek token validity secara periodic
+    const interval = setInterval(() => {
+      if (isLoggedIn) {
+        validateToken();
+      }
+    }, 300000); // Cek setiap 5 menit
+
+    return () => clearInterval(interval);
   }, []);
 
+  // Validasi token dengan server
+  const validateToken = async () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+
+    try {
+      await axios.get('/api/validate-token', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (error) {
+      if (error.response?.status === 401) {
+        // Token expired, coba refresh atau logout
+        await handleTokenExpired();
+      }
+    }
+  };
+
+  // Handle token expired
+  const handleTokenExpired = async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    
+    if (refreshToken) {
+      try {
+        // Coba refresh token
+        const response = await axios.post('/api/refresh-token', {
+          refresh_token: refreshToken
+        });
+        
+        const { token, user: userData } = response.data;
+        await login(token, userData, rememberMe);
+      } catch (error) {
+        // Refresh token juga expired, logout
+        performLogout();
+      }
+    } else {
+      // Tidak ada refresh token, logout
+      performLogout();
+    }
+  };
+
   const checkAuthStatus = () => {
+    // Cek apakah ada token di localStorage
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user');
+    const remember = localStorage.getItem('remember_me') === 'true';
     
+    setRememberMe(remember);
+
     if (token && userData) {
       try {
         setUser(JSON.parse(userData));
@@ -87,27 +139,72 @@ export const AuthProvider = ({ children }) => {
         console.error('Error parsing user data:', error);
         performLogout();
       }
+    } else if (sessionStorage.getItem('auth_token') && sessionStorage.getItem('user')) {
+      // Cek session storage untuk non-remember me
+      try {
+        const sessionToken = sessionStorage.getItem('auth_token');
+        const sessionUser = sessionStorage.getItem('user');
+        setUser(JSON.parse(sessionUser));
+        setIsLoggedIn(true);
+      } catch (error) {
+        console.error('Error parsing session data:', error);
+        performLogout();
+      }
     }
     setLoading(false);
   };
 
-  const login = (token, userData) => {
-    localStorage.setItem('auth_token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
+  const login = (token, userData, remember = false) => {
+    // Simpan remember preference
+    setRememberMe(remember);
+    
+    if (remember) {
+      // Simpan di localStorage (persistent)
+      localStorage.setItem('auth_token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('remember_me', 'true');
+      // Hapus dari session storage jika ada
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('user');
+    } else {
+      // Simpan di sessionStorage (hanya untuk session)
+      sessionStorage.setItem('auth_token', token);
+      sessionStorage.setItem('user', JSON.stringify(userData));
+      // Hapus dari localStorage jika ada
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('remember_me');
+    }
+    
     setUser(userData);
     setIsLoggedIn(true);
+    
+    // Set axios default header
+    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   };
 
-  // Fungsi untuk melakukan logout (tanpa modal)
   const performLogout = () => {
+    // Hapus semua storage
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
+    localStorage.removeItem('remember_me');
+    localStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('auth_token');
+    sessionStorage.removeItem('user');
+    
+    // Hapus axios header
+    delete axios.defaults.headers.common['Authorization'];
+    
+    // Reset state
     setUser(null);
     setIsLoggedIn(false);
+    setRememberMe(false);
     setShowLogoutModal(false);
+    
+    // Redirect ke login page
+    window.location.href = '/LoginPage';
   };
 
-  // Fungsi yang dipanggil dari komponen (dengan modal konfirmasi)
   const logout = () => {
     setShowLogoutModal(true);
   };
@@ -116,13 +213,24 @@ export const AuthProvider = ({ children }) => {
     setShowLogoutModal(false);
   };
 
+  // Function untuk mendapatkan token (digunakan di komponen lain)
+  const getToken = () => {
+    if (rememberMe) {
+      return localStorage.getItem('auth_token');
+    } else {
+      return sessionStorage.getItem('auth_token');
+    }
+  };
+
   const value = {
     isLoggedIn: !!user,
     user,
     login,
     logout, 
     performLogout,
-    loading
+    loading,
+    rememberMe,
+    getToken
   };
 
   return (
