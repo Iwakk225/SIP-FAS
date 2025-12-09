@@ -103,36 +103,103 @@ class LaporanController extends Controller
 
     // METHOD YANG DIPERBAIKI: Update laporan (harus match Route::put('/admin/laporan/{id}'))
     public function update(Request $request, $id): JsonResponse
-    {
-        try {
-            $laporan = Laporan::findOrFail($id);
+{
+    try {
+        $laporan = Laporan::findOrFail($id);
+        
+        $validated = $request->validate([
+            'status' => 'required|in:Validasi,Tervalidasi,Dalam Proses,Selesai,Ditolak'
+        ]);
+
+        $oldStatus = $laporan->status;
+        $laporan->update($validated);
+
+        // 🔥 PERBAIKAN BARU: Jika status laporan Selesai/Ditolak, update status petugas
+        if (($validated['status'] === 'Selesai' || $validated['status'] === 'Ditolak') 
+            && $oldStatus !== $validated['status']) {
             
-            $validated = $request->validate([
-                'status' => 'required|in:Validasi,Tervalidasi,Dalam Proses,Selesai,Ditolak'
-            ]);
-
-            $laporan->update($validated);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Status laporan berhasil diupdate',
-                'data' => $laporan
-            ], 200);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validasi gagal',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Error updating laporan: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal mengupdate status laporan: ' . $e->getMessage()
-            ], 500);
+            // Update semua petugas yang aktif di laporan ini
+            $laporan->petugas()
+                ->wherePivot('is_active', 1)
+                ->updateExistingPivot(
+                    $laporan->petugas->pluck('id')->toArray(),
+                    [
+                        'status_tugas' => 'Selesai',
+                        'is_active' => 0, // 🔥 Petugas menjadi tersedia lagi
+                        'catatan' => $validated['status'] === 'Ditolak' 
+                            ? 'Laporan ditolak' 
+                            : 'Laporan selesai'
+                    ]
+                );
         }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Status laporan berhasil diupdate',
+            'data' => $laporan
+        ], 200);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validasi gagal',
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        Log::error('Error updating laporan: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal mengupdate status laporan: ' . $e->getMessage()
+        ], 500);
     }
+}
+
+// Tambahkan di LaporanController.php
+public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResponse
+{
+    try {
+        $validated = $request->validate([
+            'petugas_id' => 'required|exists:petugas,id',
+            'status_tugas' => 'required|in:Dikirim,Dalam Proses,Selesai,Ditolak',
+            'catatan' => 'nullable|string'
+        ]);
+
+        $laporan = Laporan::findOrFail($laporanId);
+        
+        // Update status tugas petugas di pivot
+        $laporan->petugas()->updateExistingPivot($validated['petugas_id'], [
+            'status_tugas' => $validated['status_tugas'],
+            'catatan' => $validated['catatan'] ?? null,
+            // Jika status tugas Selesai/Ditolak, petugas menjadi tersedia
+            'is_active' => ($validated['status_tugas'] === 'Selesai' || $validated['status_tugas'] === 'Ditolak') ? 0 : 1
+        ]);
+
+        // Jika status tugas petugas Selesai, cek apakah laporan selesai semua
+        if ($validated['status_tugas'] === 'Selesai') {
+            $petugasAktif = $laporan->petugas()
+                ->wherePivot('is_active', 1)
+                ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Dalam Proses'])
+                ->count();
+            
+            if ($petugasAktif === 0) {
+                $laporan->update(['status' => 'Selesai']);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Status tugas petugas berhasil diperbarui',
+            'data' => $laporan
+        ], 200);
+
+    } catch (\Exception $e) {
+        Log::error('Error updating tugas status: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal memperbarui status tugas: ' . $e->getMessage()
+        ], 500);
+    }
+}
 
     // Method khusus untuk validasi laporan - SESUAI ROUTE
     public function validateLaporan(Request $request, $id): JsonResponse
@@ -471,6 +538,143 @@ class LaporanController extends Controller
         }
     }
 
+    // Method untuk upload semua bukti (foto + PDF) sekaligus
+    public function uploadAllBukti(Request $request, $id): JsonResponse
+    {
+        Log::info('=== UPLOAD ALL BUKTI START ===');
+        Log::info('Laporan ID: ' . $id);
+        Log::info('Request method: ' . $request->method());
+        
+        try {
+            $laporan = Laporan::findOrFail($id);
+            Log::info('Laporan found: ' . $laporan->judul);
+            
+            Log::info('Checking for files...');
+            Log::info('Has foto_bukti_perbaikan files: ' . ($request->hasFile('foto_bukti_perbaikan') ? 'YES' : 'NO'));
+            Log::info('Has rincian_biaya_pdf file: ' . ($request->hasFile('rincian_biaya_pdf') ? 'YES' : 'NO'));
+            
+            if ($request->hasFile('foto_bukti_perbaikan')) {
+                $files = $request->file('foto_bukti_perbaikan');
+                Log::info('Number of photo files: ' . (is_array($files) ? count($files) : 'Not an array'));
+            }
+            
+            $validated = $request->validate([
+                'foto_bukti_perbaikan' => 'nullable|array',
+                'foto_bukti_perbaikan.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+                'rincian_biaya_pdf' => 'nullable|file|mimes:pdf|max:10240'
+            ]);
+
+            Log::info('Validation passed');
+            
+            $uploadedFotoUrls = [];
+            $pdfUrl = null;
+
+            // Upload foto bukti perbaikan jika ada
+            if ($request->hasFile('foto_bukti_perbaikan')) {
+                $files = $request->file('foto_bukti_perbaikan');
+                Log::info('Processing ' . count($files) . ' photos');
+                
+                foreach ($files as $index => $file) {
+                    Log::info('Uploading photo ' . ($index + 1) . ': ' . $file->getClientOriginalName() . ' (' . $file->getSize() . ' bytes)');
+                    
+                    $uploadedFile = Cloudinary::upload($file->getRealPath(), [
+                        'folder' => 'bukti-perbaikan',
+                        'transformation' => [
+                            'quality' => 'auto',
+                            'fetch_format' => 'auto'
+                        ]
+                    ]);
+                    
+                    $uploadedFotoUrls[] = $uploadedFile->getSecurePath();
+                    Log::info('Photo uploaded to: ' . $uploadedFile->getSecurePath());
+                }
+            }
+
+            // Upload PDF rincian biaya jika ada
+            if ($request->hasFile('rincian_biaya_pdf')) {
+                $file = $request->file('rincian_biaya_pdf');
+                Log::info('Uploading PDF: ' . $file->getClientOriginalName() . ' (' . $file->getSize() . ' bytes)');
+                
+                $uploadedFile = Cloudinary::upload($file->getRealPath(), [
+                    'folder' => 'rincian-biaya',
+                    'resource_type' => 'raw'
+                ]);
+                
+                $pdfUrl = $uploadedFile->getSecurePath();
+                Log::info('PDF uploaded to: ' . $pdfUrl);
+            }
+
+            // Update data laporan
+            $updateData = [];
+            
+            if (!empty($uploadedFotoUrls)) {
+                // Handle existing photos
+                $existingPhotos = $laporan->foto_bukti_perbaikan;
+                Log::info('Existing photos from DB: ' . json_encode($existingPhotos));
+                
+                // If existingPhotos is null or not array, initialize as empty array
+                if (is_null($existingPhotos) || !is_array($existingPhotos)) {
+                    $existingPhotos = [];
+                }
+                
+                $updateData['foto_bukti_perbaikan'] = array_merge($existingPhotos, $uploadedFotoUrls);
+                Log::info('Combined photos: ' . json_encode($updateData['foto_bukti_perbaikan']));
+            }
+            
+            if ($pdfUrl) {
+                $updateData['rincian_biaya_pdf'] = $pdfUrl;
+                Log::info('PDF URL set: ' . $pdfUrl);
+            }
+            
+            // Update status jika belum selesai dan ada upload bukti
+            if ((!empty($uploadedFotoUrls) || $pdfUrl) && $laporan->status !== 'Selesai') {
+                $updateData['status'] = 'Selesai';
+                Log::info('Status updated to: Selesai');
+            }
+
+            Log::info('Data to update: ' . json_encode($updateData));
+            
+            if (!empty($updateData)) {
+                $laporan->update($updateData);
+                Log::info('Laporan updated successfully');
+            } else {
+                Log::info('No data to update');
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Bukti perbaikan berhasil diupload',
+                'data' => [
+                    'foto_bukti_perbaikan' => $uploadedFotoUrls,
+                    'rincian_biaya_pdf' => $pdfUrl,
+                    'status' => $laporan->status,
+                    'laporan_id' => $laporan->id
+                ]
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation error: ' . json_encode($e->errors()));
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error in uploadAllBukti: ' . $e->getMessage());
+            Log::error('Error trace: ' . $e->getTraceAsString());
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal upload bukti perbaikan: ' . $e->getMessage(),
+                'debug' => env('APP_DEBUG') ? [
+                    'file' => $e->getFile(),
+                    'line' => $e->getLine(),
+                    'trace' => $e->getTraceAsString()
+                ] : null
+            ], 500);
+        }
+    }
+
     // Method untuk mendapatkan laporan berdasarkan user
     public function getLaporanByUser(Request $request): JsonResponse
     {
@@ -579,6 +783,7 @@ class LaporanController extends Controller
             ], 500);
         }
     }
+
     private function normalizeLocation($location)
     {
         // Bersihkan dan normalisasi teks lokasi

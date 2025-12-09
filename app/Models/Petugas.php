@@ -13,7 +13,7 @@ class Petugas extends Model
     
     protected $fillable = [
         'nama',
-        'alamat', 
+        'alamat',
         'nomor_telepon',
         'status'
     ];
@@ -22,56 +22,108 @@ class Petugas extends Model
         'status' => 'string'
     ];
 
-    // Relasi many-to-many dengan laporan
+    /*
+    |--------------------------------------------------------------------------
+    | RELASI
+    |--------------------------------------------------------------------------
+    */
     public function laporans()
     {
         return $this->belongsToMany(Laporan::class, 'laporan_petugas')
-                    ->withPivot('status_tugas', 'catatan', 'dikirim_pada')
-                    ->withTimestamps();
+            ->withPivot('status_tugas', 'catatan', 'dikirim_pada', 'is_active')
+            ->withTimestamps();
     }
 
-    // Scope untuk petugas aktif
+    /*
+    |--------------------------------------------------------------------------
+    | SCOPES
+    |--------------------------------------------------------------------------
+    */
+
     public function scopeAktif($query)
     {
         return $query->where('status', 'Aktif');
     }
 
-    // Scope untuk petugas yang tersedia (tidak sedang dalam tugas)
-    public function scopeTersedia($query)
+public function scopeTersedia($query, $laporanId = null)
+{
+    return $query->where('status', 'Aktif')
+        ->where(function($q) use ($laporanId) {
+            // Petugas tidak punya tugas aktif
+            $q->whereDoesntHave('laporans', function($sub) {
+                $sub->where('laporan_petugas.is_active', 1)
+                    ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
+            })
+            // ATAU sudah menangani laporan ini
+            ->when($laporanId, function($when) use ($laporanId) {
+                $when->orWhereHas('laporans', function($or) use ($laporanId) {
+                    $or->where('laporans.id', $laporanId)
+                       ->where('laporan_petugas.is_active', 1);
+                });
+            });
+        });
+}
+
+
+    public function scopeTersediaUmum($query)
     {
         return $query->where('status', 'Aktif')
-                    ->whereDoesntHave('laporans', function($q) {
-                        $q->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
-                    });
+            ->whereDoesntHave('laporans', function($q) {
+                $q->where('laporan_petugas.is_active', 1)
+                ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
+            });
     }
 
-    // Scope untuk petugas yang sedang dalam tugas
     public function scopeDalamTugas($query)
     {
         return $query->where('status', 'Aktif')
-                    ->whereHas('laporans', function($q) {
-                        $q->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
-                    });
+            ->whereHas('laporans', function ($q) {
+                $q->wherePivot('is_active', 1)
+                  ->whereIn('laporan_petugas.status_tugas', [
+                      'Dikirim', 'Diterima', 'Dalam Pengerjaan'
+                  ]);
+            });
     }
 
-    // Cek apakah petugas sedang dalam tugas
+    /*
+    |--------------------------------------------------------------------------
+    | LOGIC UTAMA
+    |--------------------------------------------------------------------------
+    */
+
     public function isDalamTugas()
     {
         return $this->laporans()
-                    ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
-                    ->exists();
+            ->where('laporan_petugas.is_active', 1)
+            ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
+            ->exists();
     }
 
-    // Get laporan yang sedang ditangani oleh petugas
+    public function isMenanganiLaporan($laporanId)
+    {
+        return $this->laporans()
+            ->where('laporans.id', $laporanId)
+            ->where('laporan_petugas.is_active', 1)
+            ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
+            ->exists();
+    }
+
     public function laporanDitangani()
     {
         return $this->laporans()
-                    ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
-                    ->withPivot('status_tugas', 'catatan', 'dikirim_pada')
-                    ->first();
+            ->wherePivot('is_active', 1)
+            ->whereIn('laporan_petugas.status_tugas', [
+                'Dikirim', 'Diterima', 'Dalam Pengerjaan'
+            ])
+            ->first();
     }
 
-    // Get status penugasan petugas
+    /*
+    |--------------------------------------------------------------------------
+    | ATTRIBUTE (Status Penugasan)
+    |--------------------------------------------------------------------------
+    */
+
     public function getStatusPenugasanAttribute()
     {
         if ($this->status !== 'Aktif') {
@@ -81,15 +133,12 @@ class Petugas extends Model
         return $this->isDalamTugas() ? 'Dalam Tugas' : 'Tersedia';
     }
 
-    // Get warna untuk status penugasan
     public function getStatusPenugasanColorAttribute()
     {
-        $status = $this->status_penugasan;
-        
-        if ($status === 'Tersedia') return 'success';
-        if ($status === 'Dalam Tugas') return 'warning';
-        if ($status === 'Nonaktif') return 'danger';
-        
-        return 'secondary';
+        return [
+            'Tersedia' => 'success',
+            'Dalam Tugas' => 'warning',
+            'Nonaktif' => 'danger'
+        ][$this->status_penugasan] ?? 'secondary';
     }
 }

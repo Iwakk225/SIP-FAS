@@ -11,7 +11,7 @@ class Laporan extends Model
 
     protected $fillable = [
         'judul',
-        'lokasi', 
+        'lokasi',
         'deskripsi',
         'kategori',
         'pelapor_nama',
@@ -29,60 +29,49 @@ class Laporan extends Model
         'foto_bukti_perbaikan' => 'array'
     ];
 
-    // Relasi many-to-many dengan petugas
+    /*
+    |--------------------------------------------------------------------------
+    | RELASI
+    |--------------------------------------------------------------------------
+    */
     public function petugas()
     {
         return $this->belongsToMany(Petugas::class, 'laporan_petugas')
-                    ->withPivot('status_tugas', 'catatan', 'dikirim_pada')
-                    ->withTimestamps();
+            ->withPivot('status_tugas', 'catatan', 'dikirim_pada', 'is_active')
+            ->withTimestamps();
     }
 
-    // Cek apakah laporan sudah memiliki petugas
+    /*
+    |--------------------------------------------------------------------------
+    | LOGIC LAPORAN
+    |--------------------------------------------------------------------------
+    */
+
+    // Laporan punya petugas aktif?
     public function hasPetugas()
     {
-        return $this->petugas()->exists();
+        return $this->petugas()
+            ->wherePivot('is_active', 1)
+            ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
+            ->exists();
     }
 
-    // Get petugas yang sedang menangani laporan ini
+    // Ambil petugas yang sedang aktif di laporan
     public function petugasAktif()
     {
         return $this->petugas()
-                    ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
-                    ->withPivot('status_tugas', 'catatan', 'dikirim_pada');
+            ->wherePivot('is_active', 1)
+            ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
     }
 
-    // Get status tugas untuk laporan ini (jika ada petugas)
+    // Status tugas laporan dari pivot aktif
     public function getStatusTugasAttribute()
     {
-        $petugasAktif = $this->petugasAktif()->first();
-        return $petugasAktif ? $petugasAktif->pivot->status_tugas : null;
+        $pivot = $this->petugasAktif()->first();
+        return $pivot ? $pivot->pivot->status_tugas : null;
     }
 
-    // Get petugas pertama yang menangani laporan
-    public function petugasPertama()
-    {
-        return $this->petugas()
-                    ->orderBy('laporan_petugas.created_at')
-                    ->first();
-    }
-
-    // Scope untuk laporan yang sudah ditugaskan ke petugas
-    public function scopeDitugaskan($query)
-    {
-        return $query->whereHas('petugas', function($q) {
-            $q->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
-        });
-    }
-
-    // Scope untuk laporan yang belum ditugaskan
-    public function scopeBelumDitugaskan($query)
-    {
-        return $query->whereDoesntHave('petugas', function($q) {
-            $q->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
-        });
-    }
-
-    // Update status tugas petugas di laporan ini
+    // Update status tugas di pivot
     public function updateStatusTugasPetugas($petugasId, $statusTugas, $catatan = null)
     {
         return $this->petugas()->updateExistingPivot($petugasId, [
