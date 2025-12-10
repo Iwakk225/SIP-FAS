@@ -1,16 +1,44 @@
-import React, { useState } from "react";
-import { Building2, Menu, X, User, LogOut, Bell } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { 
+    Building2, Menu, X, User, LogOut, Bell, 
+    CheckCircle, Clock, AlertCircle, XCircle, Loader2
+} from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import axios from "axios";
+
+// 🔥 TAMBAH: Function untuk show notification/toast
+const showToast = (message, type = "info") => {
+    // Buat element toast
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg text-white ${
+        type === 'success' ? 'bg-green-500' :
+        type === 'error' ? 'bg-red-500' :
+        type === 'warning' ? 'bg-yellow-500' :
+        'bg-blue-500'
+    }`;
+    toast.textContent = message;
+    
+    // Tambah ke body
+    document.body.appendChild(toast);
+    
+    // Auto remove setelah 3 detik
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+};
 
 export default function NavbarAfterLogin() {
     const location = useLocation();
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+    const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [loading, setLoading] = useState(false);
 
-    // Gunakan auth context
-    const { user, logout } = useAuth();
+    const { user, logout, getToken } = useAuth();
 
     const navLinks = [
         { name: "Beranda", path: "/" },
@@ -20,11 +48,168 @@ export default function NavbarAfterLogin() {
         { name: "Kontak", path: "/KontakPage" },
     ];
 
+    // Fetch notifications
+    const fetchNotifications = async () => {
+        try {
+            setLoading(true);
+            const userToken = getToken();
+            
+            if (!userToken) {
+                setLoading(false);
+                return;
+            }
+
+            const response = await axios.get(
+                "http://localhost:8000/api/user/notifications",
+                {
+                    headers: { 
+                        Authorization: `Bearer ${userToken}`,
+                        'Accept': 'application/json'
+                    }
+                }
+            );
+
+            if (response.data.success) {
+                setNotifications(response.data.data);
+                setUnreadCount(response.data.unread_count || 0);
+            }
+        } catch (error) {
+            console.error("Error fetching notifications:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 🔥 PERBAIKAN: handleMarkAllAsRead tanpa showNotification
+    const handleMarkAllAsRead = async () => {
+        try {
+            const userToken = getToken();
+            
+            const response = await axios.post(
+                "http://localhost:8000/api/user/notifications/mark-all-read",
+                {},
+                {
+                    headers: { 
+                        Authorization: `Bearer ${userToken}`,
+                        'Accept': 'application/json'
+                    }
+                }
+            );
+
+            if (response.data.success) {
+                // 🔥 GUNAKAN showToast BUKAN showNotification
+                showToast("Semua notifikasi ditandai sebagai dibaca", "success");
+                setUnreadCount(0);
+                
+                // Refresh notifications list
+                await fetchNotifications();
+            }
+        } catch (error) {
+            console.error("Error marking all as read:", error);
+            showToast("Gagal menandai notifikasi", "error");
+        }
+        setIsNotificationDropdownOpen(false);
+    };
+
+    // 🔥 PERBAIKAN: handleMarkAsRead tanpa showNotification
+    const handleMarkAsRead = async (notificationId) => {
+        try {
+            const userToken = getToken();
+            
+            const response = await axios.post(
+                `http://localhost:8000/api/user/notifications/${notificationId}/read`,
+                {},
+                {
+                    headers: { 
+                        Authorization: `Bearer ${userToken}`,
+                        'Accept': 'application/json'
+                    }
+                }
+            );
+
+            if (response.data.success) {
+                // Update local state
+                setNotifications(prev => 
+                    prev.map(notif => 
+                        notif.id === notificationId 
+                            ? { ...notif, is_new: false } 
+                            : notif
+                    )
+                );
+                
+                // Update unread count
+                setUnreadCount(prev => Math.max(0, prev - 1));
+            }
+        } catch (error) {
+            console.error("Error marking as read:", error);
+        }
+    };
+
+    // Fetch notifications every 30 seconds
+    useEffect(() => {
+        if (user) {
+            fetchNotifications();
+            
+            const interval = setInterval(() => {
+                fetchNotifications();
+            }, 30000);
+
+            return () => clearInterval(interval);
+        }
+    }, [user]);
+
+    // Auto-mark as read setelah dropdown dibuka 5 detik
+    useEffect(() => {
+        if (isNotificationDropdownOpen && unreadCount > 0) {
+            const timer = setTimeout(() => {
+                console.log('🔔 Auto-mark notifications as read');
+                handleMarkAllAsRead();
+            }, 5000);
+            
+            return () => clearTimeout(timer);
+        }
+    }, [isNotificationDropdownOpen, unreadCount]);
+
     const handleLogout = () => {
         logout();
         navigate("/");
         setIsProfileDropdownOpen(false);
         setIsMenuOpen(false);
+    };
+
+    const getStatusIcon = (status) => {
+        switch(status?.toLowerCase()) {
+            case 'selesai':
+                return <CheckCircle className="w-4 h-4 text-green-500" />;
+            case 'dalam proses':
+                return <Clock className="w-4 h-4 text-blue-500" />;
+            case 'ditolak':
+                return <XCircle className="w-4 h-4 text-red-500" />;
+            case 'validasi':
+            case 'tervalidasi':
+                return <AlertCircle className="w-4 h-4 text-yellow-500" />;
+            default:
+                return <AlertCircle className="w-4 h-4 text-gray-500" />;
+        }
+    };
+
+    const formatTime = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffHours = Math.floor((now - date) / (1000 * 60 * 60));
+        
+        if (diffHours < 1) {
+            return 'Baru saja';
+        } else if (diffHours < 24) {
+            return `${diffHours} jam yang lalu`;
+        } else {
+            return date.toLocaleDateString('id-ID');
+        }
+    };
+
+    const handleNotificationClick = (notification) => {
+        navigate('/StatusPage');
+        setIsNotificationDropdownOpen(false);
     };
 
     return (
@@ -57,66 +242,187 @@ export default function NavbarAfterLogin() {
                     ))}
                 </div>
 
-                {/* User Menu desktop */}
-                <div className="hidden md:flex items-center space-x-4">
-                    {/* Notifikasi */}
-                    <button className="relative p-2 text-gray-600 hover:text-[#FDBD59] transition-colors cursor-pointer">
-                        <Bell className="w-5 h-5" />
-                        {/* <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                            // Notifikasi disini!
-                        </span> */}
-                    </button>
+                {/* User Menu desktop - hanya tampil jika user login */}
+                {user && (
+                    <div className="hidden md:flex items-center space-x-4">
+                        {/* Notifikasi */}
+                        <div className="relative">
+                            <button
+                                onClick={() => {
+                                    setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
+                                    setIsProfileDropdownOpen(false);
+                                    fetchNotifications();
+                                }}
+                                className="relative p-2 text-gray-600 hover:text-[#FDBD59] transition-colors cursor-pointer"
+                            >
+                                <Bell className="w-5 h-5" />
+                                {unreadCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </span>
+                                )}
+                            </button>
 
-                    {/* Profile Dropdown */}
-                    <div className="relative">
-                        <button
-                            onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                            className="flex items-center space-x-2 text-gray-700 hover:text-[#FDBD59] transition-colors cursor-pointer"
-                        >
-                            <div className="w-8 h-8 bg-[#FDBD59] rounded-full flex items-center justify-center">
-                                <User className="w-4 h-4 text-black" />
-                            </div>
-                            <span className="text-sm font-medium">
-                                {user?.name || "User"}
-                            </span>
-                        </button>
+                            {isNotificationDropdownOpen && (
+                                <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50 max-h-96 overflow-y-auto">
+                                    <div className="px-4 py-2 border-b border-gray-100 flex justify-between items-center">
+                                        <h3 className="text-sm font-semibold text-gray-900">
+                                            Notifikasi
+                                        </h3>
+                                        {unreadCount > 0 && (
+                                            <button
+                                                onClick={handleMarkAllAsRead}
+                                                className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer"
+                                            >
+                                                Tandai semua dibaca
+                                            </button>
+                                        )}
+                                    </div>
 
-                        {isProfileDropdownOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
-                                <Link
-                                    to="/ProfilePage"
-                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                    onClick={() => setIsProfileDropdownOpen(false)}
-                                >
-                                    Profil Saya
-                                </Link>
-                                <Link
-                                    to="/StatusPage"
-                                    className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                    onClick={() => setIsProfileDropdownOpen(false)}
-                                >
-                                    Laporan Saya
-                                </Link>
-                                <button
-                                    onClick={handleLogout}
-                                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 cursor-pointer"
-                                >
-                                    <LogOut className="w-4 h-4 inline mr-2" />
-                                    Keluar
-                                </button>
-                            </div>
-                        )}
+                                    {loading ? (
+                                        <div className="flex justify-center items-center py-8">
+                                            <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                                        </div>
+                                    ) : notifications.length > 0 ? (
+                                        <div className="divide-y divide-gray-100">
+                                            {notifications.map((notif) => (
+                                                <div
+                                                    key={notif.id}
+                                                    onClick={() => {
+                                                        handleNotificationClick(notif);
+                                                        handleMarkAsRead(notif.id);
+                                                    }}
+                                                    className={`px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors ${
+                                                        notif.is_new ? 'bg-blue-50' : ''
+                                                    }`}
+                                                >
+                                                    <div className="flex items-start space-x-3">
+                                                        <div className="mt-0.5">
+                                                            {getStatusIcon(notif.status)}
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <p className="text-sm font-medium text-gray-900">
+                                                                {notif.judul}
+                                                            </p>
+                                                            <p className="text-xs text-gray-600 mt-1">
+                                                                {notif.message}
+                                                            </p>
+                                                            <div className="flex justify-between items-center mt-2">
+                                                                <p className="text-xs text-gray-400">
+                                                                    {formatTime(notif.updated_at)}
+                                                                </p>
+                                                                {notif.is_new && (
+                                                                    <span className="text-xs text-blue-600 font-medium">
+                                                                        Baru
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleMarkAsRead(notif.id);
+                                                            }}
+                                                            className="opacity-0 group-hover:opacity-100 transition-opacity text-xs text-gray-400 hover:text-gray-600 cursor-pointer"
+                                                            title="Tandai dibaca"
+                                                        >
+                                                            ✓
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="px-4 py-8 text-center">
+                                            <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                                            <p className="text-sm text-gray-500">
+                                                Tidak ada notifikasi
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="border-t border-gray-100 px-4 py-2">
+                                        <Link
+                                            to="/StatusPage"
+                                            onClick={() => setIsNotificationDropdownOpen(false)}
+                                            className="text-xs text-center block text-blue-600 hover:text-blue-800"
+                                        >
+                                            Lihat semua laporan →
+                                        </Link>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Profile Dropdown */}
+                        <div className="relative">
+                            <button
+                                onClick={() => {
+                                    setIsProfileDropdownOpen(!isProfileDropdownOpen);
+                                    setIsNotificationDropdownOpen(false);
+                                }}
+                                className="flex items-center space-x-2 text-gray-700 hover:text-[#FDBD59] transition-colors cursor-pointer"
+                            >
+                                <div className="w-8 h-8 bg-[#FDBD59] rounded-full flex items-center justify-center">
+                                    <User className="w-4 h-4 text-black" />
+                                </div>
+                                <span className="text-sm font-medium">
+                                    {user?.name || "User"}
+                                </span>
+                            </button>
+
+                            {isProfileDropdownOpen && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                                    <Link
+                                        to="/ProfilePage"
+                                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        onClick={() => setIsProfileDropdownOpen(false)}
+                                    >
+                                        Profil Saya
+                                    </Link>
+                                    <Link
+                                        to="/StatusPage"
+                                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                        onClick={() => setIsProfileDropdownOpen(false)}
+                                    >
+                                        Laporan Saya
+                                    </Link>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 cursor-pointer"
+                                    >
+                                        <LogOut className="w-4 h-4 inline mr-2" />
+                                        Keluar
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Tombol menu mobile */}
                 <div className="md:hidden flex items-center space-x-2">
-                    <button className="relative p-2 text-gray-600 cursor-pointer">
-                        <Bell className="w-5 h-5" />
-                        {/* <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                            
-                        </span> */}
-                    </button>
+                    {/* Notifikasi Mobile - hanya jika user login */}
+                    {user && (
+                        <div className="relative">
+                            <button
+                                onClick={() => {
+                                    setIsNotificationDropdownOpen(!isNotificationDropdownOpen);
+                                    setIsMenuOpen(false);
+                                    fetchNotifications();
+                                }}
+                                className="relative p-2 text-gray-600 hover:text-[#FDBD59] transition-colors cursor-pointer"
+                            >
+                                <Bell className="w-5 h-5" />
+                                {unreadCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    )}
+                    
                     <button
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
                         className="cursor-pointer"
@@ -149,44 +455,120 @@ export default function NavbarAfterLogin() {
                             </Link>
                         ))}
 
-                        {/* User Info Mobile */}
-                        <div className="w-full border-t border-gray-200 pt-3 mt-2">
-                            <div className="flex items-center space-x-3 mb-3">
-                                <div className="w-8 h-8 bg-[#FDBD59] rounded-full flex items-center justify-center">
-                                    <User className="w-4 h-4 text-black" />
+                        {/* User Info Mobile - hanya jika user login */}
+                        {user && (
+                            <div className="w-full border-t border-gray-200 pt-3 mt-2">
+                                <div className="flex items-center space-x-3 mb-3">
+                                    <div className="w-8 h-8 bg-[#FDBD59] rounded-full flex items-center justify-center">
+                                        <User className="w-4 h-4 text-black" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-900">
+                                            {user?.name || "User"}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            {user?.email}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {user?.name || "User"}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                        {user?.email}
-                                    </p>
-                                </div>
-                            </div>
 
-                            <Link
-                                to="/ProfilePage"
-                                className="block w-full py-2 text-sm text-gray-700 hover:text-[#FDBD59]"
-                                onClick={() => setIsMenuOpen(false)}
-                            >
-                                Profil Saya
-                            </Link>
-                            <Link
-                                to="/StatusPage"
-                                className="block w-full py-2 text-sm text-gray-700 hover:text-[#FDBD59]"
-                                onClick={() => setIsMenuOpen(false)}
-                            >
-                                Laporan Saya
-                            </Link>
-                            <button
-                                onClick={handleLogout}
-                                className="flex items-center w-full text-left py-2 text-sm text-red-600 hover:text-red-700 cursor-pointer"
-                            >
-                                <LogOut className="w-4 h-4 mr-2" />
-                                Keluar
-                            </button>
+                                <Link
+                                    to="/ProfilePage"
+                                    className="block w-full py-2 text-sm text-gray-700 hover:text-[#FDBD59]"
+                                    onClick={() => setIsMenuOpen(false)}
+                                >
+                                    Profil Saya
+                                </Link>
+                                <Link
+                                    to="/StatusPage"
+                                    className="block w-full py-2 text-sm text-gray-700 hover:text-[#FDBD59]"
+                                    onClick={() => setIsMenuOpen(false)}
+                                >
+                                    Laporan Saya
+                                </Link>
+                                <button
+                                    onClick={handleLogout}
+                                    className="flex items-center w-full text-left py-2 text-sm text-red-600 hover:text-red-700 cursor-pointer"
+                                >
+                                    <LogOut className="w-4 h-4 mr-2" />
+                                    Keluar
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Notification Dropdown Mobile */}
+            {isNotificationDropdownOpen && user && (
+                <div className="md:hidden absolute top-16 right-4 w-80 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50 max-h-96 overflow-y-auto">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                        <h3 className="text-sm font-semibold text-gray-900">
+                            Notifikasi
+                        </h3>
+                    </div>
+
+                    {loading ? (
+                        <div className="flex justify-center items-center py-8">
+                            <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
                         </div>
+                    ) : notifications.length > 0 ? (
+                        <div className="divide-y divide-gray-100">
+                            {notifications.map((notif) => (
+                                <div
+                                    key={notif.id}
+                                    onClick={() => {
+                                        handleNotificationClick(notif);
+                                        handleMarkAsRead(notif.id);
+                                        setIsNotificationDropdownOpen(false);
+                                    }}
+                                    className={`px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors ${
+                                        notif.is_new ? 'bg-blue-50' : ''
+                                    }`}
+                                >
+                                    <div className="flex items-start space-x-3">
+                                        <div className="mt-0.5">
+                                            {getStatusIcon(notif.status)}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-gray-900">
+                                                {notif.judul}
+                                            </p>
+                                            <p className="text-xs text-gray-600 mt-1">
+                                                {notif.message}
+                                            </p>
+                                            <div className="flex justify-between items-center mt-2">
+                                                <p className="text-xs text-gray-400">
+                                                    {formatTime(notif.updated_at)}
+                                                </p>
+                                                {notif.is_new && (
+                                                    <span className="text-xs text-blue-600 font-medium">
+                                                        Baru
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="px-4 py-8 text-center">
+                            <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                            <p className="text-sm text-gray-500">
+                                Tidak ada notifikasi
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="border-t border-gray-100 px-4 py-2">
+                        <Link
+                            to="/StatusPage"
+                            onClick={() => setIsNotificationDropdownOpen(false)}
+                            className="text-xs text-center block text-blue-600 hover:text-blue-800"
+                        >
+                            Lihat semua laporan →
+                        </Link>
                     </div>
                 </div>
             )}

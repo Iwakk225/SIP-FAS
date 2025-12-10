@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache; 
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class LaporanController extends Controller
@@ -103,103 +104,371 @@ class LaporanController extends Controller
 
     // METHOD YANG DIPERBAIKI: Update laporan (harus match Route::put('/admin/laporan/{id}'))
     public function update(Request $request, $id): JsonResponse
-{
-    try {
-        $laporan = Laporan::findOrFail($id);
-        
-        $validated = $request->validate([
-            'status' => 'required|in:Validasi,Tervalidasi,Dalam Proses,Selesai,Ditolak'
-        ]);
-
-        $oldStatus = $laporan->status;
-        $laporan->update($validated);
-
-        // 🔥 PERBAIKAN BARU: Jika status laporan Selesai/Ditolak, update status petugas
-        if (($validated['status'] === 'Selesai' || $validated['status'] === 'Ditolak') 
-            && $oldStatus !== $validated['status']) {
+    {
+        try {
+            $laporan = Laporan::findOrFail($id);
             
-            // Update semua petugas yang aktif di laporan ini
-            $laporan->petugas()
-                ->wherePivot('is_active', 1)
-                ->updateExistingPivot(
-                    $laporan->petugas->pluck('id')->toArray(),
-                    [
-                        'status_tugas' => 'Selesai',
-                        'is_active' => 0, // 🔥 Petugas menjadi tersedia lagi
-                        'catatan' => $validated['status'] === 'Ditolak' 
-                            ? 'Laporan ditolak' 
-                            : 'Laporan selesai'
-                    ]
-                );
-        }
+            $validated = $request->validate([
+                'status' => 'required|in:Validasi,Tervalidasi,Dalam Proses,Selesai,Ditolak'
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Status laporan berhasil diupdate',
-            'data' => $laporan
-        ], 200);
-
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Validasi gagal',
-            'errors' => $e->errors()
-        ], 422);
-    } catch (\Exception $e) {
-        Log::error('Error updating laporan: ' . $e->getMessage());
-        return response()->json([
-            'success' => false,
-            'message' => 'Gagal mengupdate status laporan: ' . $e->getMessage()
-        ], 500);
-    }
-}
-
-// Tambahkan di LaporanController.php
-public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResponse
-{
-    try {
-        $validated = $request->validate([
-            'petugas_id' => 'required|exists:petugas,id',
-            'status_tugas' => 'required|in:Dikirim,Dalam Proses,Selesai,Ditolak',
-            'catatan' => 'nullable|string'
-        ]);
-
-        $laporan = Laporan::findOrFail($laporanId);
-        
-        // Update status tugas petugas di pivot
-        $laporan->petugas()->updateExistingPivot($validated['petugas_id'], [
-            'status_tugas' => $validated['status_tugas'],
-            'catatan' => $validated['catatan'] ?? null,
-            // Jika status tugas Selesai/Ditolak, petugas menjadi tersedia
-            'is_active' => ($validated['status_tugas'] === 'Selesai' || $validated['status_tugas'] === 'Ditolak') ? 0 : 1
-        ]);
-
-        // Jika status tugas petugas Selesai, cek apakah laporan selesai semua
-        if ($validated['status_tugas'] === 'Selesai') {
-            $petugasAktif = $laporan->petugas()
-                ->wherePivot('is_active', 1)
-                ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Dalam Proses'])
-                ->count();
+            $oldStatus = $laporan->status;
             
-            if ($petugasAktif === 0) {
-                $laporan->update(['status' => 'Selesai']);
+            Log::info('🔔 DEBUG NOTIFIKASI - Update Status Laporan:', [
+                'laporan_id' => $laporan->id,
+                'old_status' => $oldStatus,
+                'new_status' => $validated['status'],
+                'pelapor_email' => $laporan->pelapor_email,
+                'pelapor_nama' => $laporan->pelapor_nama
+            ]);
+            
+            $laporan->update($validated);
+
+            // 🔥 BUAT NOTIFIKASI UNTUK USER
+            Log::info('🔔 Panggil createUserNotification...');
+            $this->createUserNotification($laporan, $oldStatus, $validated['status']);
+            Log::info('🔔 createUserNotification selesai');
+
+            // 🔥 PERBAIKAN BARU: Jika status laporan Selesai/Ditolak, update status petugas
+            if (($validated['status'] === 'Selesai' || $validated['status'] === 'Ditolak') 
+                && $oldStatus !== $validated['status']) {
+                
+                // Update semua petugas yang aktif di laporan ini
+                $laporan->petugas()
+                    ->wherePivot('is_active', 1)
+                    ->updateExistingPivot(
+                        $laporan->petugas->pluck('id')->toArray(),
+                        [
+                            'status_tugas' => 'Selesai',
+                            'is_active' => 0, // 🔥 Petugas menjadi tersedia lagi
+                            'catatan' => $validated['status'] === 'Ditolak' 
+                                ? 'Laporan ditolak' 
+                                : 'Laporan selesai'
+                        ]
+                    );
             }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Status laporan berhasil diupdate',
+                'data' => $laporan,
+                'notification_sent' => true
+            ], 200);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validasi gagal',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error updating laporan: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengupdate status laporan: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Status tugas petugas berhasil diperbarui',
-            'data' => $laporan
-        ], 200);
-
-    } catch (\Exception $e) {
-        Log::error('Error updating tugas status: ' . $e->getMessage());
-        return response()->json([
-            'success' => false,
-            'message' => 'Gagal memperbarui status tugas: ' . $e->getMessage()
-        ], 500);
     }
-}
+
+    // Tambahkan di LaporanController.php, sebelum method update()
+    // Di LaporanController.php, perbaiki method createUserNotification
+    private function createUserNotification($laporan, $oldStatus, $newStatus)
+    {
+        try {
+            Log::info('🔔 DEBUG - createUserNotification dipanggil:', [
+                'laporan_id' => $laporan->id,
+                'pelapor_email' => $laporan->pelapor_email,
+                'pelapor_nama' => $laporan->pelapor_nama
+            ]);
+
+            // Cari user berdasarkan email atau nama di laporan
+            $user = \App\Models\User::where('email', $laporan->pelapor_email)
+                ->orWhere('name', $laporan->pelapor_nama)
+                ->first();
+
+            Log::info('🔔 DEBUG - User ditemukan:', [
+                'user_id' => $user ? $user->id : 'null',
+                'user_email' => $user ? $user->email : 'null',
+                'user_name' => $user ? $user->name : 'null'
+            ]);
+
+            if (!$user) {
+                Log::warning('🔔 User tidak ditemukan untuk notifikasi laporan: ' . $laporan->id);
+                return;
+            }
+
+            // Tentukan pesan berdasarkan perubahan status
+            $messages = [
+                'Validasi' => 'Laporan Anda sedang dalam proses validasi',
+                'Tervalidasi' => 'Laporan Anda telah divalidasi dan akan segera ditangani',
+                'Dalam Proses' => 'Laporan Anda sedang ditangani oleh petugas',
+                'Selesai' => 'Laporan Anda telah selesai ditangani',
+                'Ditolak' => 'Laporan Anda ditolak. Silakan periksa detailnya'
+            ];
+
+            $title = "Update Status Laporan: " . $laporan->judul;
+            $message = isset($messages[$newStatus]) 
+                ? $messages[$newStatus] 
+                : "Status laporan berubah dari {$oldStatus} menjadi {$newStatus}";
+
+            Log::info('🔔 Notifikasi dibuat:', [
+                'title' => $title,
+                'message' => $message,
+                'user_id' => $user->id
+            ]);
+            
+            // Simpan ke log untuk debugging
+            // Untuk sementara, kita simpan notifikasi di session atau cache
+            // Bisa juga simpan ke file log
+            
+            $logData = [
+                'user_id' => $user->id,
+                'user_email' => $user->email,
+                'laporan_id' => $laporan->id,
+                'laporan_judul' => $laporan->judul,
+                'old_status' => $oldStatus,
+                'new_status' => $newStatus,
+                'message' => $message,
+                'created_at' => now()->toDateTimeString()
+            ];
+            
+            // Simpan ke file log atau cache
+            $logPath = storage_path('logs/notifications.log');
+            file_put_contents($logPath, json_encode($logData) . PHP_EOL, FILE_APPEND);
+
+            Log::info("🔔 Notifikasi disimpan ke log: {$logPath}");
+
+        } catch (\Exception $e) {
+            Log::error('🔔 Error creating user notification: ' . $e->getMessage());
+            Log::error('🔔 Stack trace:', $e->getTrace());
+        }
+    }
+
+    // Di LaporanController.php, tambahkan method baru
+    public function getUserNotifications(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            Log::info('🔔 DEBUG - getUserNotifications dipanggil:', [
+                'user_id' => $user ? $user->id : 'null',
+                'user_email' => $user ? $user->email : 'null',
+                'user_name' => $user ? $user->name : 'null'
+            ]);
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak terautentikasi'
+                ], 401);
+            }
+
+            Log::info('🔔 DEBUG - Mencari laporan untuk:', [
+                'email' => $user->email,
+                'name' => $user->name
+            ]);
+
+            // Ambil laporan user berdasarkan email atau nama
+            $laporans = Laporan::where('pelapor_email', $user->email)
+                ->orWhere('pelapor_nama', $user->name)
+                ->orderBy('updated_at', 'desc')
+                ->limit(20) // 🔥 TAMBAH LIMIT
+                ->get();
+
+            Log::info('🔔 DEBUG - Jumlah laporan ditemukan:', [
+                'count' => $laporans->count()
+            ]);
+
+            // 🔥 PERBAIKAN: Gunakan cache untuk last viewed
+            $lastViewedKey = 'notifications_last_viewed_' . $user->id;
+            $lastViewed = Cache::get($lastViewedKey, now()->subDays(1));
+            
+            $formattedNotifications = $laporans->map(function($laporan) use ($lastViewed) {
+                // 🔥 PERBAIKAN: Notifikasi "new" jika updated setelah lastViewed
+                $isNew = $laporan->updated_at > $lastViewed;
+                
+                $notification = [
+                    'id' => $laporan->id,
+                    'judul' => $laporan->judul,
+                    'status' => $laporan->status,
+                    'updated_at' => $laporan->updated_at,
+                    'message' => $this->getStatusMessage($laporan->status),
+                    'is_new' => $isNew
+                ];
+                
+                Log::info('🔔 DEBUG - Notifikasi laporan:', $notification);
+                return $notification;
+            });
+
+            // 🔥 PERBAIKAN: Hitung unread berdasarkan lastViewed
+            $unreadCount = $formattedNotifications->where('is_new', true)->count();
+
+            return response()->json([
+                'success' => true,
+                'data' => $formattedNotifications,
+                'unread_count' => $unreadCount,
+                'debug_info' => [
+                    'total_laporans' => $laporans->count(),
+                    'user_email' => $user->email,
+                    'user_name' => $user->name,
+                    'last_viewed' => $lastViewed->format('Y-m-d H:i:s'),
+                    'current_time' => now()->format('Y-m-d H:i:s')
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('🔔 Error fetching user notifications: ' . $e->getMessage());
+            Log::error('🔔 Stack trace:', $e->getTrace());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil notifikasi'
+            ], 500);
+        }
+    }
+
+    // Tambahkan di LaporanController.php
+    public function markNotificationAsRead(Request $request, $laporanId): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak terautentikasi'
+                ], 401);
+            }
+
+            $laporan = Laporan::findOrFail($laporanId);
+            
+            // Cek apakah laporan milik user ini
+            $isUserLaporan = $laporan->pelapor_email === $user->email 
+                || $laporan->pelapor_nama === $user->name;
+                
+            if (!$isUserLaporan) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Anda tidak memiliki akses ke laporan ini'
+                ], 403);
+            }
+
+            // Update timestamp agar tidak dianggap "new" lagi
+            $laporan->touch(); // Update updated_at
+            
+            Log::info('🔔 Notifikasi ditandai dibaca:', [
+                'user_id' => $user->id,
+                'laporan_id' => $laporan->id,
+                'status' => $laporan->status
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Notifikasi ditandai sebagai dibaca'
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error marking notification as read: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menandai notifikasi'
+            ], 500);
+        }
+    }
+
+    public function markAllNotificationsAsRead(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak terautentikasi'
+                ], 401);
+            }
+
+            // 🔥 PERBAIKAN: Simpan waktu sekarang sebagai last viewed di cache
+            $lastViewedKey = 'notifications_last_viewed_' . $user->id;
+            Cache::put($lastViewedKey, now(), now()->addDays(1)); // Simpan 1 hari
+
+            Log::info('🔔 Semua notifikasi ditandai dibaca - Cache updated:', [
+                'user_id' => $user->id,
+                'last_viewed' => now()->format('Y-m-d H:i:s')
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Semua notifikasi ditandai sebagai dibaca',
+                'last_viewed' => now()->format('Y-m-d H:i:s')
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error marking all notifications as read: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menandai semua notifikasi'
+            ], 500);
+        }
+    }
+
+    private function getStatusMessage($status)
+    {
+        $messages = [
+            'Validasi' => 'Laporan Anda sedang dalam proses validasi',
+            'Tervalidasi' => 'Laporan Anda telah divalidasi',
+            'Dalam Proses' => 'Laporan Anda sedang ditangani petugas',
+            'Selesai' => 'Laporan Anda telah selesai',
+            'Ditolak' => 'Laporan Anda ditolak'
+        ];
+        
+        return $messages[$status] ?? 'Status laporan diperbarui';
+    }
+
+    public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'petugas_id' => 'required|exists:petugas,id',
+                'status_tugas' => 'required|in:Dikirim,Dalam Proses,Selesai,Ditolak',
+                'catatan' => 'nullable|string'
+            ]);
+
+            $laporan = Laporan::findOrFail($laporanId);
+            
+            // Update status tugas petugas di pivot
+            $laporan->petugas()->updateExistingPivot($validated['petugas_id'], [
+                'status_tugas' => $validated['status_tugas'],
+                'catatan' => $validated['catatan'] ?? null,
+                // Jika status tugas Selesai/Ditolak, petugas menjadi tersedia
+                'is_active' => ($validated['status_tugas'] === 'Selesai' || $validated['status_tugas'] === 'Ditolak') ? 0 : 1
+            ]);
+
+            // Jika status tugas petugas Selesai, cek apakah laporan selesai semua
+            if ($validated['status_tugas'] === 'Selesai') {
+                $petugasAktif = $laporan->petugas()
+                    ->wherePivot('is_active', 1)
+                    ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Dalam Proses'])
+                    ->count();
+                
+                if ($petugasAktif === 0) {
+                    $laporan->update(['status' => 'Selesai']);
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Status tugas petugas berhasil diperbarui',
+                'data' => $laporan
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error updating tugas status: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memperbarui status tugas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 
     // Method khusus untuk validasi laporan - SESUAI ROUTE
     public function validateLaporan(Request $request, $id): JsonResponse
@@ -214,7 +483,11 @@ public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResp
                 ], 404);
             }
 
+            $oldStatus = $laporan->status;
             $laporan->update(['status' => 'Tervalidasi']);
+            
+            // 🔥 TAMBAH NOTIFIKASI
+            $this->createUserNotification($laporan, $oldStatus, 'Tervalidasi');
 
             return response()->json([
                 'success' => true,
@@ -249,6 +522,8 @@ public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResp
                 ], 422);
             }
 
+            $oldStatus = $laporan->status;
+
             // Assign petugas menggunakan relasi
             $laporan->petugas()->attach($validated['petugas_id'], [
                 'status_tugas' => 'Dikirim',
@@ -258,6 +533,9 @@ public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResp
 
             // Update status laporan
             $laporan->update(['status' => 'Dalam Proses']);
+            
+            // 🔥 TAMBAH NOTIFIKASI
+            $this->createUserNotification($laporan, $oldStatus, 'Dalam Proses');
 
             // Load petugas yang baru ditugaskan
             $laporan->load(['petugas' => function($query) {
@@ -305,7 +583,10 @@ public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResp
             // Jika semua petugas selesai, update status laporan
             $petugasAktif = $laporan->petugasAktif()->count();
             if ($petugasAktif === 0) {
+                $oldStatus = $laporan->status;
                 $laporan->update(['status' => 'Selesai']);
+                // 🔥 TAMBAH NOTIFIKASI
+                $this->createUserNotification($laporan, $oldStatus, 'Selesai');
             }
 
             return response()->json([
@@ -329,6 +610,8 @@ public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResp
         }
     }
 
+    // 🔥 PERBAIKAN: Method ini duplicate dengan update(), bisa dihapus
+    /*
     public function updateStatus(Request $request, $id)
     {
         $laporan = Laporan::findOrFail($id);
@@ -354,6 +637,7 @@ public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResp
             'message' => 'Status laporan berhasil diupdate'
         ]);
     }
+    */
 
     // **BARU: Update status tugas petugas di laporan**
     public function updateStatusTugas(Request $request, $laporanId): JsonResponse
@@ -376,7 +660,10 @@ public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResp
             if ($validated['status_tugas'] === 'Selesai') {
                 $petugasAktif = $laporan->petugasAktif()->count();
                 if ($petugasAktif === 0) {
+                    $oldStatus = $laporan->status;
                     $laporan->update(['status' => 'Selesai']);
+                    // 🔥 TAMBAH NOTIFIKASI
+                    $this->createUserNotification($laporan, $oldStatus, 'Selesai');
                 }
             }
 
@@ -476,10 +763,14 @@ public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResp
                 }
             }
 
+            $oldStatus = $laporan->status;
             $laporan->update([
                 'foto_bukti_perbaikan' => $uploadedUrls,
                 'status' => 'Selesai'
             ]);
+            
+            // 🔥 TAMBAH NOTIFIKASI
+            $this->createUserNotification($laporan, $oldStatus, 'Selesai');
 
             return response()->json([
                 'success' => true,
@@ -635,8 +926,14 @@ public function updateStatusTugasPetugas(Request $request, $laporanId): JsonResp
             Log::info('Data to update: ' . json_encode($updateData));
             
             if (!empty($updateData)) {
+                $oldStatus = $laporan->status;
                 $laporan->update($updateData);
                 Log::info('Laporan updated successfully');
+                
+                // 🔥 TAMBAH NOTIFIKASI JIKA STATUS BERUBAH
+                if (isset($updateData['status']) && $updateData['status'] === 'Selesai' && $oldStatus !== 'Selesai') {
+                    $this->createUserNotification($laporan, $oldStatus, 'Selesai');
+                }
             } else {
                 Log::info('No data to update');
             }

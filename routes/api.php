@@ -63,6 +63,9 @@ Route::prefix('statistik')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user/notifications', [LaporanController::class, 'getUserNotifications']);
+    Route::post('/user/notifications/{laporan}/read', [LaporanController::class, 'markNotificationAsRead']);
+    Route::post('/user/notifications/mark-all-read', [LaporanController::class, 'markAllNotificationsAsRead']);
     Route::get('/laporan-user', [LaporanController::class, 'getLaporanByUser']);
     Route::get('/statistik-user', [LaporanController::class, 'getStatistikUser']);
     Route::get('/laporan/{id}/petugas', [LaporanController::class, 'getPetugasByLaporan']);

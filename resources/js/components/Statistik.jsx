@@ -45,8 +45,7 @@ export default function Statistik() {
   useEffect(() => {
     const loadData = async () => {
       await Promise.all([
-        fetchStatistik(),
-        fetchWaktuRespon()
+        fetchStatistik()
       ]);
     };
     
