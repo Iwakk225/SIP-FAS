@@ -121,7 +121,7 @@ const StatusPage = () => {
     const fetchLaporanUser = async () => {
         if (!user) {
             console.warn("User tidak ditemukan, redirect ke login");
-            navigate('/login');
+            navigate('/LoginPage');
             return;
         }
 
@@ -175,7 +175,7 @@ const StatusPage = () => {
                         localStorage.removeItem('remember_me');
                         sessionStorage.removeItem('auth_token');
                         sessionStorage.removeItem('user');
-                        navigate('/login');
+                        navigate('/LoginPage');
                     }, 2000);
                 } else if (status === 403) {
                     setError("Anda tidak memiliki akses ke halaman ini.");
@@ -487,7 +487,7 @@ const StatusPage = () => {
                                         Coba Lagi
                                     </Button>
                                     <Button
-                                        onClick={() => navigate('/login')}
+                                        onClick={() => navigate('/LoginPage')}
                                         variant="outline"
                                         className="cursor-pointer text-sm"
                                     >

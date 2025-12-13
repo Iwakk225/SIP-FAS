@@ -129,9 +129,9 @@ export default function Statistik() {
                 id="periode"
                 value={periode}
                 onChange={handlePeriodeChange}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#FDBD59]"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#FDBD59] cursor-pointer"
               >
-                <option value="Pilih">Pilih</option>
+                <option value="Pilih">Semua</option>
                 <option value="1 Minggu">1 Minggu</option>
                 <option value="1 Bulan">1 Bulan</option>
                 <option value="1 Tahun">1 Tahun</option>
