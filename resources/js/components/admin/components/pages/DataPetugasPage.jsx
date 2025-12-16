@@ -32,84 +32,183 @@ export default function DataPetugasPage({ showNotification }) {
     const [laporanData, setLaporanData] = useState([]);
 
     // Cek apakah petugas sedang dalam tugas (dengan logika yang lebih akurat)
-    const isPetugasDalamTugas = (petugas) => {
-        if (!petugas.laporans || !Array.isArray(petugas.laporans)) return false;
+const isPetugasDalamTugas = (petugas) => {
+    console.log('🔍 Checking petugas tugas:', {
+        nama: petugas.nama,
+        status_penugasan: petugas.status_penugasan,
+        sedang_dalam_tugas: petugas.sedang_dalam_tugas,
+        laporan_ditangani: petugas.laporan_ditangani,
+        laporans_count: petugas.laporans?.length || 0
+    });
+    
+    // 1. Gunakan flag dari backend jika ada
+    if (petugas.sedang_dalam_tugas !== undefined) {
+        console.log('✅ Using sedang_dalam_tugas flag:', petugas.sedang_dalam_tugas);
+        return petugas.sedang_dalam_tugas;
+    }
+    
+    // 2. Gunakan status_penugasan
+    if (petugas.status_penugasan === 'Dalam Tugas') {
+        console.log('✅ Using status_penugasan:', petugas.status_penugasan);
+        return true;
+    }
+    
+    // 3. Cek manual dari data laporans
+    if (!petugas.laporans || !Array.isArray(petugas.laporans)) {
+        console.log('❌ No laporans data');
+        return false;
+    }
+    
+    console.log('📋 Laporans data:', petugas.laporans.map(l => ({
+        judul: l.judul,
+        status: l.status,
+        pivot: l.pivot
+    })));
+    
+    const isDalamTugas = petugas.laporans.some(laporan => {
+        const pivot = laporan.pivot;
+        const isActive = pivot && 
+               pivot.is_active === 1 && 
+               ["Dikirim", "Diterima", "Dalam Pengerjaan"].includes(pivot.status_tugas);
         
-        return petugas.laporans.some(laporan => {
-            const statusTugas = laporan.pivot?.status_tugas;
-            const statusLaporan = laporan.status;
-            
-            // Hanya dianggap dalam tugas jika:
-            // 1. Status tugas termasuk dalam status aktif
-            // 2. Laporan belum selesai atau ditolak
-            return statusTugas && 
-                   ["Dikirim", "Diterima", "Dalam Pengerjaan"].includes(statusTugas) &&
-                   statusLaporan !== "Selesai" &&
-                   statusLaporan !== "Ditolak";
-        });
-    };
+        console.log(`📊 Laporan ${laporan.judul}: isActive=${isActive}, pivot=`, pivot);
+        return isActive;
+    });
+    
+    console.log(`🎯 Final result for ${petugas.nama}:`, isDalamTugas);
+    return isDalamTugas;
+};
 
     // Get status gabungan untuk badge (status akun + penugasan)
-    const getStatusGabungan = (petugas) => {
-        if (petugas.status === "Nonaktif") {
-            return {
-                text: "Nonaktif",
-                color: "bg-red-100 text-red-800"
-            };
-        }
+const getStatusGabungan = (petugas) => {
+    // DEBUG
+    console.log("🎯 Petugas:", petugas.nama, 
+                "Status:", petugas.status, 
+                "Status Penugasan:", petugas.status_penugasan,
+                "Laporans:", petugas.laporans?.length || 0);
 
-        const dalamTugas = isPetugasDalamTugas(petugas);
-        
-        if (dalamTugas) {
-            return {
-                text: "Dalam Tugas",
-                color: "bg-blue-100 text-blue-800"
-            };
-        }
-
-        return {
-            text: "Tersedia",
-            color: "bg-green-100 text-green-800"
+    // 1. Gunakan status_penugasan dari backend jika ada
+    if (petugas.status_penugasan) {
+        const statusMap = {
+            'Tersedia': { text: 'Tersedia', color: 'bg-green-100 text-green-800' },
+            'Dalam Tugas': { text: 'Dalam Tugas', color: 'bg-blue-100 text-blue-800' },
+            'Nonaktif': { text: 'Nonaktif', color: 'bg-red-100 text-red-800' }
         };
+        return statusMap[petugas.status_penugasan] || statusMap['Tersedia'];
+    }
+
+    // 2. Fallback ke logika lama (jika backend tidak mengirim status_penugasan)
+    if (petugas.status === "Nonaktif") {
+        return {
+            text: "Nonaktif",
+            color: "bg-red-100 text-red-800"
+        };
+    }
+
+    // 3. Cek dari data laporans
+    const hasActiveTask = petugas.laporans && petugas.laporans.some(laporan => {
+        const pivot = laporan.pivot;
+        return pivot && 
+               pivot.is_active === 1 && 
+               ["Dikirim", "Diterima", "Dalam Pengerjaan"].includes(pivot.status_tugas);
+    });
+
+    return {
+        text: hasActiveTask ? "Dalam Tugas" : "Tersedia",
+        color: hasActiveTask ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
     };
+};
 
     // Get laporan yang sedang ditangani petugas (hanya yang belum selesai)
     const getLaporanDitangani = (petugas) => {
-        if (!petugas.laporans || !Array.isArray(petugas.laporans)) return null;
+    console.log('🔍 Getting laporan ditangani for:', petugas.nama);
+    
+    if (!petugas.laporans || !Array.isArray(petugas.laporans)) {
+        console.log('❌ No laporans array');
+        return null;
+    }
+    
+    // Cari laporan aktif dari data backend
+    if (petugas.laporan_ditangani) {
+        console.log('✅ Using laporan_ditangani from backend:', petugas.laporan_ditangani);
+        return {
+            id: petugas.laporan_ditangani.id,
+            judul: petugas.laporan_ditangani.judul,
+            status: petugas.laporan_ditangani.status,
+            status_tugas: petugas.laporan_ditangani.status_tugas
+        };
+    }
+    
+    // Fallback: cari manual
+    const laporanAktif = petugas.laporans.find(laporan => {
+        const pivot = laporan.pivot;
+        const statusTugas = pivot?.status_tugas;
+        const statusLaporan = laporan.status;
         
-        const laporanAktif = petugas.laporans.find(laporan => {
-            const statusTugas = laporan.pivot?.status_tugas;
-            const statusLaporan = laporan.status;
-            
-            // Hanya laporan yang belum selesai/ditolak
-            return statusTugas && 
-                   ["Dikirim", "Diterima", "Dalam Pengerjaan"].includes(statusTugas) &&
-                   statusLaporan !== "Selesai" &&
-                   statusLaporan !== "Ditolak";
+        console.log('🔍 Checking laporan:', {
+            judul: laporan.judul,
+            status: statusLaporan,
+            pivot: pivot
         });
         
-        return laporanAktif;
-    };
+        // Hanya laporan yang aktif dan belum selesai
+        return pivot && 
+               pivot.is_active === 1 &&
+               ["Dikirim", "Diterima", "Dalam Pengerjaan"].includes(statusTugas) &&
+               statusLaporan !== "Selesai" &&
+               statusLaporan !== "Ditolak";
+    });
+    
+    if (laporanAktif) {
+        console.log('✅ Found active laporan:', {
+            id: laporanAktif.id,
+            judul: laporanAktif.judul
+        });
+    } else {
+        console.log('❌ No active laporan found');
+    }
+    
+    return laporanAktif || null;
+};
 
     // Fetch data petugas
-    const fetchPetugasData = async () => {
-        setIsLoading(true);
-        try {
-            const token = localStorage.getItem("admin_token");
-            const response = await axios.get("http://localhost:8000/api/admin/petugas", {
+const fetchPetugasData = async () => {
+    setIsLoading(true);
+    try {
+        const token = localStorage.getItem("admin_token");
+        
+        const response = await axios.get(
+            "http://localhost:8000/api/admin/petugas",
+            {
                 headers: { Authorization: `Bearer ${token}` }
+            }
+        );
+        
+        if (response.data.success) {
+            // DEBUG: Tampilkan detail setiap petugas
+            response.data.data.forEach((petugas, index) => {
+                console.log(`📊 Petugas ${index + 1}:`, {
+                    nama: petugas.nama,
+                    status_akun: petugas.status,
+                    status_penugasan: petugas.status_penugasan,
+                    laporans_count: petugas.laporans?.length || 0,
+                    laporans: petugas.laporans?.map(l => ({
+                        judul: l.judul,
+                        status: l.status,
+                        pivot: l.pivot
+                    })) || []
+                });
             });
             
-            if (response.data.success) {
-                setPetugasData(response.data.data);
-            }
-        } catch (error) {
-            console.error("Error fetching petugas:", error);
-            showNotification("Gagal mengambil data petugas", "error");
-        } finally {
-            setIsLoading(false);
+            setPetugasData(response.data.data);
         }
-    };
+    } catch (error) {
+        console.error("Error fetching petugas:", error);
+        showNotification("Gagal mengambil data petugas", "error");
+    } finally {
+        setIsLoading(false);
+    }
+};
 
     // Fetch data laporan
     const fetchLaporanData = async () => {

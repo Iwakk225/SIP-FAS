@@ -45,34 +45,24 @@ class Petugas extends Model
         return $query->where('status', 'Aktif');
     }
 
+// Di file Petugas.php, ganti scope tersedia dengan ini yang lebih aman:
 public function scopeTersedia($query, $laporanId = null)
 {
     return $query->where('status', 'Aktif')
-        ->where(function($q) use ($laporanId) {
-            // Petugas tidak punya tugas aktif
+        ->where(function($q) {
+            // HANYA petugas yang TIDAK memiliki tugas aktif
             $q->whereDoesntHave('laporans', function($sub) {
                 $sub->where('laporan_petugas.is_active', 1)
                     ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
-            })
-            // ATAU sudah menangani laporan ini
-            ->when($laporanId, function($when) use ($laporanId) {
-                $when->orWhereHas('laporans', function($or) use ($laporanId) {
-                    $or->where('laporans.id', $laporanId)
-                       ->where('laporan_petugas.is_active', 1);
-                });
             });
         });
 }
 
-
-    public function scopeTersediaUmum($query)
-    {
-        return $query->where('status', 'Aktif')
-            ->whereDoesntHave('laporans', function($q) {
-                $q->where('laporan_petugas.is_active', 1)
-                ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
-            });
-    }
+// Scope untuk petugas tersedia umum (tanpa mempertimbangkan laporan tertentu)
+public function scopeTersediaUmum($query)
+{
+    return $this->scopeTersedia($query);
+}
 
     public function scopeDalamTugas($query)
     {

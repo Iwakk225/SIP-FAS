@@ -10,7 +10,8 @@ import {
     Upload,
     CheckCircle,
     FileText,
-    Image as ImageIcon
+    Image as ImageIcon,
+    RefreshCw,
 } from "lucide-react";
 import axios from "axios";
 import UploadBuktiModal from "./UploadBuktiModal";
@@ -35,19 +36,26 @@ export default function DetailLaporanModal({
 
     useEffect(() => {
         if (selectedLaporan) {
+            console.log(
+                "🔔 Modal opened for laporan:",
+                selectedLaporan.id,
+                selectedLaporan.judul
+            );
+
             setFormData({
                 status: selectedLaporan.status || "",
                 catatan: selectedLaporan.catatan || "",
             });
 
             const loadData = async () => {
-                await fetchPetugasData();
+                console.log("🔄 Loading data for modal...");
+                await fetchPetugasData(true); // 🔥 Force refresh
                 await checkPetugasLaporan();
                 loadBuktiData();
             };
-            
+
             loadData();
-            
+
             return () => {
                 console.log("🧹 Cleaning up modal data");
                 setAvailablePetugas([]);
@@ -57,70 +65,128 @@ export default function DetailLaporanModal({
     }, [selectedLaporan]);
 
     // Function untuk cek petugas laporan
+    // Di DetailLaporanModal.jsx - checkPetugasLaporan()
+
     const checkPetugasLaporan = async () => {
         try {
             const token = localStorage.getItem("admin_token");
-            
+
+            console.log("🔍 Checking petugas for laporan:", selectedLaporan.id);
+
+            // 🔥 GUNAKAN ENDPOINT YANG BENAR-BENAR ADA DENGAN PRIORITAS
             const endpoints = [
-                `http://localhost:8000/api/admin/laporan/${selectedLaporan.id}/petugas`,
-                `http://localhost:8000/api/laporan/${selectedLaporan.id}/petugas`
+                `http://localhost:8000/api/admin/laporan/${selectedLaporan.id}/petugas`, // ✅ ADMIN ROUTE
+                `http://localhost:8000/api/admin/petugas/by-laporan/${selectedLaporan.id}`, // ✅ ALTERNATIF
+                `http://localhost:8000/api/laporan/${selectedLaporan.id}/petugas`, // ✅ PUBLIC ROUTE (fallback)
             ];
-            
+
             let response = null;
-            
+
             for (const endpoint of endpoints) {
                 try {
+                    console.log(`🔍 Trying endpoint: ${endpoint}`);
                     response = await axios.get(endpoint, {
-                        headers: { Authorization: `Bearer ${token}` }
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            "Cache-Control": "no-cache",
+                        },
+                        timeout: 3000,
                     });
-                    if (response.data.success) break;
+
+                    console.log(
+                        "📡 Response status:",
+                        response.status,
+                        "data:",
+                        response.data
+                    );
+
+                    if (response.data && response.data.success) {
+                        console.log("✅ Endpoint valid:", endpoint);
+                        break;
+                    }
                 } catch (err) {
-                    console.log(`Endpoint ${endpoint} failed, trying next...`);
+                    console.log(`❌ Endpoint ${endpoint} failed:`, err.message);
                     continue;
                 }
             }
-            
-            if (response?.data.success && response.data.data.length > 0) {
+
+            if (
+                response?.data?.success &&
+                response.data.data &&
+                response.data.data.length > 0
+            ) {
                 const petugas = response.data.data[0];
+                console.log("✅ Petugas sudah ditugaskan:", {
+                    nama: petugas.nama,
+                    id: petugas.id,
+                    pivot: petugas.pivot,
+                });
                 setPetugasDitugaskan(petugas);
-                console.log("✅ Petugas sudah ditugaskan:", petugas.nama);
             } else {
-                console.log("ℹ️ Tidak ada petugas yang ditugaskan ke laporan ini");
+                console.log(
+                    "ℹ️ Tidak ada petugas yang ditugaskan ke laporan ini"
+                );
                 setPetugasDitugaskan(null);
             }
         } catch (error) {
-            console.error("Error checking petugas laporan:", error);
+            console.error("❌ Error checking petugas laporan:", error);
+            setPetugasDitugaskan(null);
         }
     };
 
-    const fetchPetugasData = async () => {
+    const fetchPetugasData = async (forceRefresh = false) => {
         try {
             const token = localStorage.getItem("admin_token");
-            
+
+            // Tambahkan timestamp untuk force refresh cache
+            const timestamp = forceRefresh ? `&_=${Date.now()}` : "";
+
+            console.log(
+                `📡 Fetching petugas data ${
+                    forceRefresh ? "(FORCE REFRESH)" : ""
+                } for laporan:`,
+                selectedLaporan.id
+            );
+
             const response = await axios.get(
-                `http://localhost:8000/api/admin/petugas/tersedia?laporan_id=${selectedLaporan.id}`,
+                `http://localhost:8000/api/admin/petugas/tersedia?laporan_id=${selectedLaporan.id}${timestamp}`,
                 {
-                    headers: { 
+                    headers: {
                         Authorization: `Bearer ${token}`,
-                        'Accept': 'application/json'
+                        Accept: "application/json",
+                        "Cache-Control": "no-cache", // 🔥 Disable cache
                     },
                 }
             );
 
             if (response.data.success) {
+                console.log("✅ Petugas data received:", {
+                    count: response.data.data.length,
+                    petugas: response.data.data.map((p) => p.nama),
+                });
                 setAvailablePetugas(response.data.data);
+            } else {
+                console.error("❌ API response not successful:", response.data);
             }
         } catch (error) {
-            console.error("❌ Error fetching petugas:", error);
+            console.error(
+                "❌ Error fetching petugas:",
+                error.response?.data || error.message
+            );
         }
     };
 
     const loadBuktiData = () => {
-        if (selectedLaporan.foto_bukti_perbaikan && Array.isArray(selectedLaporan.foto_bukti_perbaikan)) {
-            const existingPhotos = selectedLaporan.foto_bukti_perbaikan.map(url => ({
-                preview: url,
-                isExisting: true
-            }));
+        if (
+            selectedLaporan.foto_bukti_perbaikan &&
+            Array.isArray(selectedLaporan.foto_bukti_perbaikan)
+        ) {
+            const existingPhotos = selectedLaporan.foto_bukti_perbaikan.map(
+                (url) => ({
+                    preview: url,
+                    isExisting: true,
+                })
+            );
             setBuktiPhotos(existingPhotos);
         }
     };
@@ -144,77 +210,178 @@ export default function DetailLaporanModal({
                 {
                     laporan_id: laporanId,
                     petugas_id: pid,
-                    catatan: formData.catatan || "Ditugaskan melalui detail laporan",
+                    catatan:
+                        formData.catatan || "Ditugaskan melalui detail laporan",
                 },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (response.data.success) {
-                showNotification("Petugas berhasil ditugaskan ke laporan", "success");
-                
-                const petugasYangDipilih = availablePetugas.find(p => p.id === pid);
-                
+                showNotification(
+                    "Petugas berhasil ditugaskan ke laporan",
+                    "success"
+                );
+
+                const petugasYangDipilih = availablePetugas.find(
+                    (p) => p.id === pid
+                );
+
                 if (petugasYangDipilih) {
                     setPetugasDitugaskan({
                         ...petugasYangDipilih,
                         pivot: {
-                            status_tugas: 'Dikirim',
+                            status_tugas: "Dikirim",
                             dikirim_pada: new Date().toISOString(),
-                            is_active: 1
-                        }
+                            is_active: 1,
+                        },
                     });
                 }
-                
+
                 fetchPetugasData();
-                
+
                 if (fetchLaporanData) {
                     setTimeout(() => fetchLaporanData(), 300);
                 }
             }
         } catch (error) {
             console.error("Error assigning petugas:", error);
-            const errorMsg = error.response?.data?.message || "Gagal menugaskan petugas";
+            const errorMsg =
+                error.response?.data?.message || "Gagal menugaskan petugas";
             showNotification(errorMsg, "error");
         } finally {
             setIsLoading(false);
         }
     };
 
-    // Handle release petugas
+    const handleManualRefresh = async () => {
+    console.log('🔄 Manual refresh triggered');
+    setIsLoading(true);
+    try {
+        await Promise.all([
+            fetchPetugasData(true),
+            checkPetugasLaporan()
+        ]);
+        showNotification("Data berhasil di-refresh", "success");
+    } catch (error) {
+        console.error("Refresh error:", error);
+        showNotification("Gagal refresh data", "error");
+    } finally {
+        setIsLoading(false);
+    }
+};
+
+    // Tambahkan debug lebih detail di handleReleasePetugas
     const handleReleasePetugas = async () => {
         if (!petugasDitugaskan) return;
 
-        if (!window.confirm(`Apakah Anda yakin ingin melepas petugas ${petugasDitugaskan.nama} dari laporan ini?`)) {
+        if (
+            !window.confirm(
+                `Apakah Anda yakin ingin melepas petugas ${petugasDitugaskan.nama} dari laporan ini?`
+            )
+        ) {
             return;
         }
 
         try {
             const token = localStorage.getItem("admin_token");
 
+            console.log("🔓 Releasing petugas:", {
+                laporan_id: selectedLaporan.id,
+                petugas_id: petugasDitugaskan.id,
+                petugas_nama: petugasDitugaskan.nama,
+            });
+
             const response = await axios.post(
                 "http://localhost:8000/api/admin/petugas/release-laporan",
                 {
                     laporan_id: parseInt(selectedLaporan.id),
                     petugas_id: parseInt(petugasDitugaskan.id),
-                    catatan: formData.catatan || "Dilepas melalui detail laporan",
+                    catatan:
+                        formData.catatan || "Dilepas melalui detail laporan",
                 },
-                { headers: { Authorization: `Bearer ${token}` } }
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Cache-Control": "no-cache",
+                        "Content-Type": "application/json",
+                    },
+                }
             );
 
             if (response.data.success) {
-                showNotification("Petugas berhasil dilepas dari laporan", "success");
+                showNotification(
+                    "Petugas berhasil dilepas dari laporan",
+                    "success"
+                );
+
+                console.log("✅ Petugas released successfully:", response.data);
+
+                // 🔥 RESET STATE SECARA INSTAN TANPA TUNGGU API
+                const releasedPetugas = { ...petugasDitugaskan };
+
+                // 1. Hapus dari petugasDitugaskan
                 setPetugasDitugaskan(null);
-                fetchPetugasData();
-                if (fetchLaporanData) fetchLaporanData();
+
+                // 2. Tambahkan kembali ke availablePetugas (tunggu sebentar)
+                setTimeout(() => {
+                    setAvailablePetugas((prev) => {
+                        // Cek apakah petugas sudah ada
+                        const exists = prev.find(
+                            (p) => p.id === releasedPetugas.id
+                        );
+                        if (!exists) {
+                            // Tambahkan dengan flag is_tersedia = true
+                            return [
+                                ...prev,
+                                {
+                                    ...releasedPetugas,
+                                    is_tersedia: true,
+                                    status: "Aktif",
+                                },
+                            ];
+                        }
+                        return prev.map((p) =>
+                            p.id === releasedPetugas.id
+                                ? { ...p, is_tersedia: true }
+                                : p
+                        );
+                    });
+                }, 100);
+
+                console.log(
+                    "🔄 State updated instantly: petugas removed from assigned"
+                );
+
+                // 🔥 FORCE REFRESH DATA DARI SERVER (background)
+                setTimeout(async () => {
+                    await fetchPetugasData(true);
+                    await checkPetugasLaporan();
+                }, 300);
+
+                if (fetchLaporanData) {
+                    setTimeout(() => fetchLaporanData(), 500);
+                }
             }
         } catch (error) {
-            console.error("Error releasing petugas:", error);
-            const errorMsg = error.response?.data?.message || "Gagal melepas petugas";
-            showNotification(errorMsg, "error");
+            console.error("❌ Error releasing petugas:", {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                headers: error.response?.headers,
+            });
+
+            const errorMsg =
+                error.response?.data?.message ||
+                error.response?.data?.errors ||
+                "Gagal melepas petugas";
+
+            showNotification(`Gagal: ${JSON.stringify(errorMsg)}`, "error");
         }
     };
 
     // Handle update status laporan - 🔥 INI YANG PENTING
+    // Di DetailLaporanModal.jsx - handleUpdateStatus function
+
     const handleUpdateStatus = async (newStatus) => {
         try {
             const token = localStorage.getItem("admin_token");
@@ -226,37 +393,58 @@ export default function DetailLaporanModal({
             );
 
             if (response.data.success) {
-                showNotification(`Status berhasil diubah menjadi "${newStatus}"`, "success");
+                showNotification(
+                    `Status berhasil diubah menjadi "${newStatus}"`,
+                    "success"
+                );
                 setFormData({ ...formData, status: newStatus });
-                
-                // 🔥 AUTO-UPDATE: Jika status laporan "Selesai" atau "Ditolak"
-                if ((newStatus === "Selesai" || newStatus === "Ditolak") && petugasDitugaskan) {
+
+                // 🔥 NOTIFIKASI OTOMATIS JIKA SELESAI/DITOLAK
+                // 🔥 AUTO-RELEASE PETUGAS SAAT STATUS SELESAI/DITOLAK
+                if (newStatus === "Selesai" || newStatus === "Ditolak") {
+                    // Tampilkan notifikasi
                     showNotification(
-                        `Petugas "${petugasDitugaskan.nama}" sekarang TERSEDIA kembali untuk ditugaskan ke laporan lain`,
+                        `✅ Semua petugas telah dilepas dan sekarang TERSEDIA untuk ditugaskan ke laporan lain`,
                         "info"
                     );
-                    
-                    // Auto-release petugas dari laporan ini
-                    try {
-                        await axios.post(
-                            "http://localhost:8000/api/admin/petugas/release-laporan",
-                            {
-                                laporan_id: parseInt(selectedLaporan.id),
-                                petugas_id: parseInt(petugasDitugaskan.id),
-                                catatan: `Auto-release karena laporan ${newStatus}`
-                            },
-                            { headers: { Authorization: `Bearer ${token}` } }
-                        );
-                        
+
+                    // Auto-release dari state lokal (jika ada petugas ditugaskan)
+                    if (petugasDitugaskan) {
+                        const releasedPetugas = { ...petugasDitugaskan };
+
+                        // 1. Hapus dari petugasDitugaskan
                         setPetugasDitugaskan(null);
-                        fetchPetugasData(); // Refresh list petugas tersedia
-                    } catch (releaseError) {
-                        console.error("Auto-release error:", releaseError);
+
+                        // 2. Tambahkan kembali ke availablePetugas
+                        setTimeout(() => {
+                            setAvailablePetugas((prev) => {
+                                const exists = prev.find(
+                                    (p) => p.id === releasedPetugas.id
+                                );
+                                if (!exists) {
+                                    return [
+                                        ...prev,
+                                        {
+                                            ...releasedPetugas,
+                                            is_tersedia: true,
+                                            status: "Aktif",
+                                        },
+                                    ];
+                                }
+                                return prev;
+                            });
+                        }, 100);
+
+                        console.log(
+                            "🎉 Petugas otomatis dilepas dari state karena laporan",
+                            newStatus
+                        );
                     }
-                }
-                
-                if (fetchLaporanData) {
-                    setTimeout(() => fetchLaporanData(), 300);
+
+                    // Refresh data dari server
+                    setTimeout(async () => {
+                        await fetchPetugasData(true);
+                    }, 300);
                 }
             }
         } catch (error) {
@@ -266,24 +454,24 @@ export default function DetailLaporanModal({
     };
 
     const handleUploadSuccess = (laporanId) => {
-    console.log("✅ Upload berhasil untuk laporan ID:", laporanId);
-    
-    // Refresh data laporan
-    if (fetchLaporanData) {
-        setTimeout(() => {
-            fetchLaporanData();
-        }, 1000);
-    }
-    
-    // Close modal upload
-    setShowUploadModal(false);
-    
-    // Bisa juga reload detail laporan yang sedang dilihat
-    if (selectedLaporan.id === laporanId) {
-        // Fetch ulang data laporan ini saja
-        console.log("Reloading current laporan data...");
-    }
-};
+        console.log("✅ Upload berhasil untuk laporan ID:", laporanId);
+
+        // Refresh data laporan
+        if (fetchLaporanData) {
+            setTimeout(() => {
+                fetchLaporanData();
+            }, 1000);
+        }
+
+        // Close modal upload
+        setShowUploadModal(false);
+
+        // Bisa juga reload detail laporan yang sedang dilihat
+        if (selectedLaporan.id === laporanId) {
+            // Fetch ulang data laporan ini saja
+            console.log("Reloading current laporan data...");
+        }
+    };
 
     const handleOpenUploadModal = () => {
         setSelectedLaporanForUpload(selectedLaporan);
@@ -300,25 +488,56 @@ export default function DetailLaporanModal({
         return "bg-gray-100 text-gray-800";
     };
 
+    // Di file DetailLaporanModal.jsx, ganti fungsi getPetugasTersedia()
+
     const getPetugasTersedia = () => {
-        if (availablePetugas.length === 0) return [];
-        
-        const filtered = availablePetugas.filter(petugas => {
+        if (availablePetugas.length === 0) {
+            console.log("📭 No petugas available");
+            return [];
+        }
+
+        const filtered = availablePetugas.filter((petugas) => {
+            // 1. JIKA PETUGAS SEDANG DITUGASKAN DI LAPORAN INI, SKIP
             if (petugasDitugaskan && petugas.id === petugasDitugaskan.id) {
+                console.log(`⏭️ Skipping ${petugas.nama} - currently assigned`);
                 return false;
             }
-            
-            if (petugas.status !== 'Aktif') {
-                return false;
+
+            // 2. GUNAKAN FLAG DARI BACKEND JIKA ADA
+            if (petugas.is_tersedia !== undefined) {
+                const result = petugas.is_tersedia === true;
+                if (!result) {
+                    console.log(
+                        `⏭️ Skipping ${petugas.nama} - is_tersedia = false`
+                    );
+                }
+                return result;
             }
-            
-            return true;
+
+            // 3. DEFAULT: HANYA PETUGAS AKTIF
+            const isAktif = petugas.status === "Aktif";
+            if (!isAktif) {
+                console.log(
+                    `⏭️ Skipping ${petugas.nama} - status = ${petugas.status}`
+                );
+            }
+            return isAktif;
         });
-        
+
+        console.log("🎯 Filtered petugas tersedia:", {
+            total: availablePetugas.length,
+            tersedia: filtered.length,
+            filtered_names: filtered.map((p) => p.nama),
+        });
+
         return filtered;
     };
 
-    const isLaporanSelesai = ["Dalam Proses", "Tervalidasi", "Selesai"].includes(selectedLaporan.status);
+    const isLaporanSelesai = [
+        "Dalam Proses",
+        "Tervalidasi",
+        "Selesai",
+    ].includes(selectedLaporan.status);
 
     return (
         <>
@@ -326,6 +545,23 @@ export default function DetailLaporanModal({
                 <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                     <div className="p-6">
                         <div className="flex justify-between items-center mb-6">
+                            <div className="flex items-center space-x-3">
+                                <h2 className="text-xl font-bold text-gray-900">
+                                    Detail Laporan
+                                </h2>
+                                <button
+                                    onClick={handleManualRefresh}
+                                    disabled={isLoading}
+                                    className="text-blue-600 hover:text-blue-800 cursor-pointer p-1 disabled:opacity-50"
+                                    title="Refresh data"
+                                >
+                                    <RefreshCw
+                                        className={`w-5 h-5 ${
+                                            isLoading ? "animate-spin" : ""
+                                        }`}
+                                    />
+                                </button>
+                            </div>
                             <h2 className="text-xl font-bold text-gray-900">
                                 Detail Laporan
                             </h2>
@@ -350,11 +586,19 @@ export default function DetailLaporanModal({
                                     </div>
                                     <div className="flex items-center text-gray-600">
                                         <User className="w-4 h-4 mr-2" />
-                                        <span>{selectedLaporan.pelapor_nama}</span>
+                                        <span>
+                                            {selectedLaporan.pelapor_nama}
+                                        </span>
                                     </div>
                                     <div className="flex items-center text-gray-600">
                                         <Calendar className="w-4 h-4 mr-2" />
-                                        <span>{selectedLaporan.created_at?.split("T")[0]}</span>
+                                        <span>
+                                            {
+                                                selectedLaporan.created_at?.split(
+                                                    "T"
+                                                )[0]
+                                            }
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -362,7 +606,9 @@ export default function DetailLaporanModal({
                             <div>
                                 <div className="mb-4">
                                     <span
-                                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedLaporan.status)}`}
+                                        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
+                                            selectedLaporan.status
+                                        )}`}
                                     >
                                         {selectedLaporan.status}
                                     </span>
@@ -381,14 +627,21 @@ export default function DetailLaporanModal({
                                                 {petugasDitugaskan.nama}
                                             </div>
                                             <div className="text-blue-700">
-                                                {petugasDitugaskan.nomor_telepon}
+                                                {
+                                                    petugasDitugaskan.nomor_telepon
+                                                }
                                             </div>
                                             <div className="text-gray-600 text-xs mt-1">
                                                 {petugasDitugaskan.alamat}
                                             </div>
                                             <div className="text-gray-500 text-xs mt-1">
-                                                {petugasDitugaskan.pivot?.dikirim_pada 
-                                                    ? `Ditugaskan: ${new Date(petugasDitugaskan.pivot.dikirim_pada).toLocaleDateString('id-ID')}`
+                                                {petugasDitugaskan.pivot
+                                                    ?.dikirim_pada
+                                                    ? `Ditugaskan: ${new Date(
+                                                          petugasDitugaskan.pivot.dikirim_pada
+                                                      ).toLocaleDateString(
+                                                          "id-ID"
+                                                      )}`
                                                     : "Baru ditugaskan"}
                                             </div>
                                         </div>
@@ -404,51 +657,77 @@ export default function DetailLaporanModal({
                                     Foto Laporan
                                 </h4>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                    {selectedLaporan.foto_laporan.map((foto, index) => (
-                                        <div key={index} className="relative group">
-                                            <img
-                                                src={foto}
-                                                alt={`Foto laporan ${index + 1}`}
-                                                className="w-full h-40 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                                                onClick={() => window.open(foto, "_blank")}
-                                            />
-                                            <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                                                Foto {index + 1}
+                                    {selectedLaporan.foto_laporan.map(
+                                        (foto, index) => (
+                                            <div
+                                                key={index}
+                                                className="relative group"
+                                            >
+                                                <img
+                                                    src={foto}
+                                                    alt={`Foto laporan ${
+                                                        index + 1
+                                                    }`}
+                                                    className="w-full h-40 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                                                    onClick={() =>
+                                                        window.open(
+                                                            foto,
+                                                            "_blank"
+                                                        )
+                                                    }
+                                                />
+                                                <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                                    Foto {index + 1}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    )}
                                 </div>
                             </div>
                         )}
 
                         {/* Bukti Perbaikan */}
-                        {(selectedLaporan.foto_bukti_perbaikan?.length > 0 || selectedLaporan.rincian_biaya_pdf) && (
+                        {(selectedLaporan.foto_bukti_perbaikan?.length > 0 ||
+                            selectedLaporan.rincian_biaya_pdf) && (
                             <div className="mb-6 border-t pt-6">
                                 <h4 className="font-medium text-gray-900 mb-3 flex items-center">
                                     <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
                                     Bukti Perbaikan
                                 </h4>
-                                
-                                {selectedLaporan.foto_bukti_perbaikan?.length > 0 && (
+
+                                {selectedLaporan.foto_bukti_perbaikan?.length >
+                                    0 && (
                                     <div className="mb-4">
                                         <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                                             <ImageIcon className="w-4 h-4 mr-1" />
                                             Foto Bukti Perbaikan
                                         </h5>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {selectedLaporan.foto_bukti_perbaikan.map((foto, index) => (
-                                                <div key={index} className="relative group">
-                                                    <img
-                                                        src={foto}
-                                                        alt={`Bukti perbaikan ${index + 1}`}
-                                                        className="w-full h-32 object-cover rounded-lg border border-green-200 cursor-pointer hover:opacity-90 transition-opacity"
-                                                        onClick={() => window.open(foto, "_blank")}
-                                                    />
-                                                    <div className="absolute bottom-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
-                                                        Bukti {index + 1}
+                                            {selectedLaporan.foto_bukti_perbaikan.map(
+                                                (foto, index) => (
+                                                    <div
+                                                        key={index}
+                                                        className="relative group"
+                                                    >
+                                                        <img
+                                                            src={foto}
+                                                            alt={`Bukti perbaikan ${
+                                                                index + 1
+                                                            }`}
+                                                            className="w-full h-32 object-cover rounded-lg border border-green-200 cursor-pointer hover:opacity-90 transition-opacity"
+                                                            onClick={() =>
+                                                                window.open(
+                                                                    foto,
+                                                                    "_blank"
+                                                                )
+                                                            }
+                                                        />
+                                                        <div className="absolute bottom-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                                                            Bukti {index + 1}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
+                                                )
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -462,9 +741,16 @@ export default function DetailLaporanModal({
                                         <div className="flex items-center p-3 bg-green-50 border border-green-200 rounded-lg">
                                             <FileText className="w-8 h-8 text-green-600 mr-3" />
                                             <div>
-                                                <p className="font-medium text-green-800">Dokumen Rincian Biaya</p>
+                                                <p className="font-medium text-green-800">
+                                                    Dokumen Rincian Biaya
+                                                </p>
                                                 <button
-                                                    onClick={() => window.open(selectedLaporan.rincian_biaya_pdf, "_blank")}
+                                                    onClick={() =>
+                                                        window.open(
+                                                            selectedLaporan.rincian_biaya_pdf,
+                                                            "_blank"
+                                                        )
+                                                    }
                                                     className="text-sm text-green-600 hover:text-green-800 mt-1 cursor-pointer"
                                                 >
                                                     Lihat Dokumen →
@@ -497,19 +783,32 @@ export default function DetailLaporanModal({
                                 <div className="flex space-x-2">
                                     <select
                                         value={formData.status}
-                                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                        onChange={(e) =>
+                                            setFormData({
+                                                ...formData,
+                                                status: e.target.value,
+                                            })
+                                        }
                                         className="border border-gray-300 rounded-lg px-3 py-1 text-sm cursor-pointer"
                                     >
                                         <option value="">Ubah Status</option>
-                                        <option value="Validasi">Validasi</option>
-                                        <option value="Tervalidasi">Tervalidasi</option>
-                                        <option value="Dalam Proses">Dalam Proses</option>
+                                        <option value="Validasi">
+                                            Validasi
+                                        </option>
+                                        <option value="Tervalidasi">
+                                            Tervalidasi
+                                        </option>
+                                        <option value="Dalam Proses">
+                                            Dalam Proses
+                                        </option>
                                         <option value="Selesai">Selesai</option>
                                         <option value="Ditolak">Ditolak</option>
                                     </select>
 
                                     <button
-                                        onClick={() => handleUpdateStatus(formData.status)}
+                                        onClick={() =>
+                                            handleUpdateStatus(formData.status)
+                                        }
                                         disabled={!formData.status}
                                         className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                                     >
@@ -526,14 +825,27 @@ export default function DetailLaporanModal({
                                                 {petugasDitugaskan.nama}
                                             </div>
                                             <div className="text-sm text-gray-600">
-                                                <span className="font-medium">Telepon:</span> {petugasDitugaskan.nomor_telepon}
+                                                <span className="font-medium">
+                                                    Telepon:
+                                                </span>{" "}
+                                                {
+                                                    petugasDitugaskan.nomor_telepon
+                                                }
                                             </div>
                                             <div className="text-sm text-gray-500">
-                                                <span className="font-medium">Alamat:</span> {petugasDitugaskan.alamat}
+                                                <span className="font-medium">
+                                                    Alamat:
+                                                </span>{" "}
+                                                {petugasDitugaskan.alamat}
                                             </div>
                                             <div className="text-gray-500 text-xs mt-2">
-                                                {petugasDitugaskan.pivot?.dikirim_pada 
-                                                    ? `Ditugaskan: ${new Date(petugasDitugaskan.pivot.dikirim_pada).toLocaleDateString('id-ID')}`
+                                                {petugasDitugaskan.pivot
+                                                    ?.dikirim_pada
+                                                    ? `Ditugaskan: ${new Date(
+                                                          petugasDitugaskan.pivot.dikirim_pada
+                                                      ).toLocaleDateString(
+                                                          "id-ID"
+                                                      )}`
                                                     : "Baru ditugaskan"}
                                             </div>
                                         </div>
@@ -544,21 +856,32 @@ export default function DetailLaporanModal({
                                             Lepaskan
                                         </button>
                                     </div>
-                                    
+
                                     {/* Info tambahan */}
                                     <div className="mt-3 pt-3 border-t border-gray-200">
                                         <p className="text-xs text-gray-500">
-                                            <span className="font-medium">Info:</span> Ubah status tugas sesuai progress petugas
+                                            <span className="font-medium">
+                                                Info:
+                                            </span>{" "}
+                                            Ubah status tugas sesuai progress
+                                            petugas
                                         </p>
                                         <p className="text-xs text-blue-600 mt-1">
-                                            💡 <span className="font-medium">Tips:</span> Ubah status laporan ke "Selesai" atau "Ditolak" untuk membuat petugas Tersedia kembali
+                                            💡{" "}
+                                            <span className="font-medium">
+                                                Tips:
+                                            </span>{" "}
+                                            Ubah status laporan ke "Selesai"
+                                            atau "Ditolak" untuk membuat petugas
+                                            Tersedia kembali
                                         </p>
                                     </div>
                                 </div>
                             ) : (
                                 <div>
                                     <p className="text-gray-600 mb-3">
-                                        Pilih petugas untuk menangani laporan ini:
+                                        Pilih petugas untuk menangani laporan
+                                        ini:
                                     </p>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -566,7 +889,11 @@ export default function DetailLaporanModal({
                                             <div
                                                 key={petugas.id}
                                                 className="border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all"
-                                                onClick={() => handleAssignPetugas(petugas.id)}
+                                                onClick={() =>
+                                                    handleAssignPetugas(
+                                                        petugas.id
+                                                    )
+                                                }
                                             >
                                                 <div className="flex justify-between items-start">
                                                     <div>
@@ -574,7 +901,9 @@ export default function DetailLaporanModal({
                                                             {petugas.nama}
                                                         </div>
                                                         <div className="text-sm text-gray-500">
-                                                            {petugas.nomor_telepon}
+                                                            {
+                                                                petugas.nomor_telepon
+                                                            }
                                                         </div>
                                                         <div className="text-xs text-gray-400 mt-1">
                                                             {petugas.alamat}
@@ -590,7 +919,8 @@ export default function DetailLaporanModal({
 
                                     {getPetugasTersedia().length === 0 && (
                                         <p className="text-gray-500 text-center py-4">
-                                            Tidak ada petugas yang tersedia. Semua petugas sedang dalam tugas.
+                                            Tidak ada petugas yang tersedia.
+                                            Semua petugas sedang dalam tugas.
                                         </p>
                                     )}
                                 </div>
@@ -623,7 +953,9 @@ export default function DetailLaporanModal({
                                             </h4>
                                         </div>
                                         <p className="text-sm text-green-700">
-                                            {selectedLaporan.foto_bukti_perbaikan?.length > 0 
+                                            {selectedLaporan
+                                                .foto_bukti_perbaikan?.length >
+                                            0
                                                 ? `${selectedLaporan.foto_bukti_perbaikan.length} foto sudah diupload`
                                                 : "Belum ada foto bukti"}
                                         </p>
@@ -637,7 +969,7 @@ export default function DetailLaporanModal({
                                             </h4>
                                         </div>
                                         <p className="text-sm text-blue-700">
-                                            {selectedLaporan.rincian_biaya_pdf 
+                                            {selectedLaporan.rincian_biaya_pdf
                                                 ? "Dokumen sudah diupload"
                                                 : "Belum ada dokumen"}
                                         </p>

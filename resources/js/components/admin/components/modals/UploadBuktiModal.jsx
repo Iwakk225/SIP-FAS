@@ -233,166 +233,173 @@ export default function UploadBuktiModal({
     };
 
     const handleUploadBukti = async () => {
-    if (!selectedLaporanForUpload?.id) {
-        showNotification("ID laporan tidak ditemukan", "error");
-        return;
-    }
-
-    if (buktiPhotos.length === 0 && !pdfFile) {
-        showNotification("Tidak ada file yang diupload", "error");
-        return;
-    }
-
-    setIsUploading(true);
-    setUploadError(null);
-
-    try {
-        // 1. UPLOAD FOTO KE CLOUDINARY
-        const fotoUrls = [];
-        for (const photo of buktiPhotos) {
-            try {
-                const url = await uploadToCloudinary(
-                    photo.file, 
-                    'admin-bukti-perbaikan/foto-perbaikan'
-                );
-                fotoUrls.push(url);
-                showNotification(`Foto ${photo.file.name} berhasil diupload`, "success");
-            } catch (error) {
-                console.error(`Error uploading ${photo.file.name}:`, error);
-                showNotification(`Gagal upload ${photo.file.name}`, "error");
-            }
+        if (!selectedLaporanForUpload?.id) {
+            showNotification("ID laporan tidak ditemukan", "error");
+            return;
         }
 
-        // 2. UPLOAD PDF KE CLOUDINARY
-        let pdfUrl = null;
-        if (pdfFile) {
-            try {
-                pdfUrl = await uploadPdfToCloudinary(pdfFile);
-                showNotification("PDF berhasil diupload", "success");
-            } catch (error) {
-                console.error("Error uploading PDF:", error);
-                showNotification("Gagal upload PDF", "error");
-            }
+        if (buktiPhotos.length === 0 && !pdfFile) {
+            showNotification("Tidak ada file yang diupload", "error");
+            return;
         }
 
-        // 3. KIRIM URL KE BACKEND
-        if (fotoUrls.length > 0 || pdfUrl) {
-            const response = await api.post(
-                `/admin/laporan/${selectedLaporanForUpload.id}/upload-all-bukti`,
-                {
-                    foto_bukti_perbaikan: fotoUrls,
-                    rincian_biaya_pdf: pdfUrl
-                },
-                {
-                    headers: {
-                        'Content-Type': 'application/json'
+        setIsUploading(true);
+        setUploadError(null);
+
+        try {
+            // 1. UPLOAD FOTO KE CLOUDINARY
+            const fotoUrls = [];
+            for (const photo of buktiPhotos) {
+                try {
+                    const url = await uploadToCloudinary(
+                        photo.file,
+                        "admin-bukti-perbaikan/foto-perbaikan"
+                    );
+                    fotoUrls.push(url);
+                    showNotification(
+                        `Foto ${photo.file.name} berhasil diupload`,
+                        "success"
+                    );
+                } catch (error) {
+                    console.error(`Error uploading ${photo.file.name}:`, error);
+                    showNotification(
+                        `Gagal upload ${photo.file.name}`,
+                        "error"
+                    );
+                }
+            }
+
+            // 2. UPLOAD PDF KE CLOUDINARY
+            let pdfUrl = null;
+            if (pdfFile) {
+                try {
+                    pdfUrl = await uploadPdfToCloudinary(pdfFile);
+                    showNotification("PDF berhasil diupload", "success");
+                } catch (error) {
+                    console.error("Error uploading PDF:", error);
+                    showNotification("Gagal upload PDF", "error");
+                }
+            }
+
+            // 3. KIRIM URL KE BACKEND
+            if (fotoUrls.length > 0 || pdfUrl) {
+                const response = await api.post(
+                    `/admin/laporan/${selectedLaporanForUpload.id}/upload-all-bukti`,
+                    {
+                        foto_bukti_perbaikan: fotoUrls,
+                        rincian_biaya_pdf: pdfUrl,
+                    },
+                    {
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
                     }
+                );
+
+                if (response.data.success) {
+                    showNotification("✅ Bukti berhasil diupload!", "success");
+
+                    // Panggil callback jika ada
+                    if (onSuccess && typeof onSuccess === "function") {
+                        onSuccess(selectedLaporanForUpload.id);
+                    }
+
+                    handleCloseUploadModal();
+                }
+            }
+        } catch (error) {
+            console.error("Upload process error:", error);
+            setUploadError(
+                error.response?.data?.message ||
+                    "Gagal menyimpan bukti perbaikan"
+            );
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const uploadToCloudinary = async (
+        file,
+        folder = "admin-bukti-perbaikan"
+    ) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", "sip-fas"); // SAMA dengan LaporPage
+        formData.append("folder", folder);
+        formData.append("resource_type", "image");
+
+        console.log("Uploading to Cloudinary:", {
+            file: file.name,
+            size: file.size,
+            type: file.type,
+            folder: folder,
+        });
+
+        try {
+            const response = await fetch(
+                `https://api.cloudinary.com/v1_1/dlwfk4gly/auto/upload`, // Gunakan auto/upload
+                {
+                    method: "POST",
+                    body: formData,
                 }
             );
 
-            if (response.data.success) {
-            showNotification("✅ Bukti berhasil diupload!", "success");
-            
-            // Panggil callback jika ada
-            if (onSuccess && typeof onSuccess === 'function') {
-                onSuccess(selectedLaporanForUpload.id);
+            const data = await response.json();
+            console.log("Cloudinary Response:", data);
+
+            if (!response.ok) {
+                console.error("Cloudinary error:", data);
+                throw new Error(
+                    data.error?.message ||
+                        `Upload failed: ${response.statusText}`
+                );
             }
-            
-            handleCloseUploadModal();
-            }
+
+            console.log("Upload success:", data.secure_url);
+            return data.secure_url;
+        } catch (error) {
+            console.error("Error uploading to Cloudinary:", error);
+            throw new Error(`Gagal upload: ${error.message}`);
         }
+    };
 
-    } catch (error) {
-        console.error("Upload process error:", error);
-        setUploadError(
-            error.response?.data?.message ||
-            "Gagal menyimpan bukti perbaikan"
-        );
-    } finally {
-        setIsUploading(false);
-    }
-};
+    // Fungsi untuk upload PDF ke Cloudinary (GANTI INI)
+    const uploadPdfToCloudinary = async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", "sip-fas");
+        formData.append("folder", "rincian-biaya");
+        formData.append("resource_type", "raw"); // 🔥 PENTING: raw untuk PDF
 
-const uploadToCloudinary = async (file, folder = 'admin-bukti-perbaikan') => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", "sip-fas"); // SAMA dengan LaporPage
-    formData.append("folder", folder);
-    formData.append("resource_type", "image");
-    
-    console.log("Uploading to Cloudinary:", {
-        file: file.name,
-        size: file.size,
-        type: file.type,
-        folder: folder
-    });
-    
-    try {
-        const response = await fetch(
-            `https://api.cloudinary.com/v1_1/dlwfk4gly/auto/upload`, // Gunakan auto/upload
-            {
-                method: "POST",
-                body: formData,
-            }
-        );
+        console.log("Uploading PDF to Cloudinary:", {
+            file: file.name,
+            size: file.size,
+            type: file.type,
+        });
 
-        const data = await response.json();
-        console.log("Cloudinary Response:", data);
-        
-        if (!response.ok) {
-            console.error("Cloudinary error:", data);
-            throw new Error(
-                data.error?.message || `Upload failed: ${response.statusText}`
+        try {
+            // 🔥 Ganti endpoint ke raw/upload
+            const response = await fetch(
+                `https://api.cloudinary.com/v1_1/dlwfk4gly/raw/upload`,
+                {
+                    method: "POST",
+                    body: formData,
+                }
             );
-        }
 
-        console.log("Upload success:", data.secure_url);
-        return data.secure_url;
-    } catch (error) {
-        console.error("Error uploading to Cloudinary:", error);
-        throw new Error(`Gagal upload: ${error.message}`);
-    }
-};
+            const data = await response.json();
+            console.log("Cloudinary PDF Response:", data);
 
-// Fungsi untuk upload PDF ke Cloudinary (GANTI INI)
-const uploadPdfToCloudinary = async (file) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", "sip-fas");
-    formData.append("folder", "rincian-biaya");
-    formData.append("resource_type", "raw"); // 🔥 PENTING: raw untuk PDF
-    
-    console.log("Uploading PDF to Cloudinary:", {
-        file: file.name,
-        size: file.size,
-        type: file.type
-    });
-    
-    try {
-        // 🔥 Ganti endpoint ke raw/upload
-        const response = await fetch(
-            `https://api.cloudinary.com/v1_1/dlwfk4gly/raw/upload`,
-            {
-                method: "POST",
-                body: formData,
+            if (!response.ok) {
+                throw new Error(data.error?.message || "Upload PDF failed");
             }
-        );
 
-        const data = await response.json();
-        console.log("Cloudinary PDF Response:", data);
-        
-        if (!response.ok) {
-            throw new Error(data.error?.message || 'Upload PDF failed');
+            return data.secure_url;
+        } catch (error) {
+            console.error("PDF upload error:", error);
+            throw error;
         }
-        
-        return data.secure_url;
-    } catch (error) {
-        console.error("PDF upload error:", error);
-        throw error;
-    }
-};
-
-
+    };
 
     const handleCloseUploadModal = () => {
         // Clean up object URLs

@@ -68,7 +68,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/user/notifications/mark-all-read', [LaporanController::class, 'markAllNotificationsAsRead']);
     Route::get('/laporan-user', [LaporanController::class, 'getLaporanByUser']);
     Route::get('/statistik-user', [LaporanController::class, 'getStatistikUser']);
-    Route::get('/laporan/{id}/petugas', [LaporanController::class, 'getPetugasByLaporan']);
+    Route::get('/laporan/{id}/petugas', [LaporanController::class, 'getPetugasByLaporan']); // ✅ INI YANG DIPAKAI
 });
 
 // ========== ADMIN ROUTES ==========
@@ -76,7 +76,7 @@ Route::prefix('admin')->group(function () {
     Route::post('/login', [AdminAuthController::class, 'login']);
     
     // **HAPUS 'admin' dari sini:**
-    Route::middleware(['auth:sanctum'])->group(function () { // ← Hanya auth:sanctum saja
+    Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/logout', [AdminAuthController::class, 'logout']);
         Route::get('/me', [AdminAuthController::class, 'me']);
         
@@ -87,6 +87,9 @@ Route::prefix('admin')->group(function () {
         Route::post('/laporan/{id}/upload-bukti', [LaporanController::class, 'uploadBuktiPerbaikan']);
         Route::post('/laporan/{id}/upload-rincian-biaya', [LaporanController::class, 'uploadRincianBiaya']);
         Route::post('/laporan/{id}/upload-all-bukti', [LaporanController::class, 'uploadAllBukti']);
+        
+        // **TAMBAHKAN ROUTE INI:** Route untuk get petugas by laporan (admin)
+        Route::get('/laporan/{id}/petugas', [LaporanController::class, 'getPetugasByLaporan']); // ✅ UNTUK ADMIN
         
         // Admin petugas routes
         Route::get('/petugas', [PetugasController::class, 'index']);
@@ -99,6 +102,14 @@ Route::prefix('admin')->group(function () {
         Route::post('/petugas/release-laporan', [PetugasController::class, 'releaseFromLaporan']);
         Route::get('/petugas/statistik', [PetugasController::class, 'getStatistik']);
         Route::get('/petugas/dalam-tugas', [PetugasController::class, 'getPetugasDalamTugas']);
+        
+        // **PERBAIKI ROUTE INI:** Hapus 'admin/' duplikat
+        Route::post('/petugas/refresh-status', [PetugasController::class, 'refreshPetugasStatus']);
+        Route::post('/petugas/manual-fix', [PetugasController::class, 'manualFixPetugasStatus']);
+        Route::get('/petugas/debug/{id}', [PetugasController::class, 'debugPetugas']);
+        
+        // **TAMBAHKAN ROUTE INI:** Route alternatif untuk get petugas by laporan dari PetugasController
+        Route::get('/petugas/by-laporan/{laporanId}', [PetugasController::class, 'getPetugasByLaporan']); // ✅ ALTERNATIF
     });
     
     // **OPTION B: Test route dengan middleware admin**
@@ -111,4 +122,4 @@ Route::prefix('admin')->group(function () {
     
     // **OPTION C: Test route tanpa auth sama sekali (sementara debugging)**
     Route::get('/test-laporan', [LaporanController::class, 'index']);
-}); // ← INI TUTUP YANG BENAR
+});

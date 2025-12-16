@@ -6,6 +6,7 @@ use App\Models\Laporan;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache; 
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
@@ -103,72 +104,103 @@ class LaporanController extends Controller
     }
 
     // METHOD YANG DIPERBAIKI: Update laporan (harus match Route::put('/admin/laporan/{id}'))
-    public function update(Request $request, $id): JsonResponse
-    {
-        try {
-            $laporan = Laporan::findOrFail($id);
-            
-            $validated = $request->validate([
-                'status' => 'required|in:Validasi,Tervalidasi,Dalam Proses,Selesai,Ditolak'
-            ]);
+    // Di LaporanController.php, method update()
 
-            $oldStatus = $laporan->status;
+    // Di LaporanController.php
+
+public function update(Request $request, $id): JsonResponse
+{
+    try {
+        $laporan = Laporan::findOrFail($id);
+        
+        $validated = $request->validate([
+            'status' => 'required|in:Validasi,Tervalidasi,Dalam Proses,Selesai,Ditolak'
+        ]);
+
+        $oldStatus = $laporan->status;
+        
+        Log::info('🔄 Update Status Laporan - START:', [
+            'laporan_id' => $laporan->id,
+            'old_status' => $oldStatus,
+            'new_status' => $validated['status']
+        ]);
+        
+        // UPDATE STATUS LAPORAN
+        $laporan->update($validated);
+        
+        Log::info('✅ Laporan status updated');
+
+        // 🔥🔥🔥 AUTO-RELEASE PETUGAS JIKA LAPORAN SELESAI/DITOLAK
+        if (($validated['status'] === 'Selesai' || $validated['status'] === 'Ditolak') 
+            && $oldStatus !== $validated['status']) {
             
-            Log::info('🔔 DEBUG NOTIFIKASI - Update Status Laporan:', [
+            Log::info('🔥 AUTO-RELEASE: Laporan selesai/ditolak, melepas petugas...', [
                 'laporan_id' => $laporan->id,
-                'old_status' => $oldStatus,
-                'new_status' => $validated['status'],
-                'pelapor_email' => $laporan->pelapor_email,
-                'pelapor_nama' => $laporan->pelapor_nama
+                'status' => $validated['status']
             ]);
             
-            $laporan->update($validated);
-
-            // 🔥 BUAT NOTIFIKASI UNTUK USER
-            Log::info('🔔 Panggil createUserNotification...');
-            $this->createUserNotification($laporan, $oldStatus, $validated['status']);
-            Log::info('🔔 createUserNotification selesai');
-
-            // 🔥 PERBAIKAN BARU: Jika status laporan Selesai/Ditolak, update status petugas
-            if (($validated['status'] === 'Selesai' || $validated['status'] === 'Ditolak') 
-                && $oldStatus !== $validated['status']) {
+            // Ambil semua petugas yang aktif di laporan ini
+            $petugasAktif = $laporan->petugas()
+                ->wherePivot('is_active', 1)
+                ->get();
+            
+            if ($petugasAktif->count() > 0) {
+                Log::info('📊 Petugas yang akan dilepas:', [
+                    'count' => $petugasAktif->count(),
+                    'petugas' => $petugasAktif->pluck('nama')->toArray()
+                ]);
                 
-                // Update semua petugas yang aktif di laporan ini
-                $laporan->petugas()
-                    ->wherePivot('is_active', 1)
-                    ->updateExistingPivot(
-                        $laporan->petugas->pluck('id')->toArray(),
-                        [
-                            'status_tugas' => 'Selesai',
-                            'is_active' => 0, // 🔥 Petugas menjadi tersedia lagi
-                            'catatan' => $validated['status'] === 'Ditolak' 
-                                ? 'Laporan ditolak' 
-                                : 'Laporan selesai'
-                        ]
-                    );
+                // Update SEMUA petugas yang terkait
+                foreach ($petugasAktif as $petugas) {
+                    $laporan->petugas()->updateExistingPivot($petugas->id, [
+                        'status_tugas' => 'Selesai',
+                        'is_active' => 0, // 🔥 INI YANG PENTING - buat petugas tersedia lagi
+                        'catatan' => 'Auto-released: Laporan ' . $validated['status'],
+                        'updated_at' => now()
+                    ]);
+                    
+                    Log::info('✅ Petugas dilepas:', [
+                        'petugas_id' => $petugas->id,
+                        'nama' => $petugas->nama
+                    ]);
+                }
+                
+                Log::info('🎉 Semua petugas berhasil dilepas dan sekarang TERSEDIA');
+                
+            } else {
+                Log::info('ℹ️ Tidak ada petugas aktif untuk dilepas');
             }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Status laporan berhasil diupdate',
-                'data' => $laporan,
-                'notification_sent' => true
-            ], 200);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validasi gagal',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Error updating laporan: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal mengupdate status laporan: ' . $e->getMessage()
-            ], 500);
+            
+            // 🔥 NOTIFIKASI KE USER
+            $this->createUserNotification($laporan, $oldStatus, $validated['status']);
+            
+        } else if ($validated['status'] === 'Dalam Proses') {
+            // Jika status berubah ke Dalam Proses, buat notifikasi juga
+            $this->createUserNotification($laporan, $oldStatus, $validated['status']);
         }
+
+        Log::info('🔄 Update Status Laporan - COMPLETE');
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Status laporan berhasil diupdate',
+            'data' => $laporan,
+            'notification_sent' => true,
+            'petugas_released' => ($validated['status'] === 'Selesai' || $validated['status'] === 'Ditolak'),
+            'debug' => [
+                'old_status' => $oldStatus,
+                'new_status' => $validated['status']
+            ]
+        ], 200);
+
+    } catch (\Exception $e) {
+        Log::error('❌ Error updating laporan: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal mengupdate status laporan: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     // Tambahkan di LaporanController.php, sebelum method update()
     // Di LaporanController.php, perbaiki method createUserNotification
