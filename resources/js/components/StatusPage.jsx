@@ -117,6 +117,38 @@ const StatusPage = () => {
         };
     };
 
+    // Fungsi untuk download file dengan nama yang benar
+    const downloadFile = (url, fileName) => {
+        if (!url || !url.startsWith('http')) {
+            alert("URL file tidak valid");
+            return;
+        }
+
+        console.log("Downloading:", { url, fileName });
+        
+        // Buat elemen anchor untuk download
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Tambahkan parameter untuk force download
+        if (url.includes('cloudinary.com')) {
+            // Untuk Cloudinary, tambahkan parameter fl_attachment
+            const separator = url.includes('?') ? '&' : '?';
+            link.href = `${url}${separator}fl_attachment`;
+        }
+        
+        link.download = fileName || 'document.pdf';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        
+        // Tambahkan ke DOM, klik, lalu hapus
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log("Download initiated for:", fileName);
+    };
+
     // Fetch data laporan user
     const fetchLaporanUser = async () => {
         if (!user) {
@@ -141,14 +173,30 @@ const StatusPage = () => {
                 "http://localhost:8000/api/laporan-user",
                 {
                     headers: headers,
-                    timeout: 10000 // 10 second timeout
+                    timeout: 10000
                 }
             );
 
-            console.log("Response API laporan-user:", response.data);
+            console.log("🔄 Response API laporan-user:", response.data);
 
             if (response.data && (response.data.data || response.data)) {
                 const data = response.data.data || response.data;
+                
+                // Debug data
+                if (data.length > 0) {
+                    console.log("📋 Laporan dengan bukti:");
+                    data.forEach(laporan => {
+                        if (laporan.foto_bukti_perbaikan?.length > 0 || laporan.rincian_biaya_pdf) {
+                            console.log({
+                                id: laporan.id,
+                                judul: laporan.judul,
+                                foto_bukti_count: laporan.foto_bukti_perbaikan?.length || 0,
+                                pdf_url: laporan.rincian_biaya_pdf ? "✅ Ada" : "❌ Tidak ada"
+                            });
+                        }
+                    });
+                }
+                
                 setLaporanData(data);
                 setFilteredData(data);
             } else {
@@ -159,16 +207,13 @@ const StatusPage = () => {
         } catch (error) {
             console.error("Error fetching user laporan:", error);
             
-            // Handle berbagai jenis error
             if (error.code === 'ECONNABORTED') {
                 setError("Koneksi timeout. Silakan coba lagi.");
             } else if (error.response) {
-                // Server responded with error status
                 const status = error.response.status;
                 
                 if (status === 401) {
                     setError("Sesi Anda telah berakhir. Silakan login kembali.");
-                    // Clear token dan redirect ke login setelah 2 detik
                     setTimeout(() => {
                         localStorage.removeItem('auth_token');
                         localStorage.removeItem('user');
@@ -187,10 +232,8 @@ const StatusPage = () => {
                     setError(`Error ${status}: ${error.response.data?.message || 'Terjadi kesalahan'}`);
                 }
             } else if (error.request) {
-                // Request dibuat tapi tidak ada response
                 setError("Tidak ada response dari server. Periksa koneksi internet Anda.");
             } else {
-                // Error lainnya
                 setError(`Terjadi kesalahan: ${error.message}`);
             }
             
@@ -201,7 +244,7 @@ const StatusPage = () => {
         }
     };
 
-    // 🔥 NEW: Fetch data petugas untuk laporan tertentu
+    // Fetch data petugas
     const fetchPetugasLaporan = async (laporanId) => {
         if (!laporanId) return;
 
@@ -224,8 +267,6 @@ const StatusPage = () => {
                 }
             );
 
-            console.log("Response petugas:", response.data);
-
             if (response.data && response.data.success) {
                 setPetugasLaporan(response.data.data || []);
             } else {
@@ -239,11 +280,10 @@ const StatusPage = () => {
         }
     };
 
-    // Handle detail click - tambah fetch petugas
+    // Handle detail click
     const handleDetailClick = async (laporan) => {
         setSelectedLaporan(laporan);
         setShowDetailModal(true);
-        // Fetch data petugas saat modal dibuka
         await fetchPetugasLaporan(laporan.id);
     };
 
@@ -251,7 +291,6 @@ const StatusPage = () => {
     useEffect(() => {
         let result = [...laporanData];
 
-        // Filter by status
         if (statusFilter !== "Semua status") {
             result = result.filter((laporan) => {
                 const status = laporan.status?.toLowerCase();
@@ -266,7 +305,6 @@ const StatusPage = () => {
             });
         }
 
-        // Filter by search term
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             result = result.filter(
@@ -277,7 +315,6 @@ const StatusPage = () => {
             );
         }
 
-        // Sort data
         result.sort((a, b) => {
             const dateA = new Date(a.created_at || a.tanggal);
             const dateB = new Date(b.created_at || b.tanggal);
@@ -519,18 +556,38 @@ const StatusPage = () => {
                                     <div className="flex flex-col md:flex-row md:items-start md:justify-between">
                                         <div className="flex-1">
                                             <div className="flex items-start justify-between mb-3">
-                                                <h3 className="text-lg font-semibold text-gray-900">
-                                                    {laporan.judul}
-                                                </h3>
-                                                <span
-                                                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                                        laporan.status
-                                                    )}`}
-                                                >
-                                                    {getStatusText(
-                                                        laporan.status
+                                                <div className="flex-1">
+                                                    <h3 className="text-lg font-semibold text-gray-900">
+                                                        {laporan.judul}
+                                                    </h3>
+                                                    
+                                                    {/* Indicator untuk laporan selesai dengan bukti */}
+                                                    {laporan.status === "Selesai" && (
+                                                        <div className="flex items-center mt-1 space-x-2">
+                                                            <span
+                                                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                                                                    laporan.status
+                                                                )}`}
+                                                            >
+                                                                {getStatusText(laporan.status)}
+                                                            </span>
+                                                            
+                                                            {laporan.foto_bukti_perbaikan?.length > 0 && (
+                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                    <Camera className="w-3 h-3 mr-1" />
+                                                                    {laporan.foto_bukti_perbaikan.length} foto bukti
+                                                                </span>
+                                                            )}
+                                                            
+                                                            {laporan.rincian_biaya_pdf && (
+                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                    <FileText className="w-3 h-3 mr-1" />
+                                                                    PDF tersedia
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                     )}
-                                                </span>
+                                                </div>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
@@ -572,6 +629,22 @@ const StatusPage = () => {
                                                 <Eye className="w-4 h-4 mr-2" />
                                                 Detail
                                             </Button>
+                                            
+                                            {/* Tampilkan button khusus untuk laporan selesai yang ada bukti */}
+                                            {laporan.status === "Selesai" && 
+                                             (laporan.foto_bukti_perbaikan?.length > 0 || laporan.rincian_biaya_pdf) && (
+                                                <Button
+                                                    onClick={() => {
+                                                        setSelectedLaporan(laporan);
+                                                        setShowDetailModal(true);
+                                                    }}
+                                                    className="bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+                                                    title="Lihat bukti perbaikan"
+                                                >
+                                                    <Camera className="w-4 h-4 mr-2" />
+                                                    Lihat Bukti
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -751,42 +824,6 @@ const StatusPage = () => {
                                                                 )}
                                                             </div>
                                                         )}
-
-                                                    {/* Additional info untuk step lainnya */}
-                                                    {isCurrent &&
-                                                        step.id === 4 && (
-                                                            <div className="mt-3 space-y-2">
-                                                                <Button className="bg-green-600 hover:bg-green-700 text-white cursor-pointer text-sm">
-                                                                    <Camera className="w-4 h-4 mr-2" />
-                                                                    Lihat Foto
-                                                                    Hasil
-                                                                    Perbaikan
-                                                                </Button>
-                                                                <Button
-                                                                    variant="outline"
-                                                                    className="cursor-pointer text-sm"
-                                                                >
-                                                                    <Download className="w-4 h-4 mr-2" />
-                                                                    Download
-                                                                    Rincian
-                                                                    Biaya (PDF)
-                                                                </Button>
-                                                            </div>
-                                                        )}
-
-                                                    {isCurrent &&
-                                                        step.id === 5 && (
-                                                            <div className="mt-3 p-3 bg-red-50 rounded-lg">
-                                                                <p className="text-sm text-red-800 font-medium">
-                                                                    Alasan
-                                                                    penolakan:
-                                                                </p>
-                                                                <p className="text-sm text-red-700 mt-1">
-                                                                    {selectedLaporan.alasan_penolakan ||
-                                                                        "Fasilitas baru saja diperbaiki / Data tidak valid"}
-                                                                </p>
-                                                            </div>
-                                                        )}
                                                 </div>
                                             </div>
                                         );
@@ -847,77 +884,187 @@ const StatusPage = () => {
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                         {selectedLaporan.foto_laporan.map(
                                             (foto, index) => (
-                                                <img
-                                                    key={index}
-                                                    src={foto}
-                                                    alt={`Foto laporan ${
-                                                        index + 1
-                                                    }`}
-                                                    className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
-                                                    onClick={() =>
-                                                        window.open(
-                                                            foto,
-                                                            "_blank"
-                                                        )
-                                                    }
-                                                />
-                                            )
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Foto Bukti Perbaikan */}
-                            {selectedLaporan.foto_bukti_perbaikan &&
-                                selectedLaporan.foto_bukti_perbaikan.length >
-                                    0 && (
-                                    <div className="border-t border-gray-200 pt-6">
-                                        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                                            Foto Bukti Perbaikan
-                                        </h3>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {selectedLaporan.foto_bukti_perbaikan.map(
-                                                (foto, index) => (
+                                                <div key={index} className="relative group">
                                                     <img
-                                                        key={index}
                                                         src={foto}
-                                                        alt={`Bukti perbaikan ${
+                                                        alt={`Foto laporan ${
                                                             index + 1
                                                         }`}
-                                                        className="w-full h-24 object-cover rounded-lg cursor-pointer hover:opacity-80"
+                                                        className="w-full h-24 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80"
                                                         onClick={() =>
                                                             window.open(
                                                                 foto,
                                                                 "_blank"
                                                             )
                                                         }
+                                                        onError={(e) => {
+                                                            e.target.style.display = 'none';
+                                                            e.target.parentElement.innerHTML = 
+                                                                '<div class="w-full h-24 bg-gray-100 border border-gray-200 rounded-lg flex items-center justify-center">' +
+                                                                '<p class="text-gray-500 text-xs">Gambar tidak ditemukan</p>' +
+                                                                '</div>';
+                                                        }}
                                                     />
-                                                )
-                                            )}
+                                                    <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                                        Foto {index + 1}
+                                                    </div>
+                                                </div>
+                                            )
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 🔥 BUKTI PERBAIKAN DARI ADMIN */}
+                            <div className="border-t border-gray-200 pt-6">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                    <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
+                                    Bukti Perbaikan dari Petugas
+                                </h3>
+                                
+                                {/* Foto Bukti Perbaikan */}
+                                {selectedLaporan.foto_bukti_perbaikan &&
+                                    selectedLaporan.foto_bukti_perbaikan.length > 0 && (
+                                    <div className="mb-6">
+                                        <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                                            <Camera className="w-4 h-4 mr-2" />
+                                            Foto Hasil Perbaikan
+                                            <span className="ml-2 text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full">
+                                                {selectedLaporan.foto_bukti_perbaikan.length} foto
+                                            </span>
+                                        </h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            {selectedLaporan.foto_bukti_perbaikan.map((foto, index) => {
+                                                if (!foto || typeof foto !== 'string') return null;
+                                                
+                                                return (
+                                                    <div key={index} className="relative group">
+                                                        <img
+                                                            src={foto}
+                                                            alt={`Bukti perbaikan ${index + 1}`}
+                                                            className="w-full h-32 object-cover rounded-lg border border-green-200 cursor-pointer hover:opacity-80"
+                                                            onClick={() => window.open(foto, "_blank")}
+                                                            onError={(e) => {
+                                                                e.target.style.display = 'none';
+                                                                e.target.parentElement.innerHTML = 
+                                                                    '<div class="w-full h-32 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center">' +
+                                                                    '<p class="text-red-600 text-xs">Gambar tidak ditemukan</p>' +
+                                                                    '</div>';
+                                                            }}
+                                                        />
+                                                        <div className="absolute bottom-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                                                            Bukti {index + 1}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-sm text-gray-500 mt-2">
+                                            Foto dokumentasi hasil perbaikan fasilitas oleh petugas
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Rincian Biaya PDF - SIMPLIFIED VERSION */}
+                                {selectedLaporan.rincian_biaya_pdf && (
+                                    <div>
+                                        <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                                            <FileText className="w-4 h-4 mr-2" />
+                                            Rincian Biaya Perbaikan
+                                        </h4>
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                                            <div className="flex items-center">
+                                                <FileText className="w-8 h-8 text-green-600 mr-3" />
+                                                <div className="flex-1">
+                                                    <p className="text-green-800 font-medium">Dokumen Rincian Biaya</p>
+                                                    <p className="text-sm text-green-600 mt-1">
+                                                        Dokumen PDF berisi rincian biaya perbaikan fasilitas
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* SIMPLE DOWNLOAD BUTTON */}
+                                        <Button
+                                            onClick={() => {
+                                                downloadFile(
+                                                    selectedLaporan.rincian_biaya_pdf, 
+                                                    `rincian-biaya-${selectedLaporan.id}.pdf`
+                                                );
+                                            }}
+                                            className="bg-green-600 hover:bg-green-700 text-white cursor-pointer w-full"
+                                        >
+                                            <Download className="w-4 h-4 mr-2" />
+                                            Download Rincian Biaya (PDF)
+                                        </Button>
+                                        
+                                        {/* Fallback button jika download utama gagal */}
+                                        <div className="mt-3">
+                                            <p className="text-xs text-gray-500 mb-2">Jika tombol di atas tidak berfungsi:</p>
+                                            <div className="flex space-x-2">
+                                                <Button
+                                                    onClick={() => {
+                                                        // Method 1: Direct window.open
+                                                        if (selectedLaporan.rincian_biaya_pdf) {
+                                                            window.open(selectedLaporan.rincian_biaya_pdf, '_blank');
+                                                        }
+                                                    }}
+                                                    variant="outline"
+                                                    className="cursor-pointer text-sm flex-1"
+                                                >
+                                                    <Eye className="w-3 h-3 mr-1" />
+                                                    Buka di Tab Baru
+                                                </Button>
+                                                
+                                                <Button
+                                                    onClick={() => {
+                                                        // Method 2: Copy URL to clipboard
+                                                        if (selectedLaporan.rincian_biaya_pdf) {
+                                                            navigator.clipboard.writeText(selectedLaporan.rincian_biaya_pdf);
+                                                            alert("URL telah disalin ke clipboard!");
+                                                        }
+                                                    }}
+                                                    variant="outline"
+                                                    className="cursor-pointer text-sm flex-1"
+                                                >
+                                                    <FileText className="w-3 h-3 mr-1" />
+                                                    Salin URL
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Debug info (hanya di console) */}
+                                        <div className="mt-2">
+                                            <button
+                                                onClick={() => {
+                                                    console.log("PDF Debug Info:", {
+                                                        url: selectedLaporan.rincian_biaya_pdf,
+                                                        laporanId: selectedLaporan.id,
+                                                        status: selectedLaporan.status,
+                                                        fileName: `rincian-biaya-${selectedLaporan.id}.pdf`
+                                                    });
+                                                }}
+                                                className="text-xs text-blue-500 hover:text-blue-700"
+                                            >
+                                                Debug PDF Info
+                                            </button>
                                         </div>
                                     </div>
                                 )}
 
-                            {/* Rincian Biaya PDF */}
-                            {selectedLaporan.rincian_biaya_pdf && (
-                                <div className="border-t border-gray-200 pt-6">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                                        Rincian Biaya
-                                    </h3>
-                                    <Button
-                                        onClick={() =>
-                                            window.open(
-                                                selectedLaporan.rincian_biaya_pdf,
-                                                "_blank"
-                                            )
-                                        }
-                                        className="bg-red-600 hover:bg-red-700 text-white cursor-pointer"
-                                    >
-                                        <Download className="w-4 h-4 mr-2" />
-                                        Download Rincian Biaya (PDF)
-                                    </Button>
-                                </div>
-                            )}
+                                {/* Pesan jika tidak ada bukti */}
+                                {(!selectedLaporan.foto_bukti_perbaikan || 
+                                  selectedLaporan.foto_bukti_perbaikan.length === 0) && 
+                                 !selectedLaporan.rincian_biaya_pdf && (
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                                        <Camera className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
+                                        <p className="text-yellow-800 font-medium">Belum ada bukti perbaikan</p>
+                                        <p className="text-sm text-yellow-600 mt-1">
+                                            Petugas belum mengupload bukti perbaikan. Silakan cek kembali nanti.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

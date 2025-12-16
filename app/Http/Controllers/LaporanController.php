@@ -586,7 +586,7 @@ class LaporanController extends Controller
                 $oldStatus = $laporan->status;
                 $laporan->update(['status' => 'Selesai']);
                 // 🔥 TAMBAH NOTIFIKASI
-                $this->createUserNotification($laporan, $oldStatus, 'Selesai');
+                // $this->createUserNotification($laporan, $oldStatus, 'Selesai');
             }
 
             return response()->json([
@@ -751,14 +751,16 @@ class LaporanController extends Controller
             
             if ($request->hasFile('foto_bukti_perbaikan')) {
                 foreach ($request->file('foto_bukti_perbaikan') as $file) {
-                    $uploadedFile = Cloudinary::upload($file->getRealPath(), [
-                        'folder' => 'bukti-perbaikan',
-                        'transformation' => [
-                            'quality' => 'auto',
-                            'fetch_format' => 'auto'
+                    $uploadedFile = Cloudinary::upload(
+                        $file->getRealPath(),
+                        [
+                            'folder' => 'admin-bukti-perbaikan/foto-perbaikan',
+                            'use_filename' => true,
+                            'unique_filename' => false,
+                            'resource_type' => 'image'
                         ]
-                    ]);
-                    
+                    );
+
                     $uploadedUrls[] = $uploadedFile->getSecurePath();
                 }
             }
@@ -831,146 +833,70 @@ class LaporanController extends Controller
 
     // Method untuk upload semua bukti (foto + PDF) sekaligus
     public function uploadAllBukti(Request $request, $id): JsonResponse
-    {
-        Log::info('=== UPLOAD ALL BUKTI START ===');
-        Log::info('Laporan ID: ' . $id);
-        Log::info('Request method: ' . $request->method());
-        
-        try {
-            $laporan = Laporan::findOrFail($id);
-            Log::info('Laporan found: ' . $laporan->judul);
-            
-            Log::info('Checking for files...');
-            Log::info('Has foto_bukti_perbaikan files: ' . ($request->hasFile('foto_bukti_perbaikan') ? 'YES' : 'NO'));
-            Log::info('Has rincian_biaya_pdf file: ' . ($request->hasFile('rincian_biaya_pdf') ? 'YES' : 'NO'));
-            
-            if ($request->hasFile('foto_bukti_perbaikan')) {
-                $files = $request->file('foto_bukti_perbaikan');
-                Log::info('Number of photo files: ' . (is_array($files) ? count($files) : 'Not an array'));
+{
+    try {
+        $laporan = Laporan::findOrFail($id);
+
+        $request->validate([
+            'foto_bukti_perbaikan' => 'nullable|array',
+            'foto_bukti_perbaikan.*' => 'url',
+            'rincian_biaya_pdf' => 'nullable|url'
+        ]);
+
+        $updateData = [];
+
+        // Gabungkan foto baru dengan yang sudah ada
+        if ($request->has('foto_bukti_perbaikan') && !empty($request->foto_bukti_perbaikan)) {
+            $existingPhotos = $laporan->foto_bukti_perbaikan ?? [];
+            if (!is_array($existingPhotos)) {
+                $existingPhotos = [];
             }
             
-            $validated = $request->validate([
-                'foto_bukti_perbaikan' => 'nullable|array',
-                'foto_bukti_perbaikan.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
-                'rincian_biaya_pdf' => 'nullable|file|mimes:pdf|max:10240'
-            ]);
-
-            Log::info('Validation passed');
-            
-            $uploadedFotoUrls = [];
-            $pdfUrl = null;
-
-            // Upload foto bukti perbaikan jika ada
-            if ($request->hasFile('foto_bukti_perbaikan')) {
-                $files = $request->file('foto_bukti_perbaikan');
-                Log::info('Processing ' . count($files) . ' photos');
-                
-                foreach ($files as $index => $file) {
-                    Log::info('Uploading photo ' . ($index + 1) . ': ' . $file->getClientOriginalName() . ' (' . $file->getSize() . ' bytes)');
-                    
-                    $uploadedFile = Cloudinary::upload($file->getRealPath(), [
-                        'folder' => 'bukti-perbaikan',
-                        'transformation' => [
-                            'quality' => 'auto',
-                            'fetch_format' => 'auto'
-                        ]
-                    ]);
-                    
-                    $uploadedFotoUrls[] = $uploadedFile->getSecurePath();
-                    Log::info('Photo uploaded to: ' . $uploadedFile->getSecurePath());
-                }
-            }
-
-            // Upload PDF rincian biaya jika ada
-            if ($request->hasFile('rincian_biaya_pdf')) {
-                $file = $request->file('rincian_biaya_pdf');
-                Log::info('Uploading PDF: ' . $file->getClientOriginalName() . ' (' . $file->getSize() . ' bytes)');
-                
-                $uploadedFile = Cloudinary::upload($file->getRealPath(), [
-                    'folder' => 'rincian-biaya',
-                    'resource_type' => 'raw'
-                ]);
-                
-                $pdfUrl = $uploadedFile->getSecurePath();
-                Log::info('PDF uploaded to: ' . $pdfUrl);
-            }
-
-            // Update data laporan
-            $updateData = [];
-            
-            if (!empty($uploadedFotoUrls)) {
-                // Handle existing photos
-                $existingPhotos = $laporan->foto_bukti_perbaikan;
-                Log::info('Existing photos from DB: ' . json_encode($existingPhotos));
-                
-                // If existingPhotos is null or not array, initialize as empty array
-                if (is_null($existingPhotos) || !is_array($existingPhotos)) {
-                    $existingPhotos = [];
-                }
-                
-                $updateData['foto_bukti_perbaikan'] = array_merge($existingPhotos, $uploadedFotoUrls);
-                Log::info('Combined photos: ' . json_encode($updateData['foto_bukti_perbaikan']));
-            }
-            
-            if ($pdfUrl) {
-                $updateData['rincian_biaya_pdf'] = $pdfUrl;
-                Log::info('PDF URL set: ' . $pdfUrl);
-            }
-            
-            // Update status jika belum selesai dan ada upload bukti
-            if ((!empty($uploadedFotoUrls) || $pdfUrl) && $laporan->status !== 'Selesai') {
-                $updateData['status'] = 'Selesai';
-                Log::info('Status updated to: Selesai');
-            }
-
-            Log::info('Data to update: ' . json_encode($updateData));
-            
-            if (!empty($updateData)) {
-                $oldStatus = $laporan->status;
-                $laporan->update($updateData);
-                Log::info('Laporan updated successfully');
-                
-                // 🔥 TAMBAH NOTIFIKASI JIKA STATUS BERUBAH
-                if (isset($updateData['status']) && $updateData['status'] === 'Selesai' && $oldStatus !== 'Selesai') {
-                    $this->createUserNotification($laporan, $oldStatus, 'Selesai');
-                }
-            } else {
-                Log::info('No data to update');
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Bukti perbaikan berhasil diupload',
-                'data' => [
-                    'foto_bukti_perbaikan' => $uploadedFotoUrls,
-                    'rincian_biaya_pdf' => $pdfUrl,
-                    'status' => $laporan->status,
-                    'laporan_id' => $laporan->id
-                ]
-            ], 200);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Validation error: ' . json_encode($e->errors()));
-            return response()->json([
-                'success' => false,
-                'message' => 'Validasi gagal',
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Error in uploadAllBukti: ' . $e->getMessage());
-            Log::error('Error trace: ' . $e->getTraceAsString());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Gagal upload bukti perbaikan: ' . $e->getMessage(),
-                'debug' => env('APP_DEBUG') ? [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine(),
-                    'trace' => $e->getTraceAsString()
-                ] : null
-            ], 500);
+            $updateData['foto_bukti_perbaikan'] = array_merge(
+                $existingPhotos,
+                $request->foto_bukti_perbaikan
+            );
         }
+
+        // Update PDF jika ada
+        if ($request->has('rincian_biaya_pdf')) {
+            $updateData['rincian_biaya_pdf'] = $request->rincian_biaya_pdf;
+        }
+
+        // Update status jika belum selesai
+        if (!empty($updateData) && $laporan->status !== 'Selesai') {
+            $oldStatus = $laporan->status;
+            $updateData['status'] = 'Selesai';
+            
+            $laporan->update($updateData);
+            
+            // Notifikasi user
+            if ($oldStatus !== 'Selesai') {
+                $this->createUserNotification($laporan, $oldStatus, 'Selesai');
+            }
+        } else if (!empty($updateData)) {
+            $laporan->update($updateData);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Bukti perbaikan berhasil disimpan',
+            'data' => $laporan
+        ], 200);
+
+    } catch (\Throwable $e) {
+        Log::error('UPLOAD ALL BUKTI ERROR', [
+            'message' => $e->getMessage(),
+            'line' => $e->getLine()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal menyimpan bukti perbaikan: ' . $e->getMessage()
+        ], 500);
     }
+}
+
 
     // Method untuk mendapatkan laporan berdasarkan user
     public function getLaporanByUser(Request $request): JsonResponse

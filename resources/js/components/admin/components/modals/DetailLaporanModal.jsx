@@ -265,6 +265,26 @@ export default function DetailLaporanModal({
         }
     };
 
+    const handleUploadSuccess = (laporanId) => {
+    console.log("✅ Upload berhasil untuk laporan ID:", laporanId);
+    
+    // Refresh data laporan
+    if (fetchLaporanData) {
+        setTimeout(() => {
+            fetchLaporanData();
+        }, 1000);
+    }
+    
+    // Close modal upload
+    setShowUploadModal(false);
+    
+    // Bisa juga reload detail laporan yang sedang dilihat
+    if (selectedLaporan.id === laporanId) {
+        // Fetch ulang data laporan ini saja
+        console.log("Reloading current laporan data...");
+    }
+};
+
     const handleOpenUploadModal = () => {
         setSelectedLaporanForUpload(selectedLaporan);
         setShowUploadModal(true);
@@ -645,6 +665,7 @@ export default function DetailLaporanModal({
                     selectedLaporanForUpload={selectedLaporan}
                     showNotification={showNotification}
                     fetchLaporanData={fetchLaporanData}
+                    onSuccess={handleUploadSuccess}
                 />
             )}
         </>
