@@ -428,42 +428,58 @@ public function releaseFromLaporan(Request $request)
 }
 
     // app/Http/Controllers/PetugasController.php
-    // app/Http/Controllers/PetugasController.php
-
-public function getPetugasTersedia(Request $request)
+   public function getPetugasTersedia(Request $request)
 {
     try {
         $laporanId = $request->laporan_id;
         
-        Log::info("🔍 Fetch petugas tersedia - STRICT CHECK", [
+        Log::info("🔍 Fetch petugas tersedia - ENHANCED CHECK", [
             'laporan_id' => $laporanId
         ]);
         
-        // 1. AMBIL SEMUA PETUGAS AKTIF
-        $petugas = Petugas::where('status', 'Aktif')->get();
+        // 1. FIRST, CLEAN UP INCONSISTENT DATA
+        $cleanedCount = $this->cleanInconsistentPetugasData();
+        if ($cleanedCount > 0) {
+            Log::info("🧹 Cleaned $cleanedCount inconsistent records");
+        }
         
-        // 2. CHECK KONSISTENSI DATA
-        $this->checkAndFixPetugasStatus();
+        // 2. AMBIL SEMUA PETUGAS AKTIF
+        $petugas = Petugas::where('status', 'Aktif')->get();
         
         // 3. FILTER YANG BENAR-BENAR TERSEDIA
         $petugasTersedia = $petugas->filter(function ($petugas) use ($laporanId) {
-            // Cek apakah petugas sedang menangani laporan LAIN yang belum selesai
-            $tugasAktifLain = DB::table('laporan_petugas as lp')
+            // Cek apakah petugas memiliki tugas AKTIF di laporan LAIN
+            $hasActiveTask = DB::table('laporan_petugas as lp')
                 ->join('laporans as l', 'lp.laporan_id', '=', 'l.id')
                 ->where('lp.petugas_id', $petugas->id)
-                ->where('lp.is_active', 1)
-                ->whereIn('lp.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
-                ->whereNotIn('l.status', ['Selesai', 'Ditolak'])
+                ->where(function($query) {
+                    // Kondisi 1: is_active=1 dan status tugas aktif
+                    $query->where(function($q) {
+                        $q->where('lp.is_active', 1)
+                          ->whereIn('lp.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
+                    })
+                    // Kondisi 2: is_active=0 tapi status tugas masih aktif (harusnya tidak terjadi)
+                    ->orWhere(function($q) {
+                        $q->where('lp.is_active', 0)
+                          ->whereIn('lp.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
+                    });
+                })
+                ->whereNotIn('l.status', ['Selesai', 'Ditolak']) // Laporan belum selesai
                 ->when($laporanId, function ($query) use ($laporanId) {
                     // Jika cek untuk laporan tertentu, exclude laporan ini
                     return $query->where('l.id', '!=', $laporanId);
                 })
                 ->exists();
             
-            return !$tugasAktifLain;
+            return !$hasActiveTask;
         })->values();
         
-        Log::info("📊 Hasil strict filter:", [
+        // 4. TAMBAHKAN FLAG is_tersedia untuk frontend
+        $petugasTersedia->each(function ($petugas) {
+            $petugas->is_tersedia = true;
+        });
+        
+        Log::info("📊 Enhanced filter result:", [
             'total_petugas' => $petugas->count(),
             'tersedia' => $petugasTersedia->count(),
             'dalam_tugas' => $petugas->count() - $petugasTersedia->count(),
@@ -475,13 +491,55 @@ public function getPetugasTersedia(Request $request)
             'data' => $petugasTersedia,
             'debug' => [
                 'total_petugas' => $petugas->count(),
-                'tersedia_count' => $petugasTersedia->count()
+                'tersedia_count' => $petugasTersedia->count(),
+                'cleaned_records' => $cleanedCount
             ]
         ]);
         
     } catch (\Exception $e) {
         Log::error("❌ Fetch Tersedia Error: " . $e->getMessage());
         return response()->json(['success' => false, 'message' => 'Gagal mengambil data petugas tersedia'], 500);
+    }
+}
+
+// TAMBAHKAN METHOD CLEANUP BARU
+private function cleanInconsistentPetugasData()
+{
+    try {
+        Log::info('🧼 Cleaning inconsistent petugas data...');
+        
+        // Fix 1: is_active=0 tapi status tugas masih aktif
+        $fix1 = DB::table('laporan_petugas')
+            ->where('is_active', 0)
+            ->whereIn('status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
+            ->update([
+                'status_tugas' => 'Selesai',
+                'catatan' => DB::raw("CONCAT(catatan, ' - Auto-fixed: Inconsistent status')"),
+                'updated_at' => now()
+            ]);
+        
+        // Fix 2: is_active=1 tapi laporan sudah selesai/ditolak
+        $fix2 = DB::table('laporan_petugas as lp')
+            ->join('laporans as l', 'lp.laporan_id', '=', 'l.id')
+            ->where('lp.is_active', 1)
+            ->whereIn('l.status', ['Selesai', 'Ditolak'])
+            ->update([
+                'lp.status_tugas' => 'Selesai',
+                'lp.is_active' => 0,
+                'lp.catatan' => DB::raw("CONCAT(lp.catatan, ' - Auto-released: Laporan ', l.status)"),
+                'lp.updated_at' => now()
+            ]);
+        
+        Log::info('✅ Cleanup completed:', [
+            'fixed_inconsistent_status' => $fix1,
+            'fixed_completed_laporan' => $fix2
+        ]);
+        
+        return $fix1 + $fix2;
+        
+    } catch (\Exception $e) {
+        Log::error('Cleanup error: ' . $e->getMessage());
+        return 0;
     }
 }
 

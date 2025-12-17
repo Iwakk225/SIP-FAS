@@ -179,6 +179,23 @@ public function update(Request $request, $id): JsonResponse
             $this->createUserNotification($laporan, $oldStatus, $validated['status']);
         }
 
+                // Di method update() di LaporanController.php - TAMBAHKAN INI
+        if (($validated['status'] === 'Selesai' || $validated['status'] === 'Ditolak') 
+            && $oldStatus !== $validated['status']) {
+            
+            Log::info('🔥 AUTO-RELEASE: Laporan selesai/ditolak, melepas petugas...');
+            
+            // Update SEMUA petugas yang terkait dengan laporan ini
+            $laporan->petugas()->updateExistingPivot($laporan->petugas()->pluck('petugas.id'), [
+                'status_tugas' => 'Selesai',
+                'is_active' => 0, // 🔥 PASTIKAN ini 0
+                'catatan' => 'Auto-released: Laporan ' . $validated['status'],
+                'updated_at' => now()
+            ]);
+            
+            Log::info('🎉 Semua petugas berhasil dilepas dan sekarang TERSEDIA');
+        }
+
         Log::info('🔄 Update Status Laporan - COMPLETE');
 
         return response()->json([
@@ -1007,6 +1024,7 @@ public function update(Request $request, $id): JsonResponse
         }
     }
 
+    // Di LaporanController.php - PERBAIKI method getPetugasByLaporan
     public function getPetugasByLaporan($laporanId): JsonResponse
     {
         try {
@@ -1019,10 +1037,18 @@ public function update(Request $request, $id): JsonResponse
                 ], 404);
             }
 
-            // Ambil data petugas yang terkait dengan laporan ini
+            // 🔥 PERBAIKAN: Hanya ambil petugas yang AKTIF (is_active=1)
             $petugas = $laporan->petugas()
+                ->wherePivot('is_active', 1)  // 🔥 HANYA YANG AKTIF
+                ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']) // 🔥 HANYA STATUS AKTIF
                 ->withPivot('status_tugas', 'catatan', 'dikirim_pada')
                 ->get();
+
+            Log::info("🔍 getPetugasByLaporan", [
+                'laporan_id' => $laporanId,
+                'petugas_count' => $petugas->count(),
+                'petugas_names' => $petugas->pluck('nama')->toArray()
+            ]);
 
             return response()->json([
                 'success' => true,
