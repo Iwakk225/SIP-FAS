@@ -10,6 +10,7 @@ use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\StatistikController;
 use App\Http\Controllers\PetugasController;
 use App\Http\Controllers\GeocodeController;
+use App\Http\Controllers\Admin\UserController; // Tambahkan ini
 
 // ========== TEST ROUTES ========== 
 Route::get('/test-api', function() {
@@ -75,7 +76,6 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::prefix('admin')->group(function () {
     Route::post('/login', [AdminAuthController::class, 'login']);
     
-    // **HAPUS 'admin' dari sini:**
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/logout', [AdminAuthController::class, 'logout']);
         Route::get('/me', [AdminAuthController::class, 'me']);
@@ -88,8 +88,21 @@ Route::prefix('admin')->group(function () {
         Route::post('/laporan/{id}/upload-rincian-biaya', [LaporanController::class, 'uploadRincianBiaya']);
         Route::post('/laporan/{id}/upload-all-bukti', [LaporanController::class, 'uploadAllBukti']);
         
-        // **TAMBAHKAN ROUTE INI:** Route untuk get petugas by laporan (admin)
+        // Route untuk get petugas by laporan (admin)
         Route::get('/laporan/{id}/petugas', [LaporanController::class, 'getPetugasByLaporan']); // ✅ UNTUK ADMIN
+        
+        // ========== USER MANAGEMENT ROUTES ==========
+        // TAMBAHKAN ROUTES INI DI SINI:
+        Route::get('/users', [UserController::class, 'index']);
+        Route::post('/users', [UserController::class, 'store']);
+        Route::get('/users/{id}', [UserController::class, 'show']);
+        Route::put('/users/{id}', [UserController::class, 'update']);
+        Route::put('/users/{id}/status', [UserController::class, 'updateStatus']);
+        Route::delete('/users/{id}', [UserController::class, 'destroy']);
+        // Di dalam grup admin routes, TAMBAHKAN:
+        Route::put('/users/{id}/verify-email', [UserController::class, 'verifyEmail']);
+        Route::put('/users/{id}/unverify-email', [UserController::class, 'unverifyEmail']);
+        // =============================================
         
         // Admin petugas routes
         Route::get('/petugas', [PetugasController::class, 'index']);
@@ -103,16 +116,13 @@ Route::prefix('admin')->group(function () {
         Route::get('/petugas/statistik', [PetugasController::class, 'getStatistik']);
         Route::get('/petugas/dalam-tugas', [PetugasController::class, 'getPetugasDalamTugas']);
         
-        // **PERBAIKI ROUTE INI:** Hapus 'admin/' duplikat
         Route::post('/petugas/refresh-status', [PetugasController::class, 'refreshPetugasStatus']);
         Route::post('/petugas/manual-fix', [PetugasController::class, 'manualFixPetugasStatus']);
         Route::get('/petugas/debug/{id}', [PetugasController::class, 'debugPetugas']);
         
-        // **TAMBAHKAN ROUTE INI:** Route alternatif untuk get petugas by laporan dari PetugasController
         Route::get('/petugas/by-laporan/{laporanId}', [PetugasController::class, 'getPetugasByLaporan']); // ✅ ALTERNATIF
     });
     
-    // **OPTION B: Test route dengan middleware admin**
     Route::middleware(['auth:sanctum', 'admin'])->get('/test-middleware', function() {
         return response()->json([
             'success' => true,
@@ -120,6 +130,5 @@ Route::prefix('admin')->group(function () {
         ]);
     });
     
-    // **OPTION C: Test route tanpa auth sama sekali (sementara debugging)**
     Route::get('/test-laporan', [LaporanController::class, 'index']);
 });

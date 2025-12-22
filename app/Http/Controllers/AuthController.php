@@ -24,6 +24,8 @@ class AuthController extends Controller
             'email' => $validatedData['email'],
             'phone' => $validatedData['phone'],
             'password' => Hash::make($validatedData['password']),
+            'status' => 'aktif', // AUTO SET STATUS AKTIF
+            'email_verified_at' => now(),
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -35,7 +37,7 @@ class AuthController extends Controller
         ], 201);
     }
 
-    // LOGIN
+    // LOGIN - TAMBAHKAN CEK STATUS
     public function login(Request $request)
     {
         $request->validate([
@@ -45,7 +47,23 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        // CEK 1: User ada?
+        if (!$user) {
+            throw ValidationException::withMessages([
+                'email' => ['Email atau password salah.'],
+            ]);
+        }
+
+        // CEK 2: Status aktif?
+        if ($user->status === 'nonaktif') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akun Anda dinonaktifkan. Hubungi administrator.'
+            ], 401);
+        }
+
+        // CEK 3: Password benar?
+        if (!Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Email atau password salah.'],
             ]);
@@ -54,6 +72,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
+            'success' => true,
             'message' => 'Login berhasil',
             'user' => $user,
             'token' => $token,
@@ -63,7 +82,10 @@ class AuthController extends Controller
     // GET USER LOGIN
     public function user(Request $request)
     {
-        return response()->json($request->user());
+        return response()->json([
+            'success' => true,
+            'user' => $request->user()
+        ]);
     }
 
     // LOGOUT
@@ -71,6 +93,9 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json(['message' => 'Logout berhasil']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Logout berhasil'
+        ]);
     }
 }

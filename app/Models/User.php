@@ -17,6 +17,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
+        'status', // TAMBAHKAN INI
     ];
 
     protected $hidden = [
@@ -45,4 +46,10 @@ class User extends Authenticatable
         // Kirim email dengan kode
         $this->notify(new PasswordResetCodeNotification($code));
     }
+
+    // TAMBAHKAN RELASI KE LAPORAN (jika belum ada)
+    // public function laporans()
+    // {
+    //     return $this->hasMany(Laporan::class, 'user_id');
+    // }
 }

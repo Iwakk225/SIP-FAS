@@ -6,6 +6,7 @@ import NotificationPopup from "./components/layout/NotificationPopup";
 import DashboardPage from "./components/pages/DashboardPage";
 import DataLaporanPage from "./components/pages/DataLaporanPage";
 import DataPetugasPage from "./components/pages/DataPetugasPage";
+import DataUserPage from "./components/pages/DataUserPage";
 import ProfilPage from "./components/pages/ProfilPage";
 import PengaturanPage from "./components/pages/PengaturanPage";
 import { useLaporanData } from "./hooks/useLaporanData";
@@ -54,6 +55,8 @@ export default function DashboardAdminMain() {
                 return <ProfilPage {...pageProps} />;
             case "pengaturan":
                 return <PengaturanPage {...pageProps} />;
+            case "user":
+                return <DataUserPage {...pageProps} />;
             default:
                 return <DashboardPage {...pageProps} />;
         }
