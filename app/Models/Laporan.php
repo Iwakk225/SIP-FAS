@@ -26,7 +26,8 @@ class Laporan extends Model
 
     protected $casts = [
         'foto_laporan' => 'array',
-        'foto_bukti_perbaikan' => 'array'
+        'foto_bukti_perbaikan' => 'array',
+        'alasan_penolakan' => 'string'
     ];
 
     /*

@@ -19,6 +19,8 @@ import {
     Phone,
     MapPin as MapIcon,
     AlertCircle,
+    Info,
+    Send,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -41,7 +43,30 @@ const StatusPage = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
 
+    // 🔥 PERBAIKAN: Tracking steps yang disederhanakan untuk laporan ditolak
     const trackingSteps = [
+        {
+            id: 1,
+            status: "Validasi",
+            title: "Laporan Terkirim",
+            description: "Laporan Anda telah berhasil dikirim",
+            icon: Send,
+            color: "text-blue-500",
+            bgColor: "bg-blue-50",
+        },
+        {
+            id: 2,
+            status: "Ditolak",
+            title: "Laporan Ditolak",
+            description: "Laporan tidak dapat diproses",
+            icon: XCircle,
+            color: "text-red-500",
+            bgColor: "bg-red-50",
+        },
+    ];
+
+    // Tracking steps untuk status lainnya (selain ditolak)
+    const trackingStepsLengkap = [
         {
             id: 1,
             status: "Validasi",
@@ -78,28 +103,16 @@ const StatusPage = () => {
             color: "text-green-500",
             bgColor: "bg-green-50",
         },
-        {
-            id: 5,
-            status: "Ditolak",
-            title: "Laporan Ditolak",
-            description: "Laporan tidak dapat diproses",
-            icon: XCircle,
-            color: "text-red-500",
-            bgColor: "bg-red-50",
-        },
     ];
 
     // Function untuk mendapatkan token dari berbagai sumber
     const getToken = () => {
-        // Cek localStorage dulu (untuk remember me)
         const localStorageToken = localStorage.getItem('auth_token');
         if (localStorageToken) return localStorageToken;
         
-        // Cek sessionStorage
         const sessionStorageToken = sessionStorage.getItem('auth_token');
         if (sessionStorageToken) return sessionStorageToken;
         
-        // Cek dari user context
         if (user?.token) return user.token;
         
         return null;
@@ -126,13 +139,10 @@ const StatusPage = () => {
 
         console.log("Downloading:", { url, fileName });
         
-        // Buat elemen anchor untuk download
         const link = document.createElement('a');
         link.href = url;
         
-        // Tambahkan parameter untuk force download
         if (url.includes('cloudinary.com')) {
-            // Untuk Cloudinary, tambahkan parameter fl_attachment
             const separator = url.includes('?') ? '&' : '?';
             link.href = `${url}${separator}fl_attachment`;
         }
@@ -141,7 +151,6 @@ const StatusPage = () => {
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         
-        // Tambahkan ke DOM, klik, lalu hapus
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -184,14 +193,14 @@ const StatusPage = () => {
                 
                 // Debug data
                 if (data.length > 0) {
-                    console.log("📋 Laporan dengan bukti:");
+                    console.log("📋 Laporan dengan alasan penolakan:");
                     data.forEach(laporan => {
-                        if (laporan.foto_bukti_perbaikan?.length > 0 || laporan.rincian_biaya_pdf) {
+                        if (laporan.status === "Ditolak" && laporan.alasan_penolakan) {
                             console.log({
                                 id: laporan.id,
                                 judul: laporan.judul,
-                                foto_bukti_count: laporan.foto_bukti_perbaikan?.length || 0,
-                                pdf_url: laporan.rincian_biaya_pdf ? "✅ Ada" : "❌ Tidak ada"
+                                alasan_penolakan: laporan.alasan_penolakan,
+                                status: laporan.status
                             });
                         }
                     });
@@ -284,7 +293,11 @@ const StatusPage = () => {
     const handleDetailClick = async (laporan) => {
         setSelectedLaporan(laporan);
         setShowDetailModal(true);
-        await fetchPetugasLaporan(laporan.id);
+        
+        // Hanya fetch petugas jika status bukan "Ditolak"
+        if (laporan.status !== "Ditolak") {
+            await fetchPetugasLaporan(laporan.id);
+        }
     };
 
     // Filter dan search data
@@ -311,7 +324,8 @@ const StatusPage = () => {
                 (laporan) =>
                     laporan.judul?.toLowerCase().includes(term) ||
                     laporan.lokasi?.toLowerCase().includes(term) ||
-                    laporan.deskripsi?.toLowerCase().includes(term)
+                    laporan.deskripsi?.toLowerCase().includes(term) ||
+                    (laporan.alasan_penolakan && laporan.alasan_penolakan.toLowerCase().includes(term))
             );
         }
 
@@ -357,7 +371,7 @@ const StatusPage = () => {
         if (statusLower === "tervalidasi") return 2;
         if (statusLower === "dalam proses") return 3;
         if (statusLower === "selesai") return 4;
-        if (statusLower === "ditolak") return 5;
+        if (statusLower === "ditolak") return 2; // 🔥 PERBAIKAN: Untuk ditolak, step 2
 
         return 1;
     };
@@ -405,6 +419,15 @@ const StatusPage = () => {
             hour: "2-digit",
             minute: "2-digit",
         });
+    };
+
+    // 🔥 TAMBAH: Function untuk menentukan tracking steps berdasarkan status
+    const getTrackingSteps = (status) => {
+        const statusLower = status?.toLowerCase();
+        if (statusLower === "ditolak") {
+            return trackingSteps; // Hanya 2 steps untuk ditolak
+        }
+        return trackingStepsLengkap; // Full steps untuk status lain
     };
 
     return (
@@ -469,7 +492,7 @@ const StatusPage = () => {
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                                 <Input
                                     type="text"
-                                    placeholder="Cari laporan Anda..."
+                                    placeholder="Cari laporan Anda (judul, lokasi, deskripsi, atau alasan penolakan)..."
                                     value={searchTerm}
                                     onChange={(e) =>
                                         setSearchTerm(e.target.value)
@@ -551,7 +574,7 @@ const StatusPage = () => {
                             filteredData.map((laporan) => (
                                 <div
                                     key={laporan.id}
-                                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
+                                    className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
                                 >
                                     <div className="flex flex-col md:flex-row md:items-start md:justify-between">
                                         <div className="flex-1">
@@ -561,30 +584,48 @@ const StatusPage = () => {
                                                         {laporan.judul}
                                                     </h3>
                                                     
-                                                    {/* Indicator untuk laporan selesai dengan bukti */}
-                                                    {laporan.status === "Selesai" && (
-                                                        <div className="flex items-center mt-1 space-x-2">
-                                                            <span
-                                                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                                                                    laporan.status
-                                                                )}`}
-                                                            >
-                                                                {getStatusText(laporan.status)}
+                                                    <div className="flex items-center mt-1 space-x-2">
+                                                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(laporan.status)}`}>
+                                                            {getStatusText(laporan.status)}
+                                                        </span>
+                                                        
+                                                        {/* Indicator untuk laporan selesai dengan bukti */}
+                                                        {laporan.status === "Selesai" && (
+                                                            <>
+                                                                {laporan.foto_bukti_perbaikan?.length > 0 && (
+                                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                                        <Camera className="w-3 h-3 mr-1" />
+                                                                        {laporan.foto_bukti_perbaikan.length} foto bukti
+                                                                    </span>
+                                                                )}
+                                                                
+                                                                {laporan.rincian_biaya_pdf && (
+                                                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                        <FileText className="w-3 h-3 mr-1" />
+                                                                        PDF tersedia
+                                                                    </span>
+                                                                )}
+                                                            </>
+                                                        )}
+
+                                                        {/* Indicator untuk laporan ditolak */}
+                                                        {laporan.status === "Ditolak" && laporan.alasan_penolakan && (
+                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">
+                                                                <AlertCircle className="w-3 h-3 mr-1" />
+                                                                Ada alasan penolakan
                                                             </span>
-                                                            
-                                                            {laporan.foto_bukti_perbaikan?.length > 0 && (
-                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                                                    <Camera className="w-3 h-3 mr-1" />
-                                                                    {laporan.foto_bukti_perbaikan.length} foto bukti
-                                                                </span>
-                                                            )}
-                                                            
-                                                            {laporan.rincian_biaya_pdf && (
-                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                                    <FileText className="w-3 h-3 mr-1" />
-                                                                    PDF tersedia
-                                                                </span>
-                                                            )}
+                                                        )}
+                                                    </div>
+
+                                                    {/* Preview alasan penolakan di card (jika ada) */}
+                                                    {laporan.status === "Ditolak" && laporan.alasan_penolakan && (
+                                                        <div className="mt-2 bg-red-50 border border-red-100 rounded-lg p-3">
+                                                            <div className="flex items-center">
+                                                                <XCircle className="w-4 h-4 text-red-500 mr-2 flex-shrink-0" />
+                                                                <p className="text-sm text-red-700 line-clamp-2">
+                                                                    <span className="font-medium">Alasan:</span> {laporan.alasan_penolakan}
+                                                                </p>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>
@@ -686,149 +727,202 @@ const StatusPage = () => {
                         </div>
 
                         <div className="p-6 space-y-6">
-                            {/* Tracking Progress */}
+                            {/* 🔥 PERBAIKAN: Tracking Progress - Sederhana untuk laporan ditolak */}
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                                    Status Laporan
+                                    {selectedLaporan.status === "Ditolak" ? "Status Laporan" : "Progres Laporan"}
                                 </h3>
-                                <div className="space-y-4">
-                                    {trackingSteps.map((step, index) => {
-                                        const currentStep = getCurrentStep(
-                                            selectedLaporan.status
-                                        );
-                                        const isCompleted =
-                                            step.id < currentStep;
-                                        const isCurrent =
-                                            step.id === currentStep;
-                                        const isFuture = step.id > currentStep;
+                                
+                                {selectedLaporan.status === "Ditolak" ? (
+                                    // 🔥 TAMPILAN SEDERHANA UNTUK LAPORAN DITOLAK
+                                    <div className="space-y-6">
+                                        {/* Step 1: Laporan Terkirim */}
+                                        <div className="flex items-start space-x-4">
+                                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                                                <Send className="w-5 h-5 text-white" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="font-medium text-green-600">
+                                                    Laporan Terkirim
+                                                </p>
+                                                <p className="text-sm text-gray-600 mt-1">
+                                                    Laporan Anda telah berhasil dikirim ke sistem
+                                                </p>
+                                            </div>
+                                        </div>
 
-                                        return (
-                                            <div
-                                                key={step.id}
-                                                className="flex items-start space-x-4"
-                                            >
+                                        {/* Step 2: Laporan Ditolak dengan alasan */}
+                                        <div className="flex items-start space-x-4">
+                                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-50 flex items-center justify-center border-2 border-red-500">
+                                                <XCircle className="w-5 h-5 text-red-500" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="font-medium text-red-600">
+                                                    Laporan Ditolak
+                                                </p>
+                                                <p className="text-sm text-gray-600 mt-1">
+                                                    Laporan tidak dapat diproses
+                                                </p>
+                                                
+                                                {/* 🔥 ALASAN PENOLAKAN */}
+                                                {selectedLaporan.alasan_penolakan && (
+                                                    <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-4">
+                                                        <div className="flex items-center mb-2">
+                                                            <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+                                                            <h4 className="text-sm font-medium text-red-900">
+                                                                Alasan Penolakan
+                                                            </h4>
+                                                        </div>
+                                                        <p className="text-sm text-red-700">
+                                                            {selectedLaporan.alasan_penolakan}
+                                                        </p>
+                                                        <div className="mt-3 pt-3 border-t border-red-200">
+                                                            <p className="text-xs text-red-600">
+                                                                <span className="font-medium">Saran:</span> Anda dapat mengirim laporan baru dengan informasi yang lebih lengkap.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // 🔥 TAMPILAN FULL UNTUK STATUS LAINNYA
+                                    <div className="space-y-4">
+                                        {getTrackingSteps(selectedLaporan.status).map((step, index) => {
+                                            const currentStep = getCurrentStep(selectedLaporan.status);
+                                            const isCompleted = step.id < currentStep;
+                                            const isCurrent = step.id === currentStep;
+                                            const isFuture = step.id > currentStep;
+
+                                            return (
                                                 <div
-                                                    className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
-                                                        isCompleted
-                                                            ? "bg-green-500"
-                                                            : isCurrent
-                                                            ? step.bgColor
-                                                            : "bg-gray-200"
-                                                    }`}
+                                                    key={step.id}
+                                                    className="flex items-start space-x-4"
                                                 >
-                                                    <step.icon
-                                                        className={`w-5 h-5 ${
+                                                    <div
+                                                        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
                                                             isCompleted
-                                                                ? "text-white"
+                                                                ? "bg-green-500"
                                                                 : isCurrent
-                                                                ? step.color
-                                                                : "text-gray-400"
-                                                        }`}
-                                                    />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <p
-                                                        className={`font-medium ${
-                                                            isCompleted
-                                                                ? "text-green-600"
-                                                                : isCurrent
-                                                                ? "text-gray-900"
-                                                                : "text-gray-500"
+                                                                ? step.bgColor
+                                                                : "bg-gray-200"
                                                         }`}
                                                     >
-                                                        {step.title}
-                                                    </p>
-                                                    <p className="text-sm text-gray-600 mt-1">
-                                                        {step.description}
-                                                    </p>
+                                                        <step.icon
+                                                            className={`w-5 h-5 ${
+                                                                isCompleted
+                                                                    ? "text-white"
+                                                                    : isCurrent
+                                                                    ? step.color
+                                                                    : "text-gray-400"
+                                                            }`}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <p
+                                                            className={`font-medium ${
+                                                                isCompleted
+                                                                    ? "text-green-600"
+                                                                    : isCurrent
+                                                                    ? "text-gray-900"
+                                                                    : "text-gray-500"
+                                                            }`}
+                                                        >
+                                                            {step.title}
+                                                        </p>
+                                                        <p className="text-sm text-gray-600 mt-1">
+                                                            {step.description}
+                                                        </p>
 
-                                                    {/* Tampilkan info petugas di step 3 (Dalam Proses) */}
-                                                    {isCurrent &&
-                                                        step.id === 3 && (
-                                                            <div className="mt-3">
-                                                                {isLoadingPetugas ? (
-                                                                    <div className="flex items-center text-sm text-gray-500">
-                                                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                                                                        Memuat
-                                                                        data
-                                                                        petugas...
-                                                                    </div>
-                                                                ) : petugasLaporan.length >
-                                                                  0 ? (
-                                                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                                                                        <p className="text-sm font-medium text-blue-900 mb-2">
-                                                                            Petugas
-                                                                            yang
-                                                                            Dikerahkan:
-                                                                        </p>
-                                                                        {petugasLaporan.map(
-                                                                            (
-                                                                                petugas
-                                                                            ) => (
-                                                                                <div
-                                                                                    key={
-                                                                                        petugas.id
-                                                                                    }
-                                                                                    className="flex items-start space-x-3 mb-2 last:mb-0"
-                                                                                >
-                                                                                    <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                                                                        <User className="w-4 h-4 text-blue-600" />
-                                                                                    </div>
-                                                                                    <div className="flex-1">
-                                                                                        <p className="text-sm font-medium text-blue-800">
-                                                                                            {
-                                                                                                petugas.nama
-                                                                                            }
-                                                                                        </p>
-                                                                                        <div className="flex items-center text-xs text-blue-700 mt-1">
-                                                                                            <Phone className="w-3 h-3 mr-1" />
-                                                                                            <span>
-                                                                                                {
-                                                                                                    petugas.nomor_telepon
-                                                                                                }
-                                                                                            </span>
-                                                                                        </div>
-                                                                                        <div className="flex items-center text-xs text-blue-600 mt-1">
-                                                                                            <MapIcon className="w-3 h-3 mr-1" />
-                                                                                            <span>
-                                                                                                {
-                                                                                                    petugas.alamat
-                                                                                                }
-                                                                                            </span>
-                                                                                        </div>
-                                                                                        {petugas
-                                                                                            .pivot
-                                                                                            ?.dikirim_pada && (
-                                                                                            <p className="text-xs text-blue-500 mt-1">
-                                                                                                Dikirim:{" "}
-                                                                                                {formatDateTime(
-                                                                                                    petugas
-                                                                                                        .pivot
-                                                                                                        .dikirim_pada
-                                                                                                )}
-                                                                                            </p>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </div>
-                                                                            )
-                                                                        )}
-                                                                    </div>
-                                                                ) : (
-                                                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                                                                        <p className="text-sm text-yellow-800">
-                                                                            Menunggu
-                                                                            penugasan
+                                                        {/* Tampilkan info petugas di step 3 (Dalam Proses) */}
+                                                        {isCurrent &&
+                                                            step.id === 3 && (
+                                                                <div className="mt-3">
+                                                                    {isLoadingPetugas ? (
+                                                                        <div className="flex items-center text-sm text-gray-500">
+                                                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                                                                            Memuat
+                                                                            data
                                                                             petugas...
-                                                                        </p>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
+                                                                        </div>
+                                                                    ) : petugasLaporan.length >
+                                                                      0 ? (
+                                                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                                                            <p className="text-sm font-medium text-blue-900 mb-2">
+                                                                                Petugas
+                                                                                yang
+                                                                                Dikerahkan:
+                                                                            </p>
+                                                                            {petugasLaporan.map(
+                                                                                (
+                                                                                    petugas
+                                                                                ) => (
+                                                                                    <div
+                                                                                        key={
+                                                                                            petugas.id
+                                                                                        }
+                                                                                        className="flex items-start space-x-3 mb-2 last:mb-0"
+                                                                                    >
+                                                                                        <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                                                            <User className="w-4 h-4 text-blue-600" />
+                                                                                        </div>
+                                                                                        <div className="flex-1">
+                                                                                            <p className="text-sm font-medium text-blue-800">
+                                                                                                {
+                                                                                                    petugas.nama
+                                                                                                }
+                                                                                            </p>
+                                                                                            <div className="flex items-center text-xs text-blue-700 mt-1">
+                                                                                                <Phone className="w-3 h-3 mr-1" />
+                                                                                                <span>
+                                                                                                    {
+                                                                                                        petugas.nomor_telepon
+                                                                                                    }
+                                                                                                </span>
+                                                                                            </div>
+                                                                                            <div className="flex items-center text-xs text-blue-600 mt-1">
+                                                                                                <MapIcon className="w-3 h-3 mr-1" />
+                                                                                                <span>
+                                                                                                    {
+                                                                                                        petugas.alamat
+                                                                                                    }
+                                                                                                </span>
+                                                                                            </div>
+                                                                                            {petugas
+                                                                                                .pivot
+                                                                                                ?.dikirim_pada && (
+                                                                                                <p className="text-xs text-blue-500 mt-1">
+                                                                                                    Dikirim:{" "}
+                                                                                                    {formatDateTime(
+                                                                                                        petugas
+                                                                                                            .pivot
+                                                                                                            .dikirim_pada
+                                                                                                    )}
+                                                                                                </p>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                )
+                                                                            )}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                                                            <p className="text-sm text-yellow-800">
+                                                                                Menunggu
+                                                                                penugasan
+                                                                                petugas...
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Informasi Laporan */}
@@ -872,6 +966,23 @@ const StatusPage = () => {
                                             {selectedLaporan.deskripsi}
                                         </p>
                                     </div>
+
+                                    {/* Tampilkan alasan penolakan di bagian informasi */}
+                                    {selectedLaporan.status === "Ditolak" && selectedLaporan.alasan_penolakan && (
+                                        <div className="md:col-span-2">
+                                            <p className="font-medium text-gray-500">
+                                                Alasan Penolakan
+                                            </p>
+                                            <div className="mt-1 bg-red-50 border border-red-200 rounded-lg p-4">
+                                                <p className="text-red-700">
+                                                    {selectedLaporan.alasan_penolakan}
+                                                </p>
+                                                <p className="text-xs text-red-600 mt-2">
+                                                    <span className="font-medium">Catatan:</span> Laporan ini tidak dapat diproses lebih lanjut. Silakan kirim laporan baru dengan informasi yang lebih lengkap.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -915,156 +1026,136 @@ const StatusPage = () => {
                                 </div>
                             )}
 
-                            {/* 🔥 BUKTI PERBAIKAN DARI ADMIN */}
-                            <div className="border-t border-gray-200 pt-6">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                    <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
-                                    Bukti Perbaikan dari Petugas
-                                </h3>
-                                
-                                {/* Foto Bukti Perbaikan */}
-                                {selectedLaporan.foto_bukti_perbaikan &&
-                                    selectedLaporan.foto_bukti_perbaikan.length > 0 && (
-                                    <div className="mb-6">
-                                        <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-                                            <Camera className="w-4 h-4 mr-2" />
-                                            Foto Hasil Perbaikan
-                                            <span className="ml-2 text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                                                {selectedLaporan.foto_bukti_perbaikan.length} foto
-                                            </span>
-                                        </h4>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                            {selectedLaporan.foto_bukti_perbaikan.map((foto, index) => {
-                                                if (!foto || typeof foto !== 'string') return null;
-                                                
-                                                return (
-                                                    <div key={index} className="relative group">
-                                                        <img
-                                                            src={foto}
-                                                            alt={`Bukti perbaikan ${index + 1}`}
-                                                            className="w-full h-32 object-cover rounded-lg border border-green-200 cursor-pointer hover:opacity-80"
-                                                            onClick={() => window.open(foto, "_blank")}
-                                                            onError={(e) => {
-                                                                e.target.style.display = 'none';
-                                                                e.target.parentElement.innerHTML = 
-                                                                    '<div class="w-full h-32 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center">' +
-                                                                    '<p class="text-red-600 text-xs">Gambar tidak ditemukan</p>' +
-                                                                    '</div>';
-                                                            }}
-                                                        />
-                                                        <div className="absolute bottom-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
-                                                            Bukti {index + 1}
+                            {/* 🔥 BUKTI PERBAIKAN DARI ADMIN (Hanya untuk status Selesai) */}
+                            {selectedLaporan.status === "Selesai" && (
+                                <div className="border-t border-gray-200 pt-6">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                        <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
+                                        Bukti Perbaikan dari Petugas
+                                    </h3>
+                                    
+                                    {/* Foto Bukti Perbaikan */}
+                                    {selectedLaporan.foto_bukti_perbaikan &&
+                                        selectedLaporan.foto_bukti_perbaikan.length > 0 && (
+                                        <div className="mb-6">
+                                            <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                                                <Camera className="w-4 h-4 mr-2" />
+                                                Foto Hasil Perbaikan
+                                                <span className="ml-2 text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full">
+                                                    {selectedLaporan.foto_bukti_perbaikan.length} foto
+                                                </span>
+                                            </h4>
+                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                                {selectedLaporan.foto_bukti_perbaikan.map((foto, index) => {
+                                                    if (!foto || typeof foto !== 'string') return null;
+                                                    
+                                                    return (
+                                                        <div key={index} className="relative group">
+                                                            <img
+                                                                src={foto}
+                                                                alt={`Bukti perbaikan ${index + 1}`}
+                                                                className="w-full h-32 object-cover rounded-lg border border-green-200 cursor-pointer hover:opacity-80"
+                                                                onClick={() => window.open(foto, "_blank")}
+                                                                onError={(e) => {
+                                                                    e.target.style.display = 'none';
+                                                                    e.target.parentElement.innerHTML = 
+                                                                        '<div class="w-full h-32 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center">' +
+                                                                        '<p class="text-red-600 text-xs">Gambar tidak ditemukan</p>' +
+                                                                        '</div>';
+                                                                }}
+                                                            />
+                                                            <div className="absolute bottom-2 right-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
+                                                                Bukti {index + 1}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                })}
+                                            </div>
+                                            <p className="text-sm text-gray-500 mt-2">
+                                                Foto dokumentasi hasil perbaikan fasilitas oleh petugas
+                                            </p>
                                         </div>
-                                        <p className="text-sm text-gray-500 mt-2">
-                                            Foto dokumentasi hasil perbaikan fasilitas oleh petugas
-                                        </p>
-                                    </div>
-                                )}
+                                    )}
 
-                                {/* Rincian Biaya PDF - SIMPLIFIED VERSION */}
-                                {selectedLaporan.rincian_biaya_pdf && (
-                                    <div>
-                                        <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-                                            <FileText className="w-4 h-4 mr-2" />
-                                            Rincian Biaya Perbaikan
-                                        </h4>
-                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                                            <div className="flex items-center">
-                                                <FileText className="w-8 h-8 text-green-600 mr-3" />
-                                                <div className="flex-1">
-                                                    <p className="text-green-800 font-medium">Dokumen Rincian Biaya</p>
-                                                    <p className="text-sm text-green-600 mt-1">
-                                                        Dokumen PDF berisi rincian biaya perbaikan fasilitas
-                                                    </p>
+                                    {/* Rincian Biaya PDF */}
+                                    {selectedLaporan.rincian_biaya_pdf && (
+                                        <div>
+                                            <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                                                <FileText className="w-4 h-4 mr-2" />
+                                                Rincian Biaya Perbaikan
+                                            </h4>
+                                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                                                <div className="flex items-center">
+                                                    <FileText className="w-8 h-8 text-green-600 mr-3" />
+                                                    <div className="flex-1">
+                                                        <p className="text-green-800 font-medium">Dokumen Rincian Biaya</p>
+                                                        <p className="text-sm text-green-600 mt-1">
+                                                            Dokumen PDF berisi rincian biaya perbaikan fasilitas
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        
-                                        {/* SIMPLE DOWNLOAD BUTTON */}
-                                        <Button
-                                            onClick={() => {
-                                                downloadFile(
-                                                    selectedLaporan.rincian_biaya_pdf, 
-                                                    `rincian-biaya-${selectedLaporan.id}.pdf`
-                                                );
-                                            }}
-                                            className="bg-green-600 hover:bg-green-700 text-white cursor-pointer w-full"
-                                        >
-                                            <Download className="w-4 h-4 mr-2" />
-                                            Download Rincian Biaya (PDF)
-                                        </Button>
-                                        
-                                        {/* Fallback button jika download utama gagal */}
-                                        <div className="mt-3">
-                                            <p className="text-xs text-gray-500 mb-2">Jika tombol di atas tidak berfungsi:</p>
-                                            <div className="flex space-x-2">
-                                                <Button
-                                                    onClick={() => {
-                                                        // Method 1: Direct window.open
-                                                        if (selectedLaporan.rincian_biaya_pdf) {
-                                                            window.open(selectedLaporan.rincian_biaya_pdf, '_blank');
-                                                        }
-                                                    }}
-                                                    variant="outline"
-                                                    className="cursor-pointer text-sm flex-1"
-                                                >
-                                                    <Eye className="w-3 h-3 mr-1" />
-                                                    Buka di Tab Baru
-                                                </Button>
-                                                
-                                                <Button
-                                                    onClick={() => {
-                                                        // Method 2: Copy URL to clipboard
-                                                        if (selectedLaporan.rincian_biaya_pdf) {
-                                                            navigator.clipboard.writeText(selectedLaporan.rincian_biaya_pdf);
-                                                            alert("URL telah disalin ke clipboard!");
-                                                        }
-                                                    }}
-                                                    variant="outline"
-                                                    className="cursor-pointer text-sm flex-1"
-                                                >
-                                                    <FileText className="w-3 h-3 mr-1" />
-                                                    Salin URL
-                                                </Button>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Debug info (hanya di console) */}
-                                        <div className="mt-2">
-                                            <button
+                                            
+                                            <Button
                                                 onClick={() => {
-                                                    console.log("PDF Debug Info:", {
-                                                        url: selectedLaporan.rincian_biaya_pdf,
-                                                        laporanId: selectedLaporan.id,
-                                                        status: selectedLaporan.status,
-                                                        fileName: `rincian-biaya-${selectedLaporan.id}.pdf`
-                                                    });
+                                                    downloadFile(
+                                                        selectedLaporan.rincian_biaya_pdf, 
+                                                        `rincian-biaya-${selectedLaporan.id}.pdf`
+                                                    );
                                                 }}
-                                                className="text-xs text-blue-500 hover:text-blue-700"
+                                                className="bg-green-600 hover:bg-green-700 text-white cursor-pointer w-full"
                                             >
-                                                Debug PDF Info
-                                            </button>
+                                                <Download className="w-4 h-4 mr-2" />
+                                                Download Rincian Biaya (PDF)
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* 🔥 TAMBAH: Action untuk laporan ditolak */}
+                            {selectedLaporan.status === "Ditolak" && (
+                                <div className="border-t border-gray-200 pt-6">
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                        <AlertCircle className="w-5 h-5 mr-2 text-red-500" />
+                                        Apa yang harus dilakukan?
+                                    </h3>
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                        <p className="text-sm text-blue-800 mb-3">
+                                            Jika laporan Anda ditolak, Anda dapat:
+                                        </p>
+                                        <ul className="space-y-2 text-sm text-blue-700">
+                                            <li className="flex items-start">
+                                                <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                                <span>Periksa alasan penolakan di atas</span>
+                                            </li>
+                                            <li className="flex items-start">
+                                                <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                                <span>Perbaiki informasi yang kurang lengkap</span>
+                                            </li>
+                                            <li className="flex items-start">
+                                                <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                                <span>Kirim laporan baru dengan foto yang lebih jelas</span>
+                                            </li>
+                                            <li className="flex items-start">
+                                                <CheckCircle className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                                                <span>Pastikan lokasi yang dilaporkan spesifik</span>
+                                            </li>
+                                        </ul>
+                                        <div className="mt-4 pt-4 border-t border-blue-200">
+                                            <Button
+                                                onClick={() => {
+                                                    setShowDetailModal(false);
+                                                    navigate('/LaporPage');
+                                                }}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white cursor-pointer w-full"
+                                            >
+                                                Kirim Laporan Baru
+                                            </Button>
                                         </div>
                                     </div>
-                                )}
-
-                                {/* Pesan jika tidak ada bukti */}
-                                {(!selectedLaporan.foto_bukti_perbaikan || 
-                                  selectedLaporan.foto_bukti_perbaikan.length === 0) && 
-                                 !selectedLaporan.rincian_biaya_pdf && (
-                                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                                        <Camera className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                                        <p className="text-yellow-800 font-medium">Belum ada bukti perbaikan</p>
-                                        <p className="text-sm text-yellow-600 mt-1">
-                                            Petugas belum mengupload bukti perbaikan. Silakan cek kembali nanti.
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -12,6 +12,7 @@ import {
     FileText,
     Image as ImageIcon,
     RefreshCw,
+    XCircle,
 } from "lucide-react";
 import axios from "axios";
 import UploadBuktiModal from "./UploadBuktiModal";
@@ -33,39 +34,53 @@ export default function DetailLaporanModal({
     const [selectedLaporanForUpload, setSelectedLaporanForUpload] = useState(null);
     const [buktiPhotos, setBuktiPhotos] = useState([]);
     const [rincianFile, setRincianFile] = useState(null);
+    const [showRejectModal, setShowRejectModal] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState("");
+    const [isUpdating, setIsUpdating] = useState(false);
 
-    useEffect(() => {
-        if (selectedLaporan) {
+    // 🔥 PERBAIKAN: Pindahkan semua fungsi sebelum useEffect
+
+    const fetchPetugasData = async (forceRefresh = false) => {
+        try {
+            const token = localStorage.getItem("admin_token");
+
+            // Tambahkan timestamp untuk force refresh cache
+            const timestamp = forceRefresh ? `&_=${Date.now()}` : "";
+
             console.log(
-                "🔔 Modal opened for laporan:",
-                selectedLaporan.id,
-                selectedLaporan.judul
+                `📡 Fetching petugas data ${
+                    forceRefresh ? "(FORCE REFRESH)" : ""
+                } for laporan:`,
+                selectedLaporan.id
             );
 
-            setFormData({
-                status: selectedLaporan.status || "",
-                catatan: selectedLaporan.catatan || "",
-            });
+            const response = await axios.get(
+                `http://localhost:8000/api/admin/petugas/tersedia?laporan_id=${selectedLaporan.id}${timestamp}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Accept: "application/json",
+                        "Cache-Control": "no-cache",
+                    },
+                }
+            );
 
-            const loadData = async () => {
-                console.log("🔄 Loading data for modal...");
-                await fetchPetugasData(true); // 🔥 Force refresh
-                await checkPetugasLaporan();
-                loadBuktiData();
-            };
-
-            loadData();
-
-            return () => {
-                console.log("🧹 Cleaning up modal data");
-                setAvailablePetugas([]);
-                setPetugasDitugaskan(null);
-            };
+            if (response.data.success) {
+                console.log("✅ Petugas data received:", {
+                    count: response.data.data.length,
+                    petugas: response.data.data.map((p) => p.nama),
+                });
+                setAvailablePetugas(response.data.data);
+            } else {
+                console.error("❌ API response not successful:", response.data);
+            }
+        } catch (error) {
+            console.error(
+                "❌ Error fetching petugas:",
+                error.response?.data || error.message
+            );
         }
-    }, [selectedLaporan]);
-
-    // Function untuk cek petugas laporan
-    // Di DetailLaporanModal.jsx - checkPetugasLaporan()
+    };
 
     const checkPetugasLaporan = async () => {
         try {
@@ -75,9 +90,9 @@ export default function DetailLaporanModal({
 
             // 🔥 GUNAKAN ENDPOINT YANG BENAR-BENAR ADA DENGAN PRIORITAS
             const endpoints = [
-                `http://localhost:8000/api/admin/laporan/${selectedLaporan.id}/petugas`, // ✅ ADMIN ROUTE
-                `http://localhost:8000/api/admin/petugas/by-laporan/${selectedLaporan.id}`, // ✅ ALTERNATIF
-                `http://localhost:8000/api/laporan/${selectedLaporan.id}/petugas`, // ✅ PUBLIC ROUTE (fallback)
+                `http://localhost:8000/api/admin/laporan/${selectedLaporan.id}/petugas`,
+                `http://localhost:8000/api/admin/petugas/by-laporan/${selectedLaporan.id}`,
+                `http://localhost:8000/api/laporan/${selectedLaporan.id}/petugas`,
             ];
 
             let response = null;
@@ -134,48 +149,6 @@ export default function DetailLaporanModal({
         }
     };
 
-    const fetchPetugasData = async (forceRefresh = false) => {
-        try {
-            const token = localStorage.getItem("admin_token");
-
-            // Tambahkan timestamp untuk force refresh cache
-            const timestamp = forceRefresh ? `&_=${Date.now()}` : "";
-
-            console.log(
-                `📡 Fetching petugas data ${
-                    forceRefresh ? "(FORCE REFRESH)" : ""
-                } for laporan:`,
-                selectedLaporan.id
-            );
-
-            const response = await axios.get(
-                `http://localhost:8000/api/admin/petugas/tersedia?laporan_id=${selectedLaporan.id}${timestamp}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                        Accept: "application/json",
-                        "Cache-Control": "no-cache", // 🔥 Disable cache
-                    },
-                }
-            );
-
-            if (response.data.success) {
-                console.log("✅ Petugas data received:", {
-                    count: response.data.data.length,
-                    petugas: response.data.data.map((p) => p.nama),
-                });
-                setAvailablePetugas(response.data.data);
-            } else {
-                console.error("❌ API response not successful:", response.data);
-            }
-        } catch (error) {
-            console.error(
-                "❌ Error fetching petugas:",
-                error.response?.data || error.message
-            );
-        }
-    };
-
     const loadBuktiData = () => {
         if (
             selectedLaporan.foto_bukti_perbaikan &&
@@ -191,7 +164,6 @@ export default function DetailLaporanModal({
         }
     };
 
-    // Handle assign petugas
     const handleAssignPetugas = async (petugasId) => {
         const laporanId = parseInt(selectedLaporan.id);
         const pid = parseInt(petugasId);
@@ -254,23 +226,22 @@ export default function DetailLaporanModal({
     };
 
     const handleManualRefresh = async () => {
-    console.log('🔄 Manual refresh triggered');
-    setIsLoading(true);
-    try {
-        await Promise.all([
-            fetchPetugasData(true),
-            checkPetugasLaporan()
-        ]);
-        showNotification("Data berhasil di-refresh", "success");
-    } catch (error) {
-        console.error("Refresh error:", error);
-        showNotification("Gagal refresh data", "error");
-    } finally {
-        setIsLoading(false);
-    }
-};
+        console.log('🔄 Manual refresh triggered');
+        setIsLoading(true);
+        try {
+            await Promise.all([
+                fetchPetugasData(true),
+                checkPetugasLaporan()
+            ]);
+            showNotification("Data berhasil di-refresh", "success");
+        } catch (error) {
+            console.error("Refresh error:", error);
+            showNotification("Gagal refresh data", "error");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-    // Tambahkan debug lebih detail di handleReleasePetugas
     const handleReleasePetugas = async () => {
         if (!petugasDitugaskan) return;
 
@@ -319,18 +290,14 @@ export default function DetailLaporanModal({
                 // 🔥 RESET STATE SECARA INSTAN TANPA TUNGGU API
                 const releasedPetugas = { ...petugasDitugaskan };
 
-                // 1. Hapus dari petugasDitugaskan
                 setPetugasDitugaskan(null);
 
-                // 2. Tambahkan kembali ke availablePetugas (tunggu sebentar)
                 setTimeout(() => {
                     setAvailablePetugas((prev) => {
-                        // Cek apakah petugas sudah ada
                         const exists = prev.find(
                             (p) => p.id === releasedPetugas.id
                         );
                         if (!exists) {
-                            // Tambahkan dengan flag is_tersedia = true
                             return [
                                 ...prev,
                                 {
@@ -352,7 +319,6 @@ export default function DetailLaporanModal({
                     "🔄 State updated instantly: petugas removed from assigned"
                 );
 
-                // 🔥 FORCE REFRESH DATA DARI SERVER (background)
                 setTimeout(async () => {
                     await fetchPetugasData(true);
                     await checkPetugasLaporan();
@@ -379,43 +345,47 @@ export default function DetailLaporanModal({
         }
     };
 
-    // Handle update status laporan - 🔥 INI YANG PENTING
-    // Di DetailLaporanModal.jsx - handleUpdateStatus function
-
-    const handleUpdateStatus = async (newStatus) => {
+    const processStatusUpdate = async (newStatus, alasanPenolakan = null) => {
         try {
+            setIsUpdating(true);
             const token = localStorage.getItem("admin_token");
+
+            const dataToSend = {
+                status: newStatus
+            };
+
+            if (alasanPenolakan) {
+                dataToSend.alasan_penolakan = alasanPenolakan;
+            }
 
             const response = await axios.put(
                 `http://localhost:8000/api/admin/laporan/${selectedLaporan.id}`,
-                { status: newStatus },
+                dataToSend,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (response.data.success) {
-                showNotification(
-                    `Status berhasil diubah menjadi "${newStatus}"`,
-                    "success"
-                );
+                const message = newStatus === "Ditolak" 
+                    ? `Laporan ditolak. Alasan: ${alasanPenolakan}`
+                    : `Status berhasil diubah menjadi "${newStatus}"`;
+                
+                showNotification(message, "success");
                 setFormData({ ...formData, status: newStatus });
 
-                // 🔥 NOTIFIKASI OTOMATIS JIKA SELESAI/DITOLAK
-                // 🔥 AUTO-RELEASE PETUGAS SAAT STATUS SELESAI/DITOLAK
+                if (alasanPenolakan) {
+                    selectedLaporan.alasan_penolakan = alasanPenolakan;
+                }
+
                 if (newStatus === "Selesai" || newStatus === "Ditolak") {
-                    // Tampilkan notifikasi
                     showNotification(
                         `✅ Semua petugas telah dilepas dan sekarang TERSEDIA untuk ditugaskan ke laporan lain`,
                         "info"
                     );
 
-                    // Auto-release dari state lokal (jika ada petugas ditugaskan)
                     if (petugasDitugaskan) {
                         const releasedPetugas = { ...petugasDitugaskan };
-
-                        // 1. Hapus dari petugasDitugaskan
                         setPetugasDitugaskan(null);
 
-                        // 2. Tambahkan kembali ke availablePetugas
                         setTimeout(() => {
                             setAvailablePetugas((prev) => {
                                 const exists = prev.find(
@@ -441,34 +411,65 @@ export default function DetailLaporanModal({
                         );
                     }
 
-                    // Refresh data dari server
                     setTimeout(async () => {
                         await fetchPetugasData(true);
                     }, 300);
                 }
+
+                if (fetchLaporanData) {
+                    setTimeout(() => fetchLaporanData(), 500);
+                }
             }
         } catch (error) {
             console.error("Error updating status:", error);
-            showNotification("Gagal mengubah status", "error");
+            const errorMsg = error.response?.data?.message || "Gagal mengubah status";
+            showNotification(errorMsg, "error");
+            
+            if (error.response?.data?.message?.includes('alasan penolakan')) {
+                setShowRejectModal(true);
+            }
+        } finally {
+            setIsUpdating(false);
+            setShowRejectModal(false);
         }
+    };
+
+    const handleUpdateStatus = async (newStatus) => {
+        if (newStatus === "Ditolak") {
+            setShowRejectModal(true);
+            return;
+        }
+        
+        await processStatusUpdate(newStatus);
+    };
+
+    const handleRejectSubmit = async () => {
+        if (!rejectionReason.trim()) {
+            showNotification("Harap isi alasan penolakan", "error");
+            return;
+        }
+
+        await processStatusUpdate("Ditolak", rejectionReason.trim());
+    };
+
+    const handleRejectCancel = () => {
+        setShowRejectModal(false);
+        setRejectionReason("");
+        setFormData({ ...formData, status: selectedLaporan.status || "" });
     };
 
     const handleUploadSuccess = (laporanId) => {
         console.log("✅ Upload berhasil untuk laporan ID:", laporanId);
 
-        // Refresh data laporan
         if (fetchLaporanData) {
             setTimeout(() => {
                 fetchLaporanData();
             }, 1000);
         }
 
-        // Close modal upload
         setShowUploadModal(false);
 
-        // Bisa juga reload detail laporan yang sedang dilihat
         if (selectedLaporan.id === laporanId) {
-            // Fetch ulang data laporan ini saja
             console.log("Reloading current laporan data...");
         }
     };
@@ -488,8 +489,6 @@ export default function DetailLaporanModal({
         return "bg-gray-100 text-gray-800";
     };
 
-    // Di file DetailLaporanModal.jsx, ganti fungsi getPetugasTersedia()
-
     const getPetugasTersedia = () => {
         if (availablePetugas.length === 0) {
             console.log("📭 No petugas available");
@@ -497,13 +496,11 @@ export default function DetailLaporanModal({
         }
 
         const filtered = availablePetugas.filter((petugas) => {
-            // 1. JIKA PETUGAS SEDANG DITUGASKAN DI LAPORAN INI, SKIP
             if (petugasDitugaskan && petugas.id === petugasDitugaskan.id) {
                 console.log(`⏭️ Skipping ${petugas.nama} - currently assigned`);
                 return false;
             }
 
-            // 2. GUNAKAN FLAG DARI BACKEND JIKA ADA
             if (petugas.is_tersedia !== undefined) {
                 const result = petugas.is_tersedia === true;
                 if (!result) {
@@ -514,7 +511,6 @@ export default function DetailLaporanModal({
                 return result;
             }
 
-            // 3. DEFAULT: HANYA PETUGAS AKTIF
             const isAktif = petugas.status === "Aktif";
             if (!isAktif) {
                 console.log(
@@ -533,11 +529,65 @@ export default function DetailLaporanModal({
         return filtered;
     };
 
+    const renderRejectionReason = () => {
+        if (selectedLaporan.status === "Ditolak" && selectedLaporan.alasan_penolakan) {
+            return (
+                <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center mb-2">
+                        <XCircle className="w-5 h-5 text-red-500 mr-2" />
+                        <h4 className="font-medium text-red-900">Alasan Penolakan</h4>
+                    </div>
+                    <p className="text-sm text-red-700 mt-1">
+                        {selectedLaporan.alasan_penolakan}
+                    </p>
+                    <p className="text-xs text-red-500 mt-2">
+                        <span className="font-medium">Catatan:</span> Laporan ini tidak dapat diproses lebih lanjut.
+                    </p>
+                </div>
+            );
+        }
+        return null;
+    };
+
     const isLaporanSelesai = [
         "Dalam Proses",
         "Tervalidasi",
         "Selesai",
     ].includes(selectedLaporan.status);
+
+    // 🔥 PERBAIKAN: Pindahkan useEffect setelah semua fungsi didefinisikan
+    useEffect(() => {
+        if (selectedLaporan) {
+            console.log(
+                "🔔 Modal opened for laporan:",
+                selectedLaporan.id,
+                selectedLaporan.judul
+            );
+
+            setFormData({
+                status: selectedLaporan.status || "",
+                catatan: selectedLaporan.catatan || "",
+            });
+
+            setRejectionReason(selectedLaporan.alasan_penolakan || "");
+
+            const loadData = async () => {
+                console.log("🔄 Loading data for modal...");
+                await fetchPetugasData(true);
+                await checkPetugasLaporan();
+                loadBuktiData();
+            };
+
+            loadData();
+
+            return () => {
+                console.log("🧹 Cleaning up modal data");
+                setAvailablePetugas([]);
+                setPetugasDitugaskan(null);
+                setRejectionReason("");
+            };
+        }
+    }, [selectedLaporan]);
 
     return (
         <>
@@ -562,9 +612,6 @@ export default function DetailLaporanModal({
                                     />
                                 </button>
                             </div>
-                            <h2 className="text-xl font-bold text-gray-900">
-                                Detail Laporan
-                            </h2>
                             <button
                                 onClick={onClose}
                                 className="text-gray-400 hover:text-gray-600 cursor-pointer"
@@ -613,6 +660,8 @@ export default function DetailLaporanModal({
                                         {selectedLaporan.status}
                                     </span>
                                 </div>
+
+                                {renderRejectionReason()}
 
                                 {petugasDitugaskan && (
                                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -790,6 +839,7 @@ export default function DetailLaporanModal({
                                             })
                                         }
                                         className="border border-gray-300 rounded-lg px-3 py-1 text-sm cursor-pointer"
+                                        disabled={isUpdating}
                                     >
                                         <option value="">Ubah Status</option>
                                         <option value="Validasi">
@@ -809,10 +859,17 @@ export default function DetailLaporanModal({
                                         onClick={() =>
                                             handleUpdateStatus(formData.status)
                                         }
-                                        disabled={!formData.status}
-                                        className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                                        disabled={!formData.status || isUpdating}
+                                        className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 cursor-pointer flex items-center"
                                     >
-                                        Update
+                                        {isUpdating ? (
+                                            <>
+                                                <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                                                Memproses...
+                                            </>
+                                        ) : (
+                                            "Update"
+                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -852,12 +909,12 @@ export default function DetailLaporanModal({
                                         <button
                                             onClick={handleReleasePetugas}
                                             className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 cursor-pointer"
+                                            disabled={isUpdating}
                                         >
                                             Lepaskan
                                         </button>
                                     </div>
 
-                                    {/* Info tambahan */}
                                     <div className="mt-3 pt-3 border-t border-gray-200">
                                         <p className="text-xs text-gray-500">
                                             <span className="font-medium">
@@ -982,6 +1039,7 @@ export default function DetailLaporanModal({
                             <button
                                 onClick={onClose}
                                 className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                disabled={isUpdating}
                             >
                                 Tutup
                             </button>
@@ -989,6 +1047,88 @@ export default function DetailLaporanModal({
                     </div>
                 </div>
             </div>
+
+            {/* Modal Alasan Penolakan */}
+            {showRejectModal && (
+                <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full">
+                        <div className="p-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center">
+                                    <XCircle className="w-6 h-6 text-red-500 mr-2" />
+                                    <h3 className="text-lg font-bold text-gray-900">
+                                        Tolak Laporan
+                                    </h3>
+                                </div>
+                                <button
+                                    onClick={handleRejectCancel}
+                                    className="text-gray-400 hover:text-gray-600 cursor-pointer"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            
+                            <div className="mb-4">
+                                <p className="text-sm text-gray-600 mb-2">
+                                    Mengapa laporan ini ditolak?
+                                </p>
+                                <p className="text-xs text-gray-500 mb-4">
+                                    Alasan penolakan akan ditampilkan kepada pelapor.
+                                </p>
+                            </div>
+                            
+                            <div className="mb-6">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Alasan Penolakan *
+                                </label>
+                                <textarea
+                                    value={rejectionReason}
+                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-lg p-3 text-sm h-32 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                    placeholder="Contoh: Foto tidak jelas, lokasi tidak spesifik, laporan duplikat, dll."
+                                    maxLength={500}
+                                    autoFocus
+                                />
+                                <div className="flex justify-between mt-1">
+                                    <p className="text-xs text-gray-500">
+                                        Maksimal 500 karakter
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        {rejectionReason.length}/500
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex justify-end space-x-3">
+                                <button
+                                    onClick={handleRejectCancel}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer"
+                                    disabled={isUpdating}
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    onClick={handleRejectSubmit}
+                                    disabled={!rejectionReason.trim() || isUpdating}
+                                    className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 cursor-pointer flex items-center"
+                                >
+                                    {isUpdating ? (
+                                        <>
+                                            <RefreshCw className="w-3 h-3 mr-2 animate-spin" />
+                                            Memproses...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <XCircle className="w-4 h-4 mr-2" />
+                                            Tolak Laporan
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showUploadModal && (
                 <UploadBuktiModal
