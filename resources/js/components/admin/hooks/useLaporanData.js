@@ -96,6 +96,7 @@ export const useLaporanData = () => {
                 "Surabaya Utara": 0,
                 "Surabaya Selatan": 0,
                 "Surabaya Pusat": 0,
+                "Lokasi Lain": 0,
             };
 
             laporanArray.forEach((laporan) => {

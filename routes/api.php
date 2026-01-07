@@ -6,14 +6,19 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\AdminAuthController;
-use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\StatistikController;
 use App\Http\Controllers\PetugasController;
 use App\Http\Controllers\GeocodeController;
-use App\Http\Controllers\Admin\UserController; // Tambahkan ini
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\CloudinaryController;
+use App\Http\Controllers\User\LaporanUserController;
+use App\Http\Controllers\User\NotificationController;
+use App\Http\Controllers\Admin\LaporanAdminController;
+use App\Http\Controllers\Admin\BuktiPerbaikanController;
+use App\Http\Controllers\Admin\StatistikAdminController;
 
-// ========== TEST ROUTES ========== 
-Route::get('/test-api', function() {
+// ========== TEST ROUTES ==========
+Route::get('/test-api', function () {
     return response()->json([
         'success' => true,
         'message' => 'API is working',
@@ -21,7 +26,7 @@ Route::get('/test-api', function() {
     ]);
 });
 
-Route::get('/test-db', function() {
+Route::get('/test-db', function () {
     try {
         $count = \App\Models\Laporan::count();
         return response()->json([
@@ -41,6 +46,16 @@ Route::get('/test-db', function() {
     }
 });
 
+// ========== CLOUDINARY ROUTES ==========
+Route::prefix('cloudinary')->group(function () {
+    Route::post('/upload-image', [CloudinaryController::class, 'uploadImage']);
+    Route::post('/upload-document', [CloudinaryController::class, 'uploadDocument']);
+    Route::post('/upload-bukti-admin/{laporanId}', [CloudinaryController::class, 'uploadBuktiAdmin']);
+    Route::post('/generate-download-url', [CloudinaryController::class, 'generateDownloadUrl']);
+    Route::post('/list-files', [CloudinaryController::class, 'listFiles']);
+    Route::post('/delete-file', [CloudinaryController::class, 'deleteFile']);
+});
+
 // ========== PUBLIC ROUTES ==========
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -48,28 +63,28 @@ Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
 Route::post('/verify-reset-code', [PasswordResetController::class, 'verifyCode']);
 Route::post('/reset-password', [PasswordResetController::class, 'reset']);
 Route::post('/contact', [ContactController::class, 'sendEmail']);
-Route::post('/laporan', [LaporanController::class, 'store']);
-Route::get('/laporan/{id}', [LaporanController::class, 'show']);
+Route::post('/laporan', [LaporanUserController::class, 'store']);
+Route::get('/laporan/{id}', [LaporanUserController::class, 'show']);
 Route::get('/geocode/search', [GeocodeController::class, 'search']);
 Route::get('/geocode/reverse', [GeocodeController::class, 'reverse']);
 Route::get('/nominatim/search', [GeocodeController::class, 'search']);
 
-// Routes untuk statistik
+// ========== STATISTIK ROUTES ==========
 Route::prefix('statistik')->group(function () {
-    Route::get('/', [StatistikController::class, 'getStatistik']);
     Route::get('/waktu-respon', [StatistikController::class, 'getWaktuRespon']);
+    Route::get('/', [StatistikAdminController::class, 'getStatistikUmum']);
 });
 
 // ========== PROTECTED USER ROUTES ==========
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/user/notifications', [LaporanController::class, 'getUserNotifications']);
-    Route::post('/user/notifications/{laporan}/read', [LaporanController::class, 'markNotificationAsRead']);
-    Route::post('/user/notifications/mark-all-read', [LaporanController::class, 'markAllNotificationsAsRead']);
-    Route::get('/laporan-user', [LaporanController::class, 'getLaporanByUser']);
-    Route::get('/statistik-user', [LaporanController::class, 'getStatistikUser']);
-    Route::get('/laporan/{id}/petugas', [LaporanController::class, 'getPetugasByLaporan']); // ✅ INI YANG DIPAKAI
+    Route::get('/user/notifications', [NotificationController::class, 'index']);
+    Route::post('/user/notifications/{laporanId}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/user/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+    Route::get('/laporan-user', [LaporanUserController::class, 'index']);
+    Route::get('/statistik-user', [LaporanUserController::class, 'getStatistikUser']);
+    Route::get('/laporan/{id}/petugas', [LaporanAdminController::class, 'getPetugasByLaporan']);
 });
 
 // ========== ADMIN ROUTES ==========
@@ -79,35 +94,32 @@ Route::prefix('admin')->group(function () {
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/logout', [AdminAuthController::class, 'logout']);
         Route::get('/me', [AdminAuthController::class, 'me']);
+        Route::get('/laporan', [LaporanAdminController::class, 'index']);
+        Route::put('/laporan/{id}', [LaporanAdminController::class, 'update']);
+        Route::put('/laporan/{id}/validate', [LaporanAdminController::class, 'validateLaporan']);
+        Route::post('/laporan/{id}/upload-all-bukti', [BuktiPerbaikanController::class, 'uploadAllBukti']);
+        Route::post('/laporan/{id}/upload-bukti', [BuktiPerbaikanController::class, 'uploadBuktiPerbaikan']);
+        Route::post('/laporan/{id}/upload-rincian-biaya', [BuktiPerbaikanController::class, 'uploadRincianBiaya']);
+        Route::post('/laporan/{id}/assign-petugas', [LaporanAdminController::class, 'assignPetugas']);
+        Route::post('/laporan/{id}/release-petugas', [LaporanAdminController::class, 'releasePetugas']);
+        Route::put('/laporan/{id}/update-tugas', [LaporanAdminController::class, 'updateStatusTugas']);
+        Route::get('/laporan/belum-ditugaskan', [LaporanAdminController::class, 'getLaporanBelumDitugaskan']);
+        Route::get('/laporan/ditangani', [LaporanAdminController::class, 'getLaporanDitangani']);
         
-        // Routes untuk manage laporan
-        Route::get('/laporan', [LaporanController::class, 'index']);
-        Route::put('/laporan/{id}', [LaporanController::class, 'update']);
-        Route::put('/laporan/{id}/validate', [LaporanController::class, 'validateLaporan']);
-        Route::post('/laporan/{id}/upload-bukti', [LaporanController::class, 'uploadBuktiPerbaikan']);
-        Route::post('/laporan/{id}/upload-rincian-biaya', [LaporanController::class, 'uploadRincianBiaya']);
-        Route::post('/laporan/{id}/upload-all-bukti', [LaporanController::class, 'uploadAllBukti']);
-        
-        // Route untuk get petugas by laporan (admin)
-        Route::get('/laporan/{id}/petugas', [LaporanController::class, 'getPetugasByLaporan']); // ✅ UNTUK ADMIN
-        
-        // ========== USER MANAGEMENT ROUTES ==========
-        // TAMBAHKAN ROUTES INI DI SINI:
+        // User Management
         Route::get('/users', [UserController::class, 'index']);
         Route::post('/users', [UserController::class, 'store']);
         Route::get('/users/{id}', [UserController::class, 'show']);
         Route::put('/users/{id}', [UserController::class, 'update']);
         Route::put('/users/{id}/status', [UserController::class, 'updateStatus']);
         Route::delete('/users/{id}', [UserController::class, 'destroy']);
-        // Di dalam grup admin routes, TAMBAHKAN:
         Route::put('/users/{id}/verify-email', [UserController::class, 'verifyEmail']);
         Route::put('/users/{id}/unverify-email', [UserController::class, 'unverifyEmail']);
-        // =============================================
         
-        // Admin petugas routes
+        // Petugas Management
         Route::get('/petugas', [PetugasController::class, 'index']);
         Route::get('/petugas/aktif', [PetugasController::class, 'getPetugasAktif']);
-        Route::get('/petugas/tersedia', [PetugasController::class, 'getPetugasTersedia']); 
+        Route::get('/petugas/tersedia', [PetugasController::class, 'getPetugasTersedia']);
         Route::post('/petugas', [PetugasController::class, 'store']);
         Route::put('/petugas/{id}', [PetugasController::class, 'update']);
         Route::delete('/petugas/{id}', [PetugasController::class, 'destroy']);
@@ -115,20 +127,16 @@ Route::prefix('admin')->group(function () {
         Route::post('/petugas/release-laporan', [PetugasController::class, 'releaseFromLaporan']);
         Route::get('/petugas/statistik', [PetugasController::class, 'getStatistik']);
         Route::get('/petugas/dalam-tugas', [PetugasController::class, 'getPetugasDalamTugas']);
-        
         Route::post('/petugas/refresh-status', [PetugasController::class, 'refreshPetugasStatus']);
         Route::post('/petugas/manual-fix', [PetugasController::class, 'manualFixPetugasStatus']);
         Route::get('/petugas/debug/{id}', [PetugasController::class, 'debugPetugas']);
-        
-        Route::get('/petugas/by-laporan/{laporanId}', [PetugasController::class, 'getPetugasByLaporan']); // ✅ ALTERNATIF
+        Route::get('/petugas/by-laporan/{laporanId}', [PetugasController::class, 'getPetugasByLaporan']);
     });
     
-    Route::middleware(['auth:sanctum', 'admin'])->get('/test-middleware', function() {
+    Route::middleware(['auth:sanctum', 'admin'])->get('/test-middleware', function () {
         return response()->json([
             'success' => true,
             'message' => 'Admin middleware is working'
         ]);
     });
-    
-    Route::get('/test-laporan', [LaporanController::class, 'index']);
 });

@@ -185,22 +185,6 @@ export default function LoginPage() {
             {loading ? 'Memproses...' : 'Masuk'}
           </button>
 
-          {/* Separator */}
-          <div className="flex items-center my-6">
-            <div className="flex-grow border-t border-gray-300"></div>
-            <span className="mx-3 text-gray-500 text-sm">Atau lanjutkan dengan</span>
-            <div className="flex-grow border-t border-gray-300"></div>
-          </div>
-
-          {/* Google */}
-          <button 
-            type="button"
-            className="w-full border border-gray-400 hover:bg-gray-100 text-gray-700 font-medium py-3 rounded-lg flex items-center justify-center gap-2 transition cursor-pointer"
-          >
-            <Chrome size={20} className="text-red-500" />
-            Google
-          </button>
-
           {/* Link ke daftar */}
           <p className="text-center text-sm text-gray-600 mt-6">
             Belum punya akun?{" "}

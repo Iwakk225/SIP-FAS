@@ -205,7 +205,6 @@ export default function UploadBuktiModal({
         const allowedPdfTypes = ["application/pdf"];
         const allowedExtensions = [".pdf"];
 
-        // Cek tipe file dan ekstensi
         const isPdfType = allowedPdfTypes.includes(file.type);
         const hasPdfExtension = allowedExtensions.some((ext) =>
             file.name.toLowerCase().endsWith(ext)
@@ -269,43 +268,46 @@ export default function UploadBuktiModal({
                 }
             }
 
-            // 2. UPLOAD PDF KE CLOUDINARY
-            let pdfUrl = null;
+            // 2. UPLOAD PDF → sekarang return object
+            let pdfData = null;
             if (pdfFile) {
                 try {
-                    pdfUrl = await uploadPdfToCloudinary(pdfFile);
+                    pdfData = await uploadPdfToCloudinary(pdfFile);
                     showNotification("PDF berhasil diupload", "success");
                 } catch (error) {
                     console.error("Error uploading PDF:", error);
                     showNotification("Gagal upload PDF", "error");
+                    return; // stop if PDF fails
                 }
             }
 
-            // 3. KIRIM URL KE BACKEND
-            if (fotoUrls.length > 0 || pdfUrl) {
-                const response = await api.post(
-                    `/admin/laporan/${selectedLaporanForUpload.id}/upload-all-bukti`,
-                    {
-                        foto_bukti_perbaikan: fotoUrls,
-                        rincian_biaya_pdf: pdfUrl,
+            // 3. KIRIM ke backend
+            const payload = {
+                foto_bukti_perbaikan: fotoUrls,
+                rincian_biaya_pdf: pdfData?.secure_url || null,
+            };
+
+            // 🔥 Kirim download_url juga — backend bisa simpan (opsional)
+            if (pdfData?.download_url) {
+                payload.rincian_biaya_download_url = pdfData.download_url;
+            }
+
+            const response = await api.post(
+                `/admin/laporan/${selectedLaporanForUpload.id}/upload-all-bukti`,
+                payload,
+                {
+                    headers: {
+                        "Content-Type": "application/json",
                     },
-                    {
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                    }
-                );
-
-                if (response.data.success) {
-                    showNotification("✅ Bukti berhasil diupload!", "success");
-
-                    // Panggil callback jika ada
-                    if (onSuccess && typeof onSuccess === "function") {
-                        onSuccess(selectedLaporanForUpload.id);
-                    }
-
-                    handleCloseUploadModal();
                 }
+            );
+
+            if (response.data.success) {
+                showNotification("✅ Bukti berhasil diupload!", "success");
+                if (onSuccess && typeof onSuccess === "function") {
+                    onSuccess(selectedLaporanForUpload.id);
+                }
+                handleCloseUploadModal();
             }
         } catch (error) {
             console.error("Upload process error:", error);
@@ -324,20 +326,13 @@ export default function UploadBuktiModal({
     ) => {
         const formData = new FormData();
         formData.append("file", file);
-        formData.append("upload_preset", "sip-fas"); // SAMA dengan LaporPage
+        formData.append("upload_preset", "sip-fas");
         formData.append("folder", folder);
         formData.append("resource_type", "image");
 
-        console.log("Uploading to Cloudinary:", {
-            file: file.name,
-            size: file.size,
-            type: file.type,
-            folder: folder,
-        });
-
         try {
             const response = await fetch(
-                `https://api.cloudinary.com/v1_1/dlwfk4gly/auto/upload`, // Gunakan auto/upload
+                `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
                 {
                     method: "POST",
                     body: formData,
@@ -345,17 +340,10 @@ export default function UploadBuktiModal({
             );
 
             const data = await response.json();
-            console.log("Cloudinary Response:", data);
-
             if (!response.ok) {
-                console.error("Cloudinary error:", data);
-                throw new Error(
-                    data.error?.message ||
-                        `Upload failed: ${response.statusText}`
-                );
+                throw new Error(data.error?.message || `Upload failed: ${response.statusText}`);
             }
 
-            console.log("Upload success:", data.secure_url);
             return data.secure_url;
         } catch (error) {
             console.error("Error uploading to Cloudinary:", error);
@@ -363,24 +351,18 @@ export default function UploadBuktiModal({
         }
     };
 
-    // Fungsi untuk upload PDF ke Cloudinary (GANTI INI)
+    // ✅ DIPERBAIKI: return object + folder konsisten + download_url
     const uploadPdfToCloudinary = async (file) => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("upload_preset", "sip-fas");
-        formData.append("folder", "rincian-biaya");
-        formData.append("resource_type", "raw"); // 🔥 PENTING: raw untuk PDF
-
-        console.log("Uploading PDF to Cloudinary:", {
-            file: file.name,
-            size: file.size,
-            type: file.type,
-        });
+        // ✅ Folder diubah jadi konsisten dengan backend
+        formData.append("folder", "admin-bukti-perbaikan/rincian-biaya");
+        formData.append("resource_type", "raw");
 
         try {
-            // 🔥 Ganti endpoint ke raw/upload
             const response = await fetch(
-                `https://api.cloudinary.com/v1_1/dlwfk4gly/raw/upload`,
+                `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`,
                 {
                     method: "POST",
                     body: formData,
@@ -388,13 +370,20 @@ export default function UploadBuktiModal({
             );
 
             const data = await response.json();
-            console.log("Cloudinary PDF Response:", data);
-
             if (!response.ok) {
                 throw new Error(data.error?.message || "Upload PDF failed");
             }
 
-            return data.secure_url;
+            const secureUrl = data.secure_url;
+            // ✅ Generate force-download URL
+            const downloadUrl = secureUrl + "?fl_attachment";
+
+            return {
+                secure_url: secureUrl,
+                download_url: downloadUrl,
+                public_id: data.public_id,
+                original_filename: file.name,
+            };
         } catch (error) {
             console.error("PDF upload error:", error);
             throw error;
@@ -402,11 +391,8 @@ export default function UploadBuktiModal({
     };
 
     const handleCloseUploadModal = () => {
-        // Clean up object URLs
-        buktiPhotos.forEach((photo) => {
-            if (photo.preview && photo.preview.startsWith("blob:")) {
-                URL.revokeObjectURL(photo.preview);
-            }
+        bukttiPhotos.forEach((photo) => {
+            if (photo.preview?.startsWith("blob:")) URL.revokeObjectURL(photo.preview);
         });
 
         setShowUploadModal(false);
@@ -465,7 +451,6 @@ export default function UploadBuktiModal({
                         </button>
                     </div>
 
-                    {/* Error Message */}
                     {uploadError && (
                         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                             <div className="flex items-center">
@@ -520,15 +505,9 @@ export default function UploadBuktiModal({
                                 disabled={isCompressing || isUploading}
                             />
                             <div className="text-xs text-gray-500 mt-1 space-y-1">
-                                <p>
-                                    • Format yang didukung: JPG, JPEG, PNG, GIF,
-                                    WebP
-                                </p>
-                                <p>• Maksimal 5MB per file</p>
-                                <p>
-                                    • Gambar akan dikompresi otomatis untuk
-                                    memperkecil ukuran
-                                </p>
+                                <p>• Format: JPG, JPEG, PNG, GIF, WebP</p>
+                                <p>• Maksimal 5MB/file</p>
+                                <p>• Otomatis dikompres</p>
                             </div>
                         </div>
 
@@ -536,10 +515,7 @@ export default function UploadBuktiModal({
                             <div className="mt-4 space-y-4">
                                 <div className="grid grid-cols-3 gap-3">
                                     {buktiPhotos.map((photo, index) => (
-                                        <div
-                                            key={index}
-                                            className="relative group"
-                                        >
+                                        <div key={index} className="relative group">
                                             <img
                                                 src={photo.preview}
                                                 alt={`Bukti ${index + 1}`}
@@ -548,15 +524,8 @@ export default function UploadBuktiModal({
                                             <button
                                                 onClick={() => {
                                                     if (!isUploading) {
-                                                        URL.revokeObjectURL(
-                                                            photo.preview
-                                                        );
-                                                        setBuktiPhotos(
-                                                            buktiPhotos.filter(
-                                                                (_, i) =>
-                                                                    i !== index
-                                                            )
-                                                        );
+                                                        URL.revokeObjectURL(photo.preview);
+                                                        setBuktiPhotos(buktiPhotos.filter((_, i) => i !== index));
                                                     }
                                                 }}
                                                 disabled={isUploading}
@@ -571,19 +540,14 @@ export default function UploadBuktiModal({
                                     ))}
                                 </div>
 
-                                {/* Info Kompresi */}
                                 <div className="text-sm text-gray-600 bg-green-50 p-3 rounded-lg border border-green-200">
                                     <div className="flex items-center">
                                         <Loader2 className="w-4 h-4 mr-2 text-green-600" />
-                                        <span className="font-medium">
-                                            Kompresi Aktif
-                                        </span>
+                                        <span className="font-medium">Kompresi Aktif</span>
                                     </div>
                                     {buktiPhotos[0]?.compressionRatio && (
                                         <p className="mt-1 text-green-700">
-                                            Gambar dikompresi rata-rata{" "}
-                                            {buktiPhotos[0].compressionRatio}%
-                                            lebih kecil
+                                            Gambar dikompresi rata-rata {buktiPhotos[0].compressionRatio}% lebih kecil
                                         </p>
                                     )}
                                 </div>
@@ -625,11 +589,8 @@ export default function UploadBuktiModal({
                                 className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={isUploading}
                             />
-                            <div className="text-xs text-gray-500 mt-1 space-y-1">
-                                <p>
-                                    • Hanya file PDF yang diperbolehkan (.pdf)
-                                </p>
-                                <p>• Maksimal 10MB</p>
+                            <div className="text-xs text-gray-500 mt-1">
+                                • Hanya PDF (.pdf) • Maksimal 10MB
                             </div>
                         </div>
 
@@ -643,20 +604,12 @@ export default function UploadBuktiModal({
                                                 {pdfFile.name}
                                             </p>
                                             <p className="text-xs text-blue-600 mt-1">
-                                                Ukuran:{" "}
-                                                {(
-                                                    pdfFile.size /
-                                                    1024 /
-                                                    1024
-                                                ).toFixed(2)}{" "}
-                                                MB
+                                                Ukuran: {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
                                             </p>
                                         </div>
                                     </div>
                                     <button
-                                        onClick={() =>
-                                            !isUploading && setPdfFile(null)
-                                        }
+                                        onClick={() => !isUploading && setPdfFile(null)}
                                         disabled={isUploading}
                                         className="text-red-500 hover:text-red-700 cursor-pointer p-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
@@ -714,28 +667,13 @@ export default function UploadBuktiModal({
                         </div>
                     )}
 
-                    {/* Informasi Tambahan */}
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <h4 className="font-medium text-yellow-900 mb-2">
-                            Perhatian:
-                        </h4>
+                        <h4 className="font-medium text-yellow-900 mb-2">Perhatian:</h4>
                         <ul className="text-sm text-yellow-800 space-y-1">
-                            <li>
-                                • Foto: Hanya format gambar (JPG, PNG, GIF,
-                                WebP)
-                            </li>
-                            <li>• Dokumen: Hanya format PDF</li>
-                            <li>
-                                • File yang diupload akan tersimpan secara
-                                permanen
-                            </li>
-                            <li>
-                                • Pastikan file yang diupload sesuai dengan
-                                bukti perbaikan
-                            </li>
-                            <li>
-                                • Upload mungkin memakan waktu beberapa detik
-                            </li>
+                            <li>• Foto: JPG/PNG/GIF/WebP</li>
+                            <li>• Dokumen: PDF saja</li>
+                            <li>• File tersimpan permanen</li>
+                            <li>• Pastikan sesuai bukti perbaikan</li>
                         </ul>
                     </div>
                 </div>

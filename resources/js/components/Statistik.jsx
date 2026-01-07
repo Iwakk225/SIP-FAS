@@ -245,24 +245,25 @@ export default function Statistik() {
 
             <div className="space-y-4">
               {data.laporan_per_wilayah && data.laporan_per_wilayah.length > 0 ? (
-                data.laporan_per_wilayah.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center border-b pb-3 last:border-b-0 last:pb-0"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="bg-[#F3F4F6] p-2 rounded-lg">
-                        <MapPin size={18} className="text-gray-700" />
+                  // Urutkan: Barat, Timur, Utara, Selatan, Pusat (sesuai screenshot admin)
+                  data.laporan_per_wilayah.map((item, index) => (
+                      <div
+                          key={index}
+                          className="flex justify-between items-center border-b pb-3 last:border-b-0 last:pb-0"
+                      >
+                          <div className="flex items-center gap-3">
+                              <div className="bg-[#F3F4F6] p-2 rounded-lg">
+                                  <MapPin size={18} className="text-gray-700" />
+                              </div>
+                              <p className="text-gray-700 font-medium">{item.lokasi}</p>
+                          </div>
+                          <span className="text-gray-900 font-semibold">{item.total}</span>
                       </div>
-                      <p className="text-gray-700 font-medium">{item.lokasi}</p>
-                    </div>
-                    <span className="text-gray-900 font-semibold">{item.total}</span>
-                  </div>
-                ))
+                  ))
               ) : (
-                <div className="text-center text-gray-500 py-4">
-                  Tidak ada data laporan per wilayah
-                </div>
+                  <div className="text-center text-gray-500 py-4">
+                      Tidak ada data laporan per wilayah
+                  </div>
               )}
             </div>
           </div>

@@ -130,33 +130,46 @@ const StatusPage = () => {
         };
     };
 
-    // Fungsi untuk download file dengan nama yang benar
-    const downloadFile = (url, fileName) => {
-        if (!url || !url.startsWith('http')) {
-            alert("URL file tidak valid");
-            return;
+       const downloadFile = async (url, fileName) => {
+    if (!url || !url.startsWith('http')) {
+        alert("URL file tidak valid");
+        return;
+    }
+
+    console.log("📥 Downloading:", { url, fileName });
+
+    try {
+        // ✅ Gunakan fetch untuk ambil blob
+        const response = await fetch(url, {
+            method: 'GET',
+            // ❌ JANGAN KIRIM HEADER AUTH — Cloudinary tidak butuh
+        });
+
+        if (!response.ok) {
+            throw new Error(`Download failed: ${response.status} ${response.statusText}`);
         }
 
-        console.log("Downloading:", { url, fileName });
-        
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+
         const link = document.createElement('a');
-        link.href = url;
-        
-        if (url.includes('cloudinary.com')) {
-            const separator = url.includes('?') ? '&' : '?';
-            link.href = `${url}${separator}fl_attachment`;
-        }
-        
+        link.href = downloadUrl;
         link.download = fileName || 'document.pdf';
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        
         document.body.appendChild(link);
         link.click();
+        window.URL.revokeObjectURL(downloadUrl);
         document.body.removeChild(link);
+
+        console.log("✅ Download berhasil:", fileName);
+
+    } catch (error) {
+        console.error("❌ Download gagal:", error);
         
-        console.log("Download initiated for:", fileName);
-    };
+        // 🔁 Fallback: jika fetch gagal, coba buka di tab baru
+        alert(`Gagal download via fetch. Coba buka manual: ${url}`);
+        window.open(url, '_blank');
+    }
+};
 
     // Fetch data laporan user
     const fetchLaporanUser = async () => {
@@ -670,22 +683,7 @@ const StatusPage = () => {
                                                 <Eye className="w-4 h-4 mr-2" />
                                                 Detail
                                             </Button>
-                                            
-                                            {/* Tampilkan button khusus untuk laporan selesai yang ada bukti */}
-                                            {laporan.status === "Selesai" && 
-                                             (laporan.foto_bukti_perbaikan?.length > 0 || laporan.rincian_biaya_pdf) && (
-                                                <Button
-                                                    onClick={() => {
-                                                        setSelectedLaporan(laporan);
-                                                        setShowDetailModal(true);
-                                                    }}
-                                                    className="bg-green-600 hover:bg-green-700 text-white cursor-pointer"
-                                                    title="Lihat bukti perbaikan"
-                                                >
-                                                    <Camera className="w-4 h-4 mr-2" />
-                                                    Lihat Bukti
-                                                </Button>
-                                            )}
+
                                         </div>
                                     </div>
                                 </div>
