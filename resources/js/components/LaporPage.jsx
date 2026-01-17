@@ -32,6 +32,7 @@ const uploadToCloudinary = async (file) => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("upload_preset", "sip-fas");
+    formData.append("folder", "laporan-fasilitas"); 
     
     // DEBUG: Cek apakah preset ada
     console.log("Upload preset:", "ml_default");

@@ -82,7 +82,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/notifications', [NotificationController::class, 'index']);
     Route::post('/user/notifications/{laporanId}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/user/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+    Route::post('/profile/request-email-change', [AuthController::class, 'requestEmailChange']);
+    Route::post('/profile/verify-email-change', [AuthController::class, 'verifyEmailChange']);
+    Route::put('/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/profile/photo', [AuthController::class, 'updateProfilePhoto']);
     Route::get('/laporan-user', [LaporanUserController::class, 'index']);
+    Route::post('/laporan/{laporanId}/rating', [LaporanUserController::class, 'submitRating']);
     Route::get('/statistik-user', [LaporanUserController::class, 'getStatistikUser']);
     Route::get('/laporan/{id}/petugas', [LaporanAdminController::class, 'getPetugasByLaporan']);
 });

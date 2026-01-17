@@ -23,14 +23,15 @@ class PasswordResetCodeNotification extends Notification
         return ['mail'];
     }
 
-    public function toMail(object $notifiable): MailMessage
+   public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Kode Reset Password - SIP-FAS')
-            ->greeting('Halo, ' . $notifiable->name . '!')
-            ->line('Kode verifikasi Anda adalah: **' . $this->code . '**')
+            ->subject('Kode Verifikasi - SIP-FAS')
+            ->line('Anda meminta perubahan informasi akun.')
+            ->line('Kode verifikasi Anda adalah:')
+            ->line("### {$this->code}")
             ->line('Kode ini berlaku selama 5 menit.')
-            ->line('Jika Anda tidak meminta ini, abaikan email ini.')
+            ->line('Jika Anda tidak meminta perubahan ini, abaikan email ini.')
             ->line('')
             ->line('Salam,')
             ->line('Tim SIP-FAS');

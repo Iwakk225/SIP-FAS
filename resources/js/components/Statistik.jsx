@@ -63,21 +63,13 @@ export default function Statistik() {
     }
   };
 
-  // Format persentase untuk display
-  const formatPersentase = (value) => {
-    if (value > 0) return `▲ +${value}%`;
-    if (value < 0) return `▼ ${value}%`;
-    return `→ ${value}%`;
-  };
-
   // Data fallback untuk loading/error
   const fallbackStatistik = {
     total_laporan: 0,
     laporan_selesai: 0,
     dalam_proses: 0,
     menunggu_verifikasi: 0,
-    laporan_per_wilayah: [],
-    persentase_perubahan: 0
+    laporan_per_wilayah: []
   };
 
   const fallbackWaktuRespon = {
@@ -131,10 +123,10 @@ export default function Statistik() {
                 onChange={handlePeriodeChange}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#FDBD59] cursor-pointer"
               >
-                <option value="Pilih">Semua</option>
-                <option value="1 Minggu">1 Minggu</option>
-                <option value="1 Bulan">1 Bulan</option>
-                <option value="1 Tahun">1 Tahun</option>
+                <option value="">Semua</option>
+                <option value="hari_ini">Hari Ini</option>
+                <option value="bulan_ini">Bulan Ini</option>
+                <option value="tahun_ini">Tahun Ini</option>
               </select>
             </div>
           </div>
@@ -154,7 +146,6 @@ export default function Statistik() {
                 data.persentase_perubahan > 0 ? 'text-green-500' : 
                 data.persentase_perubahan < 0 ? 'text-red-500' : 'text-gray-500'
               }`}>
-                {formatPersentase(data.persentase_perubahan)}
               </p>
             </div>
           </div>
@@ -167,7 +158,6 @@ export default function Statistik() {
             <div>
               <h2 className="text-2xl font-bold text-gray-800">{data.laporan_selesai}</h2>
               <p className="text-gray-600 text-sm">Laporan selesai</p>
-              <p className="text-green-500 text-xs font-semibold mt-1">▲ +8%</p>
             </div>
           </div>
 
@@ -179,7 +169,6 @@ export default function Statistik() {
             <div>
               <h2 className="text-2xl font-bold text-gray-800">{data.dalam_proses}</h2>
               <p className="text-gray-600 text-sm">Dalam proses</p>
-              <p className="text-green-500 text-xs font-semibold mt-1">▲ +10%</p>
             </div>
           </div>
 
@@ -191,7 +180,6 @@ export default function Statistik() {
             <div>
               <h2 className="text-2xl font-bold text-gray-800">{data.menunggu_verifikasi}</h2>
               <p className="text-gray-600 text-sm">Menunggu verifikasi</p>
-              <p className="text-red-500 text-xs font-semibold mt-1">▼ -4%</p>
             </div>
           </div>
         </div>

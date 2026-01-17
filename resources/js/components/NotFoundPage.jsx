@@ -7,18 +7,15 @@ export default function NotFoundPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full text-center">
         
-        {/* Navia Character Illustration */}
         <div className="relative mb-8">
           <div className="w-48 h-48 mx-auto relative">
-            {/* Navia's Silhouette with Umbrella */}
             <div className="absolute inset-0 flex items-center justify-center">
               {/* Umbrella */}
               <div className="w-32 h-32 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full relative">
                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 w-6 h-8 bg-yellow-500 rounded-t-lg"></div>
                 <div className="absolute top-4 left-1/2 transform -translate-x-1/2 w-1 h-16 bg-yellow-600"></div>
               </div>
-              
-              {/* Navia's Dress */}
+
               <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-20 h-24 bg-gradient-to-b from-white to-blue-200 rounded-full"></div>
               
               {/* Crystals/Geo Elements */}
@@ -33,8 +30,7 @@ export default function NotFoundPage() {
           <div className="absolute top-4 right-1/4 w-6 h-6 bg-yellow-300 rotate-45 opacity-80 animate-bounce delay-200"></div>
           <div className="absolute bottom-8 left-1/3 w-5 h-5 bg-amber-100 rotate-45 opacity-70 animate-bounce delay-400"></div>
         </div>
-
-        {/* Error Code dengan Style Elegan */}
+        {/* 404 Header */}
         <div className="mb-6">
           <h1 className="text-8xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-amber-500 mb-2">
             404

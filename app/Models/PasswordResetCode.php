@@ -12,7 +12,9 @@ class PasswordResetCode extends Model
     protected $fillable = [
         'email',
         'code',
-        'expires_at'
+        'expires_at',
+        'purpose',
+        'new_email',
     ];
 
     // Nonaktifkan timestamps karena tidak butuh updated_at

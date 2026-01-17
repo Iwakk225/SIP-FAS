@@ -327,7 +327,7 @@ export default function UploadBuktiModal({
         const formData = new FormData();
         formData.append("file", file);
         formData.append("upload_preset", "sip-fas");
-        formData.append("folder", folder);
+        formData.append("folder", "admin-bukti-perbaikan/foto-perbaikan");
         formData.append("resource_type", "image");
 
         try {
@@ -356,7 +356,6 @@ export default function UploadBuktiModal({
         const formData = new FormData();
         formData.append("file", file);
         formData.append("upload_preset", "sip-fas");
-        // ✅ Folder diubah jadi konsisten dengan backend
         formData.append("folder", "admin-bukti-perbaikan/rincian-biaya");
         formData.append("resource_type", "raw");
 
@@ -391,7 +390,7 @@ export default function UploadBuktiModal({
     };
 
     const handleCloseUploadModal = () => {
-        bukttiPhotos.forEach((photo) => {
+        buktiPhotos.forEach((photo) => {
             if (photo.preview?.startsWith("blob:")) URL.revokeObjectURL(photo.preview);
         });
 

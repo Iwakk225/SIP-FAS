@@ -7,9 +7,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import axios from "axios";
 
-// 🔥 TAMBAH: Function untuk show notification/toast
 const showToast = (message, type = "info") => {
-    // Buat element toast
     const toast = document.createElement('div');
     toast.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-lg shadow-lg text-white ${
         type === 'success' ? 'bg-green-500' :
@@ -18,11 +16,7 @@ const showToast = (message, type = "info") => {
         'bg-blue-500'
     }`;
     toast.textContent = message;
-    
-    // Tambah ke body
     document.body.appendChild(toast);
-    
-    // Auto remove setelah 3 detik
     setTimeout(() => {
         toast.remove();
     }, 3000);
@@ -48,7 +42,6 @@ export default function NavbarAfterLogin() {
         { name: "Kontak", path: "/KontakPage" },
     ];
 
-    // Fetch notifications
     const fetchNotifications = async () => {
         try {
             setLoading(true);
@@ -80,7 +73,6 @@ export default function NavbarAfterLogin() {
         }
     };
 
-    // 🔥 PERBAIKAN: handleMarkAllAsRead tanpa showNotification
     const handleMarkAllAsRead = async () => {
         try {
             const userToken = getToken();
@@ -97,11 +89,8 @@ export default function NavbarAfterLogin() {
             );
 
             if (response.data.success) {
-                // 🔥 GUNAKAN showToast BUKAN showNotification
                 showToast("Semua notifikasi ditandai sebagai dibaca", "success");
                 setUnreadCount(0);
-                
-                // Refresh notifications list
                 await fetchNotifications();
             }
         } catch (error) {
@@ -111,7 +100,6 @@ export default function NavbarAfterLogin() {
         setIsNotificationDropdownOpen(false);
     };
 
-    // 🔥 PERBAIKAN: handleMarkAsRead tanpa showNotification
     const handleMarkAsRead = async (notificationId) => {
         try {
             const userToken = getToken();
@@ -128,7 +116,6 @@ export default function NavbarAfterLogin() {
             );
 
             if (response.data.success) {
-                // Update local state
                 setNotifications(prev => 
                     prev.map(notif => 
                         notif.id === notificationId 
@@ -136,8 +123,6 @@ export default function NavbarAfterLogin() {
                             : notif
                     )
                 );
-                
-                // Update unread count
                 setUnreadCount(prev => Math.max(0, prev - 1));
             }
         } catch (error) {
@@ -145,27 +130,22 @@ export default function NavbarAfterLogin() {
         }
     };
 
-    // Fetch notifications every 30 seconds
     useEffect(() => {
         if (user) {
             fetchNotifications();
-            
             const interval = setInterval(() => {
                 fetchNotifications();
             }, 30000);
-
             return () => clearInterval(interval);
         }
     }, [user]);
 
-    // Auto-mark as read setelah dropdown dibuka 5 detik
     useEffect(() => {
         if (isNotificationDropdownOpen && unreadCount > 0) {
             const timer = setTimeout(() => {
                 console.log('🔔 Auto-mark notifications as read');
                 handleMarkAllAsRead();
             }, 5000);
-            
             return () => clearTimeout(timer);
         }
     }, [isNotificationDropdownOpen, unreadCount]);
@@ -212,6 +192,23 @@ export default function NavbarAfterLogin() {
         setIsNotificationDropdownOpen(false);
     };
 
+    // ✅ Komponen reusable untuk avatar
+    const Avatar = ({ photoUrl, size = "w-8 h-8" }) => (
+        <div className={`${size} rounded-full overflow-hidden border border-gray-200`}>
+            {photoUrl ? (
+                <img
+                    src={photoUrl}
+                    alt="Foto Profil"
+                    className="w-full h-full object-cover"
+                />
+            ) : (
+                <div className="w-full h-full bg-[#FDBD59] flex items-center justify-center">
+                    <User className="w-4 h-4 text-black" />
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <nav className="w-full bg-white shadow-sm sticky top-0 left-0 z-50">
             <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
@@ -242,7 +239,7 @@ export default function NavbarAfterLogin() {
                     ))}
                 </div>
 
-                {/* User Menu desktop - hanya tampil jika user login */}
+                {/* User Menu desktop */}
                 {user && (
                     <div className="hidden md:flex items-center space-x-4">
                         {/* Notifikasi */}
@@ -363,9 +360,7 @@ export default function NavbarAfterLogin() {
                                 }}
                                 className="flex items-center space-x-2 text-gray-700 hover:text-[#FDBD59] transition-colors cursor-pointer"
                             >
-                                <div className="w-8 h-8 bg-[#FDBD59] rounded-full flex items-center justify-center">
-                                    <User className="w-4 h-4 text-black" />
-                                </div>
+                                <Avatar photoUrl={user?.profile_photo_path} />
                                 <span className="text-sm font-medium">
                                     {user?.name || "User"}
                                 </span>
@@ -402,7 +397,6 @@ export default function NavbarAfterLogin() {
 
                 {/* Tombol menu mobile */}
                 <div className="md:hidden flex items-center space-x-2">
-                    {/* Notifikasi Mobile - hanya jika user login */}
                     {user && (
                         <div className="relative">
                             <button
@@ -455,13 +449,11 @@ export default function NavbarAfterLogin() {
                             </Link>
                         ))}
 
-                        {/* User Info Mobile - hanya jika user login */}
                         {user && (
                             <div className="w-full border-t border-gray-200 pt-3 mt-2">
                                 <div className="flex items-center space-x-3 mb-3">
-                                    <div className="w-8 h-8 bg-[#FDBD59] rounded-full flex items-center justify-center">
-                                        <User className="w-4 h-4 text-black" />
-                                    </div>
+                                    {/* ✅ FOTO PROFIL DI MOBILE */}
+                                    <Avatar photoUrl={user?.profile_photo_path} />
                                     <div>
                                         <p className="text-sm font-medium text-gray-900">
                                             {user?.name || "User"}

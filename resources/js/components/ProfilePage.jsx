@@ -6,13 +6,49 @@ import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { useAuth } from "../contexts/AuthContext";
 
+// ✅ Fungsi upload ke Cloudinary (sama seperti di LaporPage)
+const uploadToCloudinary = async (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", "sip-fas"); 
+  formData.append("folder", "User-profile"); 
+  formData.append("crop", "fill"); 
+  formData.append("width", "200");
+  formData.append("height", "200");
+
+  try {
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dlwfk4gly'}/image/upload`,
+      {
+        method: "POST",
+        body: formData,
+      }
+    );
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error?.message || `Upload failed: ${response.statusText}`);
+    }
+
+    return data.secure_url;
+  } catch (error) {
+    console.error("Error uploading to Cloudinary:", error);
+    throw new Error(`Gagal upload foto profil: ${error.message}`);
+  }
+};
+
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [userStats, setUserStats] = useState(null);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [showEmailVerificationModal, setShowEmailVerificationModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [pendingNewEmail, setPendingNewEmail] = useState('');
   const navigate = useNavigate();
   
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   
   const API_URL = 'http://localhost:8000/api';
   
@@ -23,7 +59,6 @@ export default function ProfilePage() {
     address: 'Surabaya, Jawa Timur'
   });
 
-  // Fetch user statistics
   const fetchUserStats = async () => {
     try {
       setLoadingStats(true);
@@ -40,7 +75,6 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Error fetching user stats:', error);
-      // Fallback stats jika API error
       setUserStats({
         total: 0,
         selesai: 0,
@@ -56,6 +90,9 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       fetchUserStats();
+      if (user.profile_photo_path) {
+        setPhotoPreview(user.profile_photo_path); // ✅ Cloudinary URL langsung
+      }
     }
   }, [user]);
 
@@ -66,32 +103,109 @@ export default function ProfilePage() {
     });
   };
 
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleSave = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      
-      // Update ke backend
-      const response = await axios.put(`${API_URL}/profile`, formData, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const headers = { 'Authorization': `Bearer ${token}` };
 
-      // Update localStorage dengan data terbaru
-      const updatedUser = { ...user, ...formData };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      
+      let response;
+
+      if (photoFile) {
+        // ✅ Upload ke Cloudinary dulu
+        const photoUrl = await uploadToCloudinary(photoFile);
+
+        // ✅ Kirim URL ke backend
+        response = await axios.put(`${API_URL}/profile`, {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          profile_photo_url: photoUrl
+        }, {
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          }
+        });
+      } else {
+        response = await axios.put(`${API_URL}/profile`, {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone
+        }, {
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json'
+          }
+        });
+      }
+
+      const updatedUser = response.data.data;
+      updateUser(updatedUser);
       setIsEditing(false);
-      
-      window.location.reload();
-      
+      setPhotoFile(null);
+
     } catch (error) {
       console.error('Error updating profile:', error);
-      // Fallback: update localStorage saja jika API error
-      const updatedUser = { ...user, ...formData };
-      localStorage.setItem('user', JSON.stringify(updatedUser));
-      setIsEditing(false);
+      alert('Gagal menyimpan perubahan. Coba lagi.');
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const headers = { 'Authorization': `Bearer ${token}` };
+
+      const newEmail = formData.email;
+      if (newEmail === user?.email) {
+        alert('Email belum berubah.');
+        return;
+      }
+
+      const response = await axios.post(`${API_URL}/profile/request-email-change`, {
+        email: newEmail
+      }, { headers });
+
+      setPendingNewEmail(newEmail);
+      setShowEmailVerificationModal(true);
+
+    } catch (error) {
+      alert(error.response?.data?.message || 'Gagal meminta verifikasi. Coba lagi.');
+    }
+  };
+
+  const handleVerifyEmailChange = async () => {
+    try {
+      const token = localStorage.getItem('auth_token');
+      const response = await axios.post(`${API_URL}/profile/verify-email-change`, {
+        email: user.email,
+        new_email: pendingNewEmail,
+        code: verificationCode
+      }, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      const updatedUser = response.data.data;
+      updateUser(updatedUser);
+      setFormData(prev => ({ ...prev, email: updatedUser.email }));
+      setShowEmailVerificationModal(false);
+      setVerificationCode('');
+      alert('Email berhasil diperbarui!');
+
+    } catch (error) {
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        alert('Error: ' + JSON.stringify(error.response.data));
+      } else {
+        alert('Verifikasi gagal. Coba lagi.');
+      }
     }
   };
 
@@ -102,13 +216,14 @@ export default function ProfilePage() {
       phone: user?.phone || '',
       address: 'Surabaya, Jawa Timur'
     });
+    setPhotoFile(null);
+    setPhotoPreview(user?.profile_photo_path || null);
     setIsEditing(false);
   };
 
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem('auth_token');
-      
       if (token) {
         await axios.post(`${API_URL}/logout`, {}, {
           headers: {
@@ -125,34 +240,15 @@ export default function ProfilePage() {
     }
   };
 
-  // Stats data dengan data real dari API
   const stats = [
-    { 
-      label: "Total Laporan", 
-      value: userStats?.total ?? 0, 
-      color: "bg-blue-500" 
-    },
-    { 
-      label: "Selesai", 
-      value: userStats?.selesai ?? 0, 
-      color: "bg-green-500" 
-    },
-    { 
-      label: "Dalam Proses", 
-      value: userStats?.dalam_proses ?? 0, 
-      color: "bg-yellow-500" 
-    },
-    { 
-      label: "Menunggu", 
-      value: userStats?.menunggu ?? 0, 
-      color: "bg-gray-500" 
-    },
-    { 
-      label: "Ditolak", 
-      value: userStats?.ditolak ?? 0, 
-      color: "bg-red-500" 
-    }
+    { label: "Total Laporan", value: userStats?.total ?? 0, color: "bg-blue-500" },
+    { label: "Selesai", value: userStats?.selesai ?? 0, color: "bg-green-500" },
+    { label: "Dalam Proses", value: userStats?.dalam_proses ?? 0, color: "bg-yellow-500" },
+    { label: "Menunggu", value: userStats?.menunggu ?? 0, color: "bg-gray-500" },
+    { label: "Ditolak", value: userStats?.ditolak ?? 0, color: "bg-red-500" }
   ];
+
+  const profileImageUrl = photoPreview || user?.profile_photo_path;
 
   return (
     <>
@@ -200,13 +296,35 @@ export default function ProfilePage() {
               {/* Photo Section */}
               <div className="flex-shrink-0">
                 <div className="relative">
-                  <div className="w-24 h-24 bg-[#FDBD59] rounded-full flex items-center justify-center">
-                    <User className="w-12 h-12 text-black" />
+                  <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-200">
+                    {profileImageUrl ? (
+                      <img 
+                        src={profileImageUrl} 
+                        alt="Profile" 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-[#FDBD59] flex items-center justify-center">
+                        <User className="w-12 h-12 text-black" />
+                      </div>
+                    )}
                   </div>
                   {isEditing && (
-                    <button className="absolute bottom-0 right-0 bg-gray-800 text-white p-2 rounded-full cursor-pointer">
-                      <Camera className="w-4 h-4" />
-                    </button>
+                    <>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                        id="photo-upload"
+                      />
+                      <label 
+                        htmlFor="photo-upload" 
+                        className="absolute bottom-0 right-0 bg-gray-800 text-white p-2 rounded-full cursor-pointer"
+                      >
+                        <Camera className="w-4 h-4" />
+                      </label>
+                    </>
                   )}
                 </div>
               </div>
@@ -237,13 +355,22 @@ export default function ProfilePage() {
                   <div className="flex items-center space-x-2">
                     <Mail className="w-4 h-4 text-gray-400" />
                     {isEditing ? (
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FDBD59]"
-                      />
+                      <>
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleChange}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FDBD59]"
+                        />
+                        <Button
+                          onClick={handleUpdateEmail}
+                          size="sm"
+                          className="ml-2 bg-blue-600 text-white hover:bg-blue-700 h-10 px-3"
+                        >
+                          Perbarui Email
+                        </Button>
+                      </>
                     ) : (
                       <p className="text-gray-900">{formData.email}</p>
                     )}
@@ -334,6 +461,41 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Email Verification Modal */}
+      {showEmailVerificationModal && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-bold mb-4">Verifikasi Perubahan Email</h3>
+            <p className="text-gray-600 mb-4">
+              Kami telah mengirim kode verifikasi ke <strong>{pendingNewEmail}</strong>
+            </p>
+            <input
+              type="text"
+              placeholder="Masukkan kode 6 digit"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-[#FDBD59]"
+              maxLength={6}
+            />
+            <div className="flex space-x-2">
+              <Button
+                onClick={handleVerifyEmailChange}
+                className="flex-1 bg-green-600 text-white hover:bg-green-700"
+              >
+                Verifikasi
+              </Button>
+              <Button
+                onClick={() => setShowEmailVerificationModal(false)}
+                variant="outline"
+                className="flex-1"
+              >
+                Batal
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       <Footer />
     </>
   );

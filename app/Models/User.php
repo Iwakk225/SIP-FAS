@@ -4,9 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use App\Notifications\PasswordResetCodeNotification; // Tambahkan ini
+use App\Models\Laporan;     
 
 class User extends Authenticatable
 {
@@ -17,7 +19,9 @@ class User extends Authenticatable
         'email',
         'phone',
         'password',
-        'status', // TAMBAHKAN INI
+        'status', 
+        'address',
+        'profile_photo_path',
     ];
 
     protected $hidden = [
@@ -47,9 +51,8 @@ class User extends Authenticatable
         $this->notify(new PasswordResetCodeNotification($code));
     }
 
-    // TAMBAHKAN RELASI KE LAPORAN (jika belum ada)
-    // public function laporans()
-    // {
-    //     return $this->hasMany(Laporan::class, 'user_id');
-    // }
+    public function laporans()
+    {
+        return $this->hasMany(Laporan::class);
+    }
 }

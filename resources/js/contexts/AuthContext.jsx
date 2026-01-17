@@ -73,17 +73,15 @@ export const AuthProvider = ({ children }) => {
   // Cek status auth saat mount
   useEffect(() => {
     checkAuthStatus();
-    // Cek token validity secara periodic
     const interval = setInterval(() => {
       if (isLoggedIn) {
         validateToken();
       }
-    }, 300000); // Cek setiap 5 menit
+    }, 300000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Validasi token dengan server
   const validateToken = async () => {
     const token = localStorage.getItem('auth_token');
     if (!token) return;
@@ -94,19 +92,16 @@ export const AuthProvider = ({ children }) => {
       });
     } catch (error) {
       if (error.response?.status === 401) {
-        // Token expired, coba refresh atau logout
         await handleTokenExpired();
       }
     }
   };
 
-  // Handle token expired
   const handleTokenExpired = async () => {
     const refreshToken = localStorage.getItem('refresh_token');
     
     if (refreshToken) {
       try {
-        // Coba refresh token
         const response = await axios.post('/api/refresh-token', {
           refresh_token: refreshToken
         });
@@ -114,17 +109,14 @@ export const AuthProvider = ({ children }) => {
         const { token, user: userData } = response.data;
         await login(token, userData, rememberMe);
       } catch (error) {
-        // Refresh token juga expired, logout
         performLogout();
       }
     } else {
-      // Tidak ada refresh token, logout
       performLogout();
     }
   };
 
   const checkAuthStatus = () => {
-    // Cek apakah ada token di localStorage
     const token = localStorage.getItem('auth_token');
     const userData = localStorage.getItem('user');
     const remember = localStorage.getItem('remember_me') === 'true';
@@ -140,7 +132,6 @@ export const AuthProvider = ({ children }) => {
         performLogout();
       }
     } else if (sessionStorage.getItem('auth_token') && sessionStorage.getItem('user')) {
-      // Cek session storage untuk non-remember me
       try {
         const sessionToken = sessionStorage.getItem('auth_token');
         const sessionUser = sessionStorage.getItem('user');
@@ -155,22 +146,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = (token, userData, remember = false) => {
-    // Simpan remember preference
     setRememberMe(remember);
     
     if (remember) {
-      // Simpan di localStorage (persistent)
       localStorage.setItem('auth_token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       localStorage.setItem('remember_me', 'true');
-      // Hapus dari session storage jika ada
       sessionStorage.removeItem('auth_token');
       sessionStorage.removeItem('user');
     } else {
-      // Simpan di sessionStorage (hanya untuk session)
       sessionStorage.setItem('auth_token', token);
       sessionStorage.setItem('user', JSON.stringify(userData));
-      // Hapus dari localStorage jika ada
       localStorage.removeItem('auth_token');
       localStorage.removeItem('user');
       localStorage.removeItem('remember_me');
@@ -178,30 +164,21 @@ export const AuthProvider = ({ children }) => {
     
     setUser(userData);
     setIsLoggedIn(true);
-    
-    // Set axios default header
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   };
 
   const performLogout = () => {
-    // Hapus semua storage
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     localStorage.removeItem('remember_me');
     localStorage.removeItem('refresh_token');
     sessionStorage.removeItem('auth_token');
     sessionStorage.removeItem('user');
-    
-    // Hapus axios header
     delete axios.defaults.headers.common['Authorization'];
-    
-    // Reset state
     setUser(null);
     setIsLoggedIn(false);
     setRememberMe(false);
     setShowLogoutModal(false);
-    
-    // Redirect ke login page
     window.location.href = '/LoginPage';
   };
 
@@ -213,7 +190,6 @@ export const AuthProvider = ({ children }) => {
     setShowLogoutModal(false);
   };
 
-  // Function untuk mendapatkan token (digunakan di komponen lain)
   const getToken = () => {
     if (rememberMe) {
       return localStorage.getItem('auth_token');
@@ -222,9 +198,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // ✅ FUNGSI BARU: update user dengan aman
+  const updateUser = (updatedUserData) => {
+    if (rememberMe) {
+      localStorage.setItem('user', JSON.stringify(updatedUserData));
+    } else {
+      sessionStorage.setItem('user', JSON.stringify(updatedUserData));
+    }
+    setUser(updatedUserData);
+  };
+
+  // ✅ Sertakan updateUser di context
   const value = {
     isLoggedIn: !!user,
     user,
+    updateUser, // ✅ sekarang sudah didefinisikan
     login,
     logout, 
     performLogout,
