@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Auth;
 
 class Laporan extends Model
 {
@@ -17,21 +18,20 @@ class Laporan extends Model
         'lokasi',
         'deskripsi',
         'kategori',
-        'pelapor_nama',       // tetap ada (opsional untuk kompatibilitas)
-        'pelapor_email',      // tetap ada (opsional)
-        'pelapor_telepon',    // tetap ada (opsional)
+        'pelapor_nama',
+        'pelapor_email',
+        'pelapor_telepon',
         'foto_laporan',
         'foto_bukti_perbaikan',
         'rincian_biaya_pdf',
         'status',
         'alasan_penolakan',
-        'user_id',            // 🔑 kolom utama kepemilikan
+        'user_id', 
     ];
 
     protected $casts = [
         'foto_laporan' => 'array',
         'foto_bukti_perbaikan' => 'array',
-        'alasan_penolakan' => 'string',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -56,7 +56,7 @@ class Laporan extends Model
 
     public function ratings(): HasMany
     {
-        return $this->hasMany(Rating::class);
+        return $this->hasMany(Rating::class, 'laporan_id');
     }
 
     /*
@@ -65,20 +65,28 @@ class Laporan extends Model
     |--------------------------------------------------------------------------
     */
 
-    public function getAvgRatingAttribute()
+    // Ambil rating dari user yang sedang login
+    public function getUserRatingAttribute()
     {
-        return $this->ratings()->avg('rating') ?? 0;
+        if (!Auth::check()) {
+            return null;
+        }
+
+        return $this->ratings()
+            ->where('user_id', Auth::id())
+            ->first()?->rating; // return angka 1-5 atau null
     }
 
-    public function getRatingsCountAttribute()
+    // Ambil komentar rating user
+    public function getUserRatingCommentAttribute()
     {
-        return $this->ratings()->count();
-    }
+        if (!Auth::check()) {
+            return null;
+        }
 
-    public function getStatusTugasAttribute()
-    {
-        $pivot = $this->petugasAktif()->first();
-        return $pivot?->pivot->status_tugas;
+        return $this->ratings()
+            ->where('user_id', Auth::id())
+            ->first()?->comment;
     }
 
     /*

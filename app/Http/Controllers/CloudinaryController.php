@@ -34,7 +34,8 @@ class CloudinaryController extends Controller
                 'resource_type' => 'image',
                 'use_filename' => true,
                 'unique_filename' => false,
-                'overwrite' => false
+                'overwrite' => false,
+                'access_mode' => 'public', // 👈 buat gambar juga public (opsional)
             ]);
 
             return response()->json([
@@ -54,7 +55,7 @@ class CloudinaryController extends Controller
         }
     }
 
-    // Upload PDF/Dokumen ke folder admin
+    // Upload PDF/Dokumen ke folder admin → JADI PUBLIC!
     public function uploadDocument(Request $request): JsonResponse
     {
         try {
@@ -78,11 +79,12 @@ class CloudinaryController extends Controller
                 'resource_type' => 'raw',
                 'use_filename' => true,
                 'unique_filename' => false,
-                'overwrite' => false
+                'overwrite' => false,
+                'access_mode' => 'public', // buat dokumen jadi public
             ]);
 
             $secureUrl = $uploadedFile->getSecurePath();
-            $downloadUrl = $secureUrl . '?fl_attachment';
+            $downloadUrl = $secureUrl; // nggak perlu ?fl_attachment
 
             return response()->json([
                 'success' => true,
@@ -103,7 +105,7 @@ class CloudinaryController extends Controller
         }
     }
 
-    // 🔥 Upload bukti perbaikan (admin)
+    // 🔥 Upload bukti perbaikan (admin) → PDF JUGA PUBLIC!
     public function uploadBuktiAdmin(Request $request, $laporanId): JsonResponse
     {
         try {
@@ -127,25 +129,27 @@ class CloudinaryController extends Controller
                         'resource_type' => 'image',
                         'use_filename' => true,
                         'unique_filename' => true,
+                        'access_mode' => 'public', // opsional
                     ]);
                     $uploadedData['foto_bukti_perbaikan'][] = $uploaded->getSecurePath();
                 }
             }
 
-            // Upload PDF
+            // Upload PDF → PUBLIC!
             if ($request->hasFile('rincian_biaya_pdf')) {
                 $file = $request->file('rincian_biaya_pdf');
                 $uploaded = Cloudinary::upload($file->getRealPath(), [
-                    'folder' => 'Home/admin-bukti-perbaikan/rincian-biaya', // ✅ konsisten
+                    'folder' => 'Home/admin-bukti-perbaikan/rincian-biaya',
                     'public_id' => 'admin-biaya-' . $laporanId . '-' . time(),
                     'resource_type' => 'raw',
                     'use_filename' => true,
                     'unique_filename' => true,
+                    'access_mode' => 'public', // ✅ INI KUNCI NYA!
                 ]);
 
                 $secureUrl = $uploaded->getSecurePath();
                 $uploadedData['rincian_biaya_pdf'] = $secureUrl;
-                $uploadedData['rincian_biaya_download_url'] = $secureUrl . '?fl_attachment';
+                $uploadedData['rincian_biaya_download_url'] = $secureUrl; // langsung bisa dipakai
             }
 
             return response()->json([

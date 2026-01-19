@@ -16,6 +16,7 @@ use App\Http\Controllers\User\NotificationController;
 use App\Http\Controllers\Admin\LaporanAdminController;
 use App\Http\Controllers\Admin\BuktiPerbaikanController;
 use App\Http\Controllers\Admin\StatistikAdminController;
+use App\Http\Controllers\RatingController;
 
 // ========== TEST ROUTES ==========
 Route::get('/test-api', function () {
@@ -90,6 +91,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/laporan/{laporanId}/rating', [LaporanUserController::class, 'submitRating']);
     Route::get('/statistik-user', [LaporanUserController::class, 'getStatistikUser']);
     Route::get('/laporan/{id}/petugas', [LaporanAdminController::class, 'getPetugasByLaporan']);
+    Route::get('/laporan/{laporanId}/rating', [RatingController::class, 'show']);
+    Route::post('/laporan/{laporanId}/rating', [RatingController::class, 'store']);
 });
 
 // ========== ADMIN ROUTES ==========

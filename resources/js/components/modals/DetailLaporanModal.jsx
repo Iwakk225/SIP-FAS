@@ -11,6 +11,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
   if (!isOpen || !laporan) return null;
 
   const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState(''); // 🔥 tambah state komentar
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [petugasLaporan, setPetugasLaporan] = useState([]);
   const [isLoadingPetugas, setIsLoadingPetugas] = useState(false);
@@ -98,9 +99,30 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
     }
   };
 
+  // 🔥 Fetch rating & komentar saat modal dibuka
   useEffect(() => {
-    if (isOpen) fetchPetugas();
-  }, [isOpen]);
+    if (isOpen && laporan?.id) {
+      fetchPetugas();
+
+      const fetchUserRating = async () => {
+        try {
+          const token = getToken();
+          const res = await axios.get(
+            `http://localhost:8000/api/laporan/${laporan.id}/rating`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (res.data.rating) {
+            setRating(res.data.rating.rating);
+            setComment(res.data.rating.comment || '');
+          }
+        } catch (err) {
+          // Ignore jika belum ada rating
+        }
+      };
+
+      fetchUserRating();
+    }
+  }, [isOpen, laporan?.id]);
 
   const formatDate = (dateString) => {
     if (!dateString) return "-";
@@ -133,28 +155,58 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
     return trackingStepsLengkap;
   };
 
-  const handleRate = async (star) => {
-    setRating(star);
+  const downloadFile = async (fileUrl, filename) => {
+    try {
+      const token = getToken();
+      const res = await axios.post(
+        'http://localhost:8000/api/cloudinary/generate-download-url',
+        { url: fileUrl },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.data.success && res.data.download_url) {
+        const link = document.createElement('a');
+        link.href = res.data.download_url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        alert('Gagal generate link download.');
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Tidak bisa mengunduh file. Silakan coba lagi nanti.');
+    }
+  };
+
+  // 🔥 Kirim rating + komentar
+  const handleRate = async () => {
+    if (rating === 0) return;
+
     setIsSubmitting(true);
     try {
-        const token = getToken();
-        const res = await axios.post(
+      const token = getToken();
+      const res = await axios.post(
         `http://localhost:8000/api/laporan/${laporan.id}/rating`,
-        { rating: star },
+        { 
+          rating: rating,
+          comment: comment.trim() || null
+        },
         { headers: { Authorization: `Bearer ${token}` } }
-        );
-        // ✅ Jika sukses, fetch ulang data laporan
-        if (res.data.success) {
-        // 💡 Trigger refresh di parent (StatusPage)
+      );
+
+      if (res.status === 201) {
         if (onRatingSubmit) onRatingSubmit();
-        }
+        // Reset form setelah sukses
+        setComment('');
+      }
     } catch (err) {
-        alert("Gagal mengirim rating. Silakan coba lagi.");
-        setRating(0);
+      alert("Gagal mengirim ulasan. Silakan coba lagi.");
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
-    };
+  };
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -414,7 +466,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                   </div>
                   <button
                     onClick={() => downloadFile(laporan.rincian_biaya_pdf, `rincian-biaya-${laporan.id}.pdf`)}
-                    className="bg-green-600 text-white px-4 py-2 rounded w-full flex items-center justify-center"
+                    className="bg-green-600 text-white px-4 py-2 rounded w-full flex items-center justify-center cursor-pointer"
                   >
                     <Download className="mr-2" /> Download Rincian Biaya (PDF)
                   </button>
@@ -422,31 +474,58 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
               )}
             </div>
           )}
-            {laporan.status === "Selesai" && (
+
+          {/* 🔥 FORM RATING + KOMENTAR */}
+          {laporan.status === "Selesai" && (
             <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-medium mb-2">Beri Rating untuk Perbaikan Ini</h4>
-                <div className="flex items-center gap-1">
+              <h4 className="font-medium mb-2">Beri Rating untuk Perbaikan Ini</h4>
+              
+              {/* Bintang */}
+              <div className="flex items-center gap-1 mb-3">
                 {[1, 2, 3, 4, 5].map((star) => (
-                    <button
+                  <button
                     key={star}
-                    onClick={() => handleRate(star)}
+                    onClick={() => setRating(star)}
                     disabled={isSubmitting}
-                    className={`text-2xl ${
-                        star <= rating ? 'text-yellow-500' : 'text-gray-300'
-                    }`}
-                    >
+                    className={`text-2xl ${star <= rating ? 'text-yellow-500' : 'text-gray-300'}`}
+                  >
                     ★
-                    </button>
+                  </button>
                 ))}
-                </div>
-                {isSubmitting && (
+              </div>
+
+              {/* Textarea */}
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Tulis ulasan Anda (opsional)..."
+                className="w-full p-2 border border-gray-300 bg-whiterounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows="2"
+                maxLength="1000"
+                disabled={isSubmitting}
+              />
+
+              {/* Tombol Kirim */}
+              <button
+                onClick={handleRate}
+                disabled={isSubmitting || rating === 0}
+                className={`mt-3 px-4 py-2 rounded font-medium ${
+                  rating === 0
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {isSubmitting ? 'Mengirim...' : 'Kirim Ulasan'}
+              </button>
+
+              {isSubmitting && (
                 <div className="mt-2 flex items-center gap-2 text-sm text-blue-600">
-                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    Mengirim rating...
+                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                  Mengirim ulasan...
                 </div>
-                )}
+              )}
             </div>
-            )}
+          )}
 
           {/* Action untuk laporan ditolak */}
           {laporan.status === "Ditolak" && (
