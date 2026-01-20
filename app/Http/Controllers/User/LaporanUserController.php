@@ -61,7 +61,8 @@ class LaporanUserController extends Controller
                 'foto_laporan' => 'required|array',
                 'foto_laporan.*' => 'url',
                 'kategori' => 'nullable|string',
-                'status' => 'nullable|string'
+                'status' => 'nullable|string',
+                'user_id' => 'nullable|integer|exists:users,id',
             ]);
 
             // Normalisasi lokasi

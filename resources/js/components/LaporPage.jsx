@@ -71,9 +71,6 @@ const LaporPage = () => {
         judul: "",
         lokasi: "",
         deskripsi: "",
-        pelapor_nama: "",
-        pelapor_email: "",
-        pelapor_telepon: "",
     });
     const [photos, setPhotos] = useState([]);
     const [mapCenter, setMapCenter] = useState({ lat: -7.2575, lng: 112.7521 }); // Default Surabaya
@@ -566,6 +563,7 @@ const LaporPage = () => {
                 pelapor_telepon: formData.pelapor_telepon || "",
                 foto_laporan: photoUrls,
                 status: "Validasi",
+                user_id: user?.id || null,
             };
 
             console.log("Data yang dikirim ke backend:", laporanData); // Debug
@@ -691,7 +689,7 @@ const LaporPage = () => {
                                         </Link>
                                         <Link to="/SignUpPage">
                                             <Button
-                                                variant="outline"
+                                                variant="outline" 
                                                 className="text-xs py-1 h-auto cursor-pointer"
                                             >
                                                 <UserPlus className="w-3 h-3 mr-1" />
@@ -703,54 +701,40 @@ const LaporPage = () => {
                             </Alert>
                         )}
 
-                        {/* Informasi Pelapor (Hanya untuk yang sudah login) */}
+                        {/* Informasi Pelapor */}
                         {isLoggedIn && (
                             <div className="border-b pb-4">
                                 <h3 className="text-lg font-medium text-gray-900 mb-3">
-                                    Informasi Pelapor
+                                Informasi Pelapor
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Nama Pelapor <span className="text-red-500">*</span>
-                                        </label>
-                                        <Input
-                                            name="pelapor_nama"
-                                            value={formData.pelapor_nama}
-                                            onChange={handleInputChange}
-                                            placeholder="Nama lengkap anda"
-                                            className="w-full"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Email
-                                        </label>
-                                        <Input
-                                            name="pelapor_email"
-                                            value={formData.pelapor_email}
-                                            onChange={handleInputChange}
-                                            placeholder="email@contoh.com"
-                                            className="w-full"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Nomor Telepon
-                                        </label>
-                                        <Input
-                                            name="pelapor_telepon"
-                                            value={formData.pelapor_telepon}
-                                            onChange={handleInputChange}
-                                            placeholder="08xxxxxxxxxx"
-                                            className="w-full"
-                                        />
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Nama Pelapor
+                                    </label>
+                                    <div className="p-2 bg-gray-100 rounded border border-gray-300 text-gray-800">
+                                    {user?.name || "-"}
                                     </div>
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Email
+                                    </label>
+                                    <div className="p-2 bg-gray-100 rounded border border-gray-300 text-gray-800 overflow-hidden">
+                                    {user?.email || "-"}
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Nomor Telepon
+                                    </label>
+                                    <div className="p-2 bg-gray-100 rounded border border-gray-300 text-gray-800">
+                                    {user?.phone || "-"}
+                                    </div>
+                                </div>
+                                </div>
                             </div>
-                        )}
+                            )}
 
                         {/* Judul Laporan */}
                         <div onClick={handleGuestInteraction}>

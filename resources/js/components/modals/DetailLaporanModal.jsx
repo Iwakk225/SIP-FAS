@@ -228,7 +228,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
         <div className="border-b border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">Detail Laporan</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 cursor-pointer">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -512,7 +512,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                 className={`mt-3 px-4 py-2 rounded font-medium ${
                   rating === 0
                     ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
                 }`}
               >
                 {isSubmitting ? 'Mengirim...' : 'Kirim Ulasan'}
