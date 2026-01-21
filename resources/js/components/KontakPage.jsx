@@ -101,7 +101,7 @@ export default function KontakPage() {
                   <div className="h-full flex flex-col justify-center">
                     <div className="mb-8">
                       <div className="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center mb-4">
-                        <MessageSquare className="w-6 h-6" />
+                        <Send className="w-6 h-6 stroke-black" />
                       </div>
                       <h2 className="text-2xl font-bold mb-2">Kirim Pesan</h2>
                       <p className="text-white text-opacity-90">
@@ -112,7 +112,7 @@ export default function KontakPage() {
                     <div className="space-y-4">
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
-                          <Mail className="w-5 h-5" />
+                          <Mail className="w-5 h-5 stroke-black" />
                         </div>
                         <div>
                           <p className="text-sm text-white text-opacity-80">Email</p>
@@ -122,7 +122,7 @@ export default function KontakPage() {
 
                       <div className="flex items-center">
                         <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
-                          <MessageSquare className="w-5 h-5" />
+                          <MessageSquare className="w-5 h-5 stroke-black" />
                         </div>
                         <div>
                           <p className="text-sm text-white text-opacity-80">Response Time</p>

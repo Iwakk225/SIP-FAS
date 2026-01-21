@@ -379,7 +379,7 @@ export default function DetailLaporanModal({
                 if (newStatus === "Selesai" || newStatus === "Ditolak") {
                     showNotification(
                         `✅ Semua petugas telah dilepas dan sekarang TERSEDIA untuk ditugaskan ke laporan lain`,
-                        "info"
+                        "success"
                     );
 
                     if (petugasDitugaskan) {
