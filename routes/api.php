@@ -69,6 +69,7 @@ Route::get('/laporan/{id}', [LaporanUserController::class, 'show']);
 Route::get('/geocode/search', [GeocodeController::class, 'search']);
 Route::get('/geocode/reverse', [GeocodeController::class, 'reverse']);
 Route::get('/nominatim/search', [GeocodeController::class, 'search']);
+Route::get('/stats/landing', [StatistikController::class, 'getLandingStats']);
 
 // ========== STATISTIK ROUTES ==========
 Route::prefix('statistik')->group(function () {

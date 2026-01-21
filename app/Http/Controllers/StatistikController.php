@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Laporan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\Rating;
 
 class StatistikController extends Controller
 {
@@ -316,6 +317,44 @@ private function getWilayahFromCoordinates($lat, $lng)
                     'selesai' => '12 Hari'
                 ]
             ], 200);
+        }
+    }
+
+    public function getLandingStats()
+    {
+        try {
+            // 1. Laporan Selesai
+            $completedReports = Laporan::where('status', 'Selesai')->count();
+
+            // 2. Laporan Aktif (semua status selain "Selesai" dan "Ditolak")
+            $activeReports = Laporan::whereNotIn('status', ['Selesai', 'Ditolak'])->count();
+
+            // 3. Rating Rata-rata
+            $avgRating = Rating::avg('rating') ?? 0;
+            $formattedAvgRating = number_format($avgRating, 1, '.', '');
+
+            // 4. Rata-rata hari penyelesaian
+            $avgDays = Laporan::where('status', 'Selesai')
+                ->select(DB::raw('AVG(DATEDIFF(updated_at, created_at)) as avg_days'))
+                ->first()
+                ->avg_days ?? 0;
+
+            $roundedAvgDays = round($avgDays);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'completed_reports' => (int) $completedReports,
+                    'active_reports' => (int) $activeReports,
+                    'avg_rating' => $formattedAvgRating,
+                    'avg_days_to_complete' => $roundedAvgDays
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil statistik landing: ' . $e->getMessage()
+            ], 500);
         }
     }
 

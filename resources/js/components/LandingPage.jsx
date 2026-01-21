@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
     Camera,
     Search,
@@ -18,6 +18,37 @@ import NavbarBeforeLogin from "./NavbarBeforeLogin";
 import Footer from "./Footer";
 
 export default function LandingPage() {
+    // ✅ State untuk statistik komunitas
+    const [stats, setStats] = useState({
+        completedReports: 169,
+        activeReports: 31,
+        avgRating: "4.8",
+        avgDaysToComplete: 12
+    });
+
+    // ✅ Fetch data dari API (jika sudah ada)
+    useEffect(() => {
+        const fetchLandingStats = async () => {
+            try {
+                const response = await fetch("/api/stats/landing");
+                if (!response.ok) throw new Error("Gagal mengambil data");
+
+                const data = await response.json();
+                setStats({
+                    completedReports: data.data.completed_reports ?? 169,
+                    activeReports: data.data.active_reports ?? 31,
+                    avgRating: (data.data.avg_rating ?? "4.8").toString(),
+                    avgDaysToComplete: data.data.avg_days_to_complete ?? 12
+                });
+            } catch (error) {
+                console.warn("Gagal load statistik real-time, pakai data dummy:", error.message);
+                // Tetap pakai nilai awal (dummy) — aman!
+            }
+        };
+
+        fetchLandingStats();
+    }, []);
+
     return (
         <>
             {/* HERO SECTION */}
@@ -25,7 +56,7 @@ export default function LandingPage() {
                 className="relative min-h-screen flex flex-col justify-center bg-cover bg-center"
                 style={{
                     backgroundImage:
-                        "url('https://images.unsplash.com/photo-1520975916090-3105956dac38?auto=format&fit=crop&w=1600&q=80')",
+                        "url('https://images.unsplash.com/photo-1737111144116-45caca7f6317?q=80&w=1169&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D')",
                 }}
             >
                 <div className="absolute inset-0 bg-white/70 backdrop-blur-sm"></div>
@@ -34,9 +65,7 @@ export default function LandingPage() {
                     <div className="max-w-2xl text-left">
                         <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 leading-tight">
                             Laporkan Fasilitas <br />
-                            <span className="text-[#FDBD59]">
-                                Rusak
-                            </span> dengan <br /> Mudah
+                            <span className="text-[#FDBD59]">Rusak</span> dengan <br /> Mudah
                         </h1>
 
                         <p className="text-gray-700 text-base md:text-lg mt-6 max-w-lg">
@@ -47,19 +76,13 @@ export default function LandingPage() {
                         </p>
 
                         <div className="flex flex-col sm:flex-row gap-4 mt-10">
-                            <Link
-                                to="/LaporPage"
-                                className="w-full sm:w-auto"
-                            >
+                            <Link to="/LaporPage" className="w-full sm:w-auto">
                                 <Button className="bg-[#FDBD59] hover:bg-[#fda94b] text-black font-normal px-12 py-6 rounded shadow-md flex items-center justify-center gap-2 text-lg w-full sm:w-auto cursor-pointer">
                                     <Camera size={20} /> Laporkan Sekarang
                                 </Button>
                             </Link>
 
-                            <Link
-                                to="/StatusPage"
-                                className="w-full sm:w-auto"
-                            >
+                            <Link to="/StatusPage" className="w-full sm:w-auto">
                                 <Button
                                     variant="outline"
                                     className="border-2 border-[#FDBD59] text-black bg-[#FDBD59]/10 font-normal px-10 py-6 rounded flex items-center justify-center gap-2 text-lg w-full sm:w-auto cursor-pointer"
@@ -71,21 +94,15 @@ export default function LandingPage() {
 
                         <div className="flex flex-wrap justify-start gap-6 mt-10 text-gray-700">
                             <div className="flex items-center gap-2">
-                                <CheckCircle
-                                    size={18}
-                                    className="text-green-500"
-                                />
+                                <CheckCircle size={18} className="text-green-500" />
                                 <span>Gratis dan mudah</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <Clock size={18} className="text-black-500" />
+                                <Clock size={18} className="text-black" />
                                 <span>Respon cepat</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <ShieldCheck
-                                    size={18}
-                                    className="text-blue-500"
-                                />
+                                <ShieldCheck size={18} className="text-blue-500" />
                                 <span>Terpercaya</span>
                             </div>
                         </div>
@@ -109,9 +126,7 @@ export default function LandingPage() {
                             <div className="bg-blue-500 text-white p-3 rounded-full">
                                 <Camera size={24} />
                             </div>
-                            <span className="text-[#FDBD59] font-bold text-lg">
-                                01
-                            </span>
+                            <span className="text-[#FDBD59] font-bold text-lg">01</span>
                         </div>
                         <h3 className="font-semibold text-lg text-gray-900 mb-2 text-left">
                             Buat Laporan
@@ -128,9 +143,7 @@ export default function LandingPage() {
                             <div className="bg-green-500 text-white p-3 rounded-full">
                                 <CheckCircle size={24} />
                             </div>
-                            <span className="text-[#FDBD59] font-bold text-lg">
-                                02
-                            </span>
+                            <span className="text-[#FDBD59] font-bold text-lg">02</span>
                         </div>
                         <h3 className="font-semibold text-lg text-gray-900 mb-2 text-left">
                             Diverifikasi oleh admin
@@ -147,9 +160,7 @@ export default function LandingPage() {
                             <div className="bg-yellow-400 text-white p-3 rounded-full">
                                 <Wrench size={24} />
                             </div>
-                            <span className="text-[#FDBD59] font-bold text-lg">
-                                03
-                            </span>
+                            <span className="text-[#FDBD59] font-bold text-lg">03</span>
                         </div>
                         <h3 className="font-semibold text-lg text-gray-900 mb-2 text-left">
                             Diperbaiki
@@ -231,6 +242,7 @@ export default function LandingPage() {
                     </div>
                 </div>
             </section>
+
             {/* DAMPAK KOMUNITAS SECTION */}
             <section className="bg-[#1E293B] text-white py-20 px-6 md:px-16 text-center">
                 <h2 className="text-3xl md:text-4xl font-bold mb-4">
@@ -243,61 +255,47 @@ export default function LandingPage() {
 
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto mb-16">
-                    {/* Card 1 */}
+                    {/* Card 1: Laporan Diselesaikan */}
                     <div className="bg-[#1C2C44] rounded-2xl p-8 shadow-lg hover:shadow-xl transition">
                         <div className="flex flex-col items-center">
                             <div className="bg-[#2A3C56] p-4 rounded-full mb-4">
-                                <CheckCircle
-                                    className="text-[#FDBD59]"
-                                    size={28}
-                                />
+                                <CheckCircle className="text-[#FDBD59]" size={28} />
                             </div>
-                            <h3 className="text-2xl font-bold">169</h3>
-                            <p className="text-gray-300 mt-2 text-sm">
-                                Laporan diselesaikan
-                            </p>
+                            <h3 className="text-2xl font-bold">{stats.completedReports}</h3>
+                            <p className="text-gray-300 mt-2 text-sm">Laporan diselesaikan</p>
                         </div>
                     </div>
 
-                    {/* Card 2 */}
+                    {/* Card 2: Laporan Aktif */}
                     <div className="bg-[#1C2C44] rounded-2xl p-8 shadow-lg hover:shadow-xl transition">
                         <div className="flex flex-col items-center">
                             <div className="bg-[#2A3C56] p-4 rounded-full mb-4">
                                 <Clock className="text-[#FDBD59]" size={28} />
                             </div>
-                            <h3 className="text-2xl font-bold">31</h3>
-                            <p className="text-gray-300 mt-2 text-sm">
-                                Laporan aktif
-                            </p>
+                            <h3 className="text-2xl font-bold">{stats.activeReports}</h3>
+                            <p className="text-gray-300 mt-2 text-sm">Laporan aktif</p>
                         </div>
                     </div>
 
-                    {/* Card 3 */}
+                    {/* Card 3: Rating Kepuasan */}
                     <div className="bg-[#1C2C44] rounded-2xl p-8 shadow-lg hover:shadow-xl transition">
                         <div className="flex flex-col items-center">
                             <div className="bg-[#2A3C56] p-4 rounded-full mb-4">
                                 <Star className="text-[#FDBD59]" size={28} />
                             </div>
-                            <h3 className="text-2xl font-bold">4.8</h3>
-                            <p className="text-gray-300 mt-2 text-sm">
-                                Rating kepuasan
-                            </p>
+                            <h3 className="text-2xl font-bold">{stats.avgRating}</h3>
+                            <p className="text-gray-300 mt-2 text-sm">Rating kepuasan</p>
                         </div>
                     </div>
 
-                    {/* Card 4 */}
+                    {/* Card 4: Hari Rata-rata Penyelesaian */}
                     <div className="bg-[#1C2C44] rounded-2xl p-8 shadow-lg hover:shadow-xl transition">
                         <div className="flex flex-col items-center">
                             <div className="bg-[#2A3C56] p-4 rounded-full mb-4">
-                                <CalendarDays
-                                    className="text-[#FDBD59]"
-                                    size={28}
-                                />
+                                <CalendarDays className="text-[#FDBD59]" size={28} />
                             </div>
-                            <h3 className="text-2xl font-bold">12</h3>
-                            <p className="text-gray-300 mt-2 text-sm">
-                                Hari rata-rata diselesaikan
-                            </p>
+                            <h3 className="text-2xl font-bold">{stats.avgDaysToComplete}</h3>
+                            <p className="text-gray-300 mt-2 text-sm">Hari rata-rata diselesaikan</p>
                         </div>
                     </div>
                 </div>
