@@ -18,7 +18,6 @@ import NavbarBeforeLogin from "./NavbarBeforeLogin";
 import Footer from "./Footer";
 
 export default function LandingPage() {
-    // ✅ State untuk statistik komunitas
     const [stats, setStats] = useState({
         completedReports: 169,
         activeReports: 31,
@@ -26,7 +25,58 @@ export default function LandingPage() {
         avgDaysToComplete: 12
     });
 
-    // ✅ Fetch data dari API (jika sudah ada)
+    const [publicReviews, setPublicReviews] = useState([]);
+    const [loadingReviews, setLoadingReviews] = useState(true);
+
+    useEffect(() => {
+        const CACHE_KEY = 'sipfas_public_reviews';
+        const EXPIRY_DAYS = 3; 
+
+        const loadReviews = async () => {
+            try {
+                const now = new Date().getTime();
+                const cached = localStorage.getItem(CACHE_KEY);
+
+                if (cached) {
+                    const { data, timestamp } = JSON.parse(cached);
+                    const isExpired = (now - timestamp) > (EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+
+                    if (!isExpired) {
+                        // Gunakan cache
+                        setPublicReviews(data);
+                        setLoadingReviews(false);
+                        return;
+                    }
+                }
+
+                // Ambil data baru dari API
+                const res = await fetch('/api/public-reviews');
+                const result = await res.json();
+                const reviews = result.reviews || [];
+
+                // Simpan ke cache
+                localStorage.setItem(CACHE_KEY, JSON.stringify({
+                    data: reviews,
+                    timestamp: now
+                }));
+
+                setPublicReviews(reviews);
+            } catch (err) {
+                console.error("Gagal load ulasan:", err);
+                // Fallback ke cache walau expired
+                const cached = localStorage.getItem(CACHE_KEY);
+                if (cached) {
+                    setPublicReviews(JSON.parse(cached).data);
+                }
+            } finally {
+                setLoadingReviews(false);
+            }
+        };
+
+        loadReviews();
+    }, []);
+
+    // ✅ FETCH STATISTIK
     useEffect(() => {
         const fetchLandingStats = async () => {
             try {
@@ -42,10 +92,8 @@ export default function LandingPage() {
                 });
             } catch (error) {
                 console.warn("Gagal load statistik real-time, pakai data dummy:", error.message);
-                // Tetap pakai nilai awal (dummy) — aman!
             }
         };
-
         fetchLandingStats();
     }, []);
 
@@ -60,28 +108,24 @@ export default function LandingPage() {
                 }}
             >
                 <div className="absolute inset-0 bg-white/70 backdrop-blur-sm"></div>
-
                 <div className="relative z-10 px-6 sm:px-10 md:px-20 py-24 md:py-32 max-w-6xl mx-auto w-full">
                     <div className="max-w-2xl text-left">
                         <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 leading-tight">
                             Laporkan Fasilitas <br />
                             <span className="text-[#FDBD59]">Rusak</span> dengan <br /> Mudah
                         </h1>
-
                         <p className="text-gray-700 text-base md:text-lg mt-6 max-w-lg">
                             SIP-FAS membantu masyarakat melaporkan kerusakan
                             fasilitas umum seperti lampu jalan, jalan rusak,
                             atau area publik yang kotor dengan cepat dan
                             efisien.
                         </p>
-
                         <div className="flex flex-col sm:flex-row gap-4 mt-10">
                             <Link to="/LaporPage" className="w-full sm:w-auto">
                                 <Button className="bg-[#FDBD59] hover:bg-[#fda94b] text-black font-normal px-12 py-6 rounded shadow-md flex items-center justify-center gap-2 text-lg w-full sm:w-auto cursor-pointer">
                                     <Camera size={20} /> Laporkan Sekarang
                                 </Button>
                             </Link>
-
                             <Link to="/StatusPage" className="w-full sm:w-auto">
                                 <Button
                                     variant="outline"
@@ -91,7 +135,6 @@ export default function LandingPage() {
                                 </Button>
                             </Link>
                         </div>
-
                         <div className="flex flex-wrap justify-start gap-6 mt-10 text-gray-700">
                             <div className="flex items-center gap-2">
                                 <CheckCircle size={18} className="text-green-500" />
@@ -119,7 +162,6 @@ export default function LandingPage() {
                     Proses pelaporan yang sederhana dan transparan untuk
                     memperbaiki fasilitas umum
                 </p>
-
                 <div className="flex flex-col md:flex-row justify-center items-center gap-10 md:gap-6">
                     <div className="relative border border-[#FDBD59]/40 rounded-xl p-8 w-full max-w-xs bg-white shadow-sm hover:shadow-md transition duration-300">
                         <div className="flex items-center gap-3 mb-4 justify-center md:justify-start">
@@ -135,9 +177,7 @@ export default function LandingPage() {
                             Ambil foto fasilitas yang rusak dan isi form laporan
                         </p>
                     </div>
-
                     <ArrowRight className="hidden md:block text-gray-400 w-8 h-8" />
-
                     <div className="relative border border-[#FDBD59]/40 rounded-xl p-8 w-full max-w-xs bg-white shadow-sm hover:shadow-md transition duration-300">
                         <div className="flex items-center gap-3 mb-4 justify-center md:justify-start">
                             <div className="bg-green-500 text-white p-3 rounded-full">
@@ -152,9 +192,7 @@ export default function LandingPage() {
                             Tim admin akan memverifikasi laporan Anda
                         </p>
                     </div>
-
                     <ArrowRight className="hidden md:block text-gray-400 w-8 h-8" />
-
                     <div className="relative border border-[#FDBD59]/40 rounded-xl p-8 w-full max-w-xs bg-white shadow-sm hover:shadow-md transition duration-300">
                         <div className="flex items-center gap-3 mb-4 justify-center md:justify-start">
                             <div className="bg-yellow-400 text-white p-3 rounded-full">
@@ -182,9 +220,7 @@ export default function LandingPage() {
                     Teknologi modern untuk memudahkan pelaporan dan penanganan
                     fasilitas umum
                 </p>
-
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-                    {/* Card 1 */}
                     <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition p-6">
                         <img
                             src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
@@ -202,8 +238,6 @@ export default function LandingPage() {
                             melaporkan masalah fasilitas dengan cepat.
                         </p>
                     </div>
-
-                    {/* Card 2 */}
                     <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition p-6">
                         <img
                             src="https://images.unsplash.com/photo-1527443224154-9f3c2c2f3e29?auto=format&fit=crop&w=1200&q=80"
@@ -221,8 +255,6 @@ export default function LandingPage() {
                             pengajuan hingga penyelesaian.
                         </p>
                     </div>
-
-                    {/* Card 3 */}
                     <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition p-6">
                         <img
                             src="https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80"
@@ -252,10 +284,7 @@ export default function LandingPage() {
                     Bersama-sama kita telah membuat perubahan positif untuk
                     fasilitas umum
                 </p>
-
-                {/* Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto mb-16">
-                    {/* Card 1: Laporan Diselesaikan */}
                     <div className="bg-[#1C2C44] rounded-2xl p-8 shadow-lg hover:shadow-xl transition">
                         <div className="flex flex-col items-center">
                             <div className="bg-[#2A3C56] p-4 rounded-full mb-4">
@@ -265,8 +294,6 @@ export default function LandingPage() {
                             <p className="text-gray-300 mt-2 text-sm">Laporan diselesaikan</p>
                         </div>
                     </div>
-
-                    {/* Card 2: Laporan Aktif */}
                     <div className="bg-[#1C2C44] rounded-2xl p-8 shadow-lg hover:shadow-xl transition">
                         <div className="flex flex-col items-center">
                             <div className="bg-[#2A3C56] p-4 rounded-full mb-4">
@@ -276,8 +303,6 @@ export default function LandingPage() {
                             <p className="text-gray-300 mt-2 text-sm">Laporan aktif</p>
                         </div>
                     </div>
-
-                    {/* Card 3: Rating Kepuasan */}
                     <div className="bg-[#1C2C44] rounded-2xl p-8 shadow-lg hover:shadow-xl transition">
                         <div className="flex flex-col items-center">
                             <div className="bg-[#2A3C56] p-4 rounded-full mb-4">
@@ -287,8 +312,6 @@ export default function LandingPage() {
                             <p className="text-gray-300 mt-2 text-sm">Rating kepuasan</p>
                         </div>
                     </div>
-
-                    {/* Card 4: Hari Rata-rata Penyelesaian */}
                     <div className="bg-[#1C2C44] rounded-2xl p-8 shadow-lg hover:shadow-xl transition">
                         <div className="flex flex-col items-center">
                             <div className="bg-[#2A3C56] p-4 rounded-full mb-4">
@@ -316,6 +339,59 @@ export default function LandingPage() {
                     </Link>
                 </div>
             </section>
+
+            {/* ✅ SECTION ULASAN — TAMPILKAN SEMUA + AUTO UPDATE TIAP 3 HARI */}
+            <section className="bg-[#1E293B] py-16 px-6 md:px-16">
+                <h2 className="text-3xl md:text-4xl font-bold text-center text-white mb-4">
+                    Ulasan dari <span className="text-[#FDBD59]">Warga</span>
+                </h2>
+                <p className="text-white text-center mb-12 max-w-2xl mx-auto">
+                    Dengar langsung pengalaman warga setelah melaporkan fasilitas rusak
+                </p>
+
+                {loadingReviews ? (
+                    <div className="text-center py-8">Loading ulasan...</div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                        {publicReviews.length > 0 ? (
+                            publicReviews.map((review, index) => (
+                                <div key={index} className="bg-gray-50 p-5 rounded-xl shadow-sm border border-gray-200">
+                                    <div className="flex items-start gap-3 mb-4">
+                                        <img
+                                            src={review.user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.user?.name || "User")}&background=0D8ABC&color=fff`}
+                                            alt={review.user?.name || "User"}
+                                            className="w-10 h-10 rounded-full object-cover"
+                                        />
+                                        <div>
+                                            <div className="font-semibold text-gray-900">{review.user?.name || "Anonim"}</div>
+                                            <div className="text-xs text-gray-500">
+                                                {new Date(review.created_at).toLocaleDateString('id-ID')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex mb-3">
+                                        {[...Array(5)].map((_, i) => (
+                                            <Star
+                                                key={i}
+                                                size={16}
+                                                className={`mr-0.5 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
+                                            />
+                                        ))}
+                                    </div>
+                                    <p className="text-gray-700 text-sm">
+                                        {review.comment || "Tidak ada komentar."}
+                                    </p>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="col-span-3 text-center text-gray-500 py-8">
+                                Belum ada ulasan. Jadilah yang pertama!
+                            </div>
+                        )}
+                    </div>
+                )}
+            </section>
+
             <Footer />
         </>
     );

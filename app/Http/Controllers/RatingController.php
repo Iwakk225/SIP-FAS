@@ -39,4 +39,18 @@ class RatingController extends Controller
 
         return response()->json(['rating' => $rating]);
     }
+
+    public function publicReviews(Request $request)
+    {
+        $reviews = Rating::with('user:id,name,profile_photo_path') 
+            ->whereHas('laporan', function ($query) {
+                $query->where('status', 'Selesai');
+            })
+            ->select('user_id', 'rating', 'comment', 'created_at')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        return response()->json(['reviews' => $reviews]);
+    }
 }

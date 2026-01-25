@@ -70,6 +70,7 @@ Route::get('/geocode/search', [GeocodeController::class, 'search']);
 Route::get('/geocode/reverse', [GeocodeController::class, 'reverse']);
 Route::get('/nominatim/search', [GeocodeController::class, 'search']);
 Route::get('/stats/landing', [StatistikController::class, 'getLandingStats']);
+Route::get('/public-reviews', [RatingController::class, 'publicReviews']);
 
 // ========== STATISTIK ROUTES ==========
 Route::prefix('statistik')->group(function () {

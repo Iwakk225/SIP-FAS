@@ -537,7 +537,7 @@ const LaporPage = () => {
             !formData.deskripsi ||
             !formData.pelapor_nama
         ) {
-            alert("Mohon lengkapi semua field yang wajib diisi (*)");
+            alert("Mohon lengkapi semua field yang wajib diisi");
             return;
         }
 
