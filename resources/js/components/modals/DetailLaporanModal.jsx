@@ -1,4 +1,3 @@
-// resources/js/components/modals/DetailLaporanModal.jsx
 import React, { useState, useEffect } from "react";
 import {
   X, Send, Clock, UserCheck, Wrench, CheckCircle, XCircle,
@@ -11,7 +10,8 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
   if (!isOpen || !laporan) return null;
 
   const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState(''); // 🔥 tambah state komentar
+  const [comment, setComment] = useState(''); 
+  const [isRated, setIsRated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [petugasLaporan, setPetugasLaporan] = useState([]);
   const [isLoadingPetugas, setIsLoadingPetugas] = useState(false);
@@ -114,6 +114,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
           if (res.data.rating) {
             setRating(res.data.rating.rating);
             setComment(res.data.rating.comment || '');
+            setIsRated(true); // ✅ DITAMBAHKAN DI SINI — SEKARANG BERJALAN!
           }
         } catch (err) {
           // Ignore jika belum ada rating
@@ -155,28 +156,36 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
     return trackingStepsLengkap;
   };
 
-  const downloadFile = async (fileUrl, filename) => {
+  // ✅ Download file tanpa API call (lebih aman)
+  const downloadFile = (fileUrl, filename) => {
     try {
-      const token = getToken();
-      const res = await axios.post(
-        'http://localhost:8000/api/cloudinary/generate-download-url',
-        { url: fileUrl },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      let downloadUrl = fileUrl;
 
-      if (res.data.success && res.data.download_url) {
-        const link = document.createElement('a');
-        link.href = res.data.download_url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      } else {
-        alert('Gagal generate link download.');
+      if (fileUrl.includes('cloudinary.com')) {
+        // Bersihkan URL dari /raw/ dan tambahkan fl_attachment
+        downloadUrl = fileUrl.replace(/\/raw\/upload\//g, '/upload/');
+
+        // Tambahkan fl_attachment setelah /upload/
+        if (downloadUrl.includes('/upload/')) {
+          downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+        }
+
+        // Tambahkan ?dl=1 sebagai fallback
+        if (!downloadUrl.includes('?dl=1')) {
+          downloadUrl += (downloadUrl.includes('?') ? '&dl=1' : '?dl=1');
+        }
       }
+
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = filename;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (err) {
       console.error('Download error:', err);
-      alert('Tidak bisa mengunduh file. Silakan coba lagi nanti.');
+      alert('Gagal mengunduh file. Silakan coba lagi nanti.');
     }
   };
 
@@ -198,7 +207,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
 
       if (res.status === 201) {
         if (onRatingSubmit) onRatingSubmit();
-        // Reset form setelah sukses
+        setIsRated(true);
         setComment('');
       }
     } catch (err) {
@@ -477,52 +486,95 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
 
           {/* 🔥 FORM RATING + KOMENTAR */}
           {laporan.status === "Selesai" && (
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+            <div className="mb-6 p-4 rounded-lg bg-blue-50">
               <h4 className="font-medium mb-2">Beri Rating untuk Perbaikan Ini</h4>
-              
-              {/* Bintang */}
-              <div className="flex items-center gap-1 mb-3">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => setRating(star)}
-                    disabled={isSubmitting}
-                    className={`text-2xl ${star <= rating ? 'text-yellow-500' : 'text-gray-300'}`}
-                  >
-                    ★
-                  </button>
-                ))}
-              </div>
 
-              {/* Textarea */}
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Tulis ulasan Anda (opsional)..."
-                className="w-full p-2 border border-gray-300 bg-whiterounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows="2"
-                maxLength="1000"
-                disabled={isSubmitting}
-              />
+              {isRated ? (
+                // 🔹 Tampilan readonly setelah rating diberikan
+                <div className="space-y-3">
+                  {/* Bintang readonly */}
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        className={`text-2xl ${star <= rating ? 'text-yellow-500' : 'text-gray-300'}`}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
 
-              {/* Tombol Kirim */}
-              <button
-                onClick={handleRate}
-                disabled={isSubmitting || rating === 0}
-                className={`mt-3 px-4 py-2 rounded font-medium ${
-                  rating === 0
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
-                }`}
-              >
-                {isSubmitting ? 'Mengirim...' : 'Kirim Ulasan'}
-              </button>
+                  {/* Komentar readonly */}
+                  {comment ? (
+                    <div className="bg-white p-3 rounded border border-gray-200 text-sm">
+                      <p className="text-gray-800 whitespace-pre-wrap">{comment}</p>
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 italic text-sm">Tidak ada ulasan</p>
+                  )}
 
-              {isSubmitting && (
-                <div className="mt-2 flex items-center gap-2 text-sm text-blue-600">
-                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                  Mengirim ulasan...
+                  <p className="text-xs text-gray-500 italic">
+                    Ulasan telah dikirim. Tidak dapat diedit kembali.
+                  </p>
                 </div>
+              ) : (
+                // 🔹 Form input (sebelum rating)
+                <>
+                  {/* Bintang */}
+                  <div className="flex items-center gap-1 mb-3">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setRating(star)}
+                        disabled={isSubmitting}
+                        className={`text-2xl transition-colors ${
+                          star <= rating 
+                            ? 'text-yellow-500 hover:text-yellow-600' 
+                            : 'text-gray-300 hover:text-gray-400'
+                        }`}
+                        aria-label={`Berikan rating ${star} bintang`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Textarea — gunakan readOnly saat isRated, bukan hanya disabled */}
+                  <textarea
+                    value={comment}
+                    onChange={(e) => !isRated && setComment(e.target.value)} // prevent change jika sudah rated
+                    placeholder="Tulis ulasan Anda (opsional)..."
+                    className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isRated 
+                        ? 'bg-gray-50 border-gray-300 text-gray-700 cursor-default' 
+                        : 'bg-white border-gray-300 focus:ring-blue-500'
+                    }`}
+                    rows="2"
+                    maxLength="1000"
+                    readOnly={isRated} // ✅ penting: readOnly agar tidak bisa edit, tapi tetap bisa select/copy
+                    disabled={isSubmitting}
+                  />
+
+                  {/* Tombol Kirim */}
+                  <button
+                    onClick={handleRate}
+                    disabled={isSubmitting || rating === 0 || isRated} // tambahkan isRated di disabled
+                    className={`mt-3 px-4 py-2 rounded font-medium ${
+                      rating === 0 || isRated
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-600 text-white hover:bg-blue-700 cursor-pointer'
+                    }`}
+                  >
+                    {isSubmitting ? 'Mengirim...' : isRated ? 'Telah Dirating' : 'Kirim Ulasan'}
+                  </button>
+
+                  {isSubmitting && (
+                    <div className="mt-2 flex items-center gap-2 text-sm text-blue-600">
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      Mengirim ulasan...
+                    </div>
+                  )}
+                </>
               )}
             </div>
           )}

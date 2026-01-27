@@ -320,28 +320,25 @@ export default function UploadBuktiModal({
         }
     };
 
-    const uploadToCloudinary = async (
-        file,
-        folder = "admin-bukti-perbaikan"
-    ) => {
+    const uploadToCloudinary = async (file, folder = "admin-bukti-perbaikan/foto-perbaikan") => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("upload_preset", "sip-fas");
-        formData.append("folder", "admin-bukti-perbaikan/foto-perbaikan");
-        formData.append("resource_type", "image");
+        formData.append("folder", folder);
 
         try {
+            // ✅ Gunakan auto/upload
             const response = await fetch(
-                `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-                {
-                    method: "POST",
-                    body: formData,
-                }
+            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+            {
+                method: "POST",
+                body: formData,
+            }
             );
 
             const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.error?.message || `Upload failed: ${response.statusText}`);
+            throw new Error(data.error?.message || `Upload failed: ${response.statusText}`);
             }
 
             return data.secure_url;
@@ -351,37 +348,37 @@ export default function UploadBuktiModal({
         }
     };
 
-    // ✅ DIPERBAIKI: return object + folder konsisten + download_url
+        /// ✅ FIXED: Upload PDF dengan benar
     const uploadPdfToCloudinary = async (file) => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("upload_preset", "sip-fas");
         formData.append("folder", "admin-bukti-perbaikan/rincian-biaya");
-        formData.append("resource_type", "raw");
 
         try {
+            // ✅ Gunakan /auto/upload (bukan /raw/upload)
             const response = await fetch(
-                `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`,
-                {
-                    method: "POST",
-                    body: formData,
-                }
+            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+            {
+                method: "POST",
+                body: formData,
+            }
             );
 
             const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.error?.message || "Upload PDF failed");
+            throw new Error(data.error?.message || `Upload PDF failed: ${response.statusText}`);
             }
 
-            const secureUrl = data.secure_url;
-            // ✅ Generate force-download URL
-            const downloadUrl = secureUrl + "?fl_attachment";
+            // ✅ Data yang benar dari Cloudinary
+            const secureUrl = data.secure_url; // URL untuk akses
+            // Untuk download, tambahkan fl_attachment di frontend saat download
 
             return {
-                secure_url: secureUrl,
-                download_url: downloadUrl,
-                public_id: data.public_id,
-                original_filename: file.name,
+            secure_url: secureUrl,
+            public_id: data.public_id,
+            original_filename: file.name,
+            resource_type: data.resource_type, // Harusnya 'raw' jika benar
             };
         } catch (error) {
             console.error("PDF upload error:", error);

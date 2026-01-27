@@ -340,7 +340,7 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* ✅ SECTION ULASAN — TAMPILKAN SEMUA + AUTO UPDATE TIAP 3 HARI */}
+            {/* Section Ulasan */}
             <section className="bg-[#1E293B] py-16 px-6 md:px-16">
                 <h2 className="text-3xl md:text-4xl font-bold text-center text-white mb-4">
                     Ulasan dari <span className="text-[#FDBD59]">Warga</span>
