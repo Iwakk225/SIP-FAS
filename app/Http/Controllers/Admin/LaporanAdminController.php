@@ -67,14 +67,19 @@ class LaporanAdminController extends Controller
             $laporan->update($validated);
             Log::info('✅ Laporan status updated');
 
-            if (($validated['status'] === 'Selesai' || $validated['status'] === 'Ditolak') && $oldStatus !== $validated['status']) {
+            if ($validated['status'] === 'Selesai' || $validated['status'] === 'Ditolak') {
                 Log::info('🔥 AUTO-RELEASE: Laporan selesai/ditolak, melepas petugas...');
-                $laporan->petugas()->updateExistingPivot($laporan->petugas()->pluck('petugas.id'), [
-                    'status_tugas' => 'Selesai',
-                    'is_active' => 0,
-                    'catatan' => 'Auto-released: Laporan ' . $validated['status'],
-                    'updated_at' => now()
-                ]);
+                // Ambil semua petugas yang aktif di laporan ini
+                $activePetugasIds = $laporan->petugas()->wherePivot('is_active', 1)->pluck('petugas.id');
+                
+                foreach ($activePetugasIds as $pid) {
+                    $laporan->petugas()->updateExistingPivot($pid, [
+                        'status_tugas' => 'Selesai',
+                        'is_active' => 0,
+                        'catatan' => 'Auto-released: Laporan ' . $validated['status'],
+                        'updated_at' => now()
+                    ]);
+                }
                 Log::info('🎉 Semua petugas berhasil dilepas dan sekarang TERSEDIA');
             }
 
@@ -322,39 +327,67 @@ class LaporanAdminController extends Controller
     /**
      * Mendapatkan daftar petugas untuk sebuah laporan.
      */
+    /**
+ * Mendapatkan daftar petugas untuk sebuah laporan.
+ */
     public function getPetugasByLaporan($laporanId): JsonResponse
     {
         try {
             $laporan = Laporan::find($laporanId);
             if (!$laporan) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Laporan tidak ditemukan'
-                ], 404);
+                return response()->json(['success' => false, 'message' => 'Laporan tidak ditemukan'], 404);
             }
 
-            if ($laporan->status === 'Selesai') {
-                $petugas = $laporan->petugas()
-                    ->withPivot('status_tugas', 'catatan', 'dikirim_pada', 'is_active')
-                    ->orderBy('laporan_petugas.dikirim_pada', 'desc')
-                    ->get();
-            } else {
-                $petugas = $laporan->petugas()
-                    ->wherePivot('is_active', 1)
-                    ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
-                    ->withPivot('status_tugas', 'catatan', 'dikirim_pada')
-                    ->orderBy('laporan_petugas.dikirim_pada', 'desc')
-                    ->get();
-            }
+            // Query langsung ke pivot table + join ke petugas
+            $petugas = DB::table('laporan_petugas')
+                ->join('petugas', 'laporan_petugas.petugas_id', '=', 'petugas.id')
+                ->where('laporan_petugas.laporan_id', $laporanId)
+                ->select(
+                    'petugas.id',
+                    'petugas.nama',
+                    'petugas.alamat',
+                    'petugas.nomor_telepon',
+                    'petugas.status',
+                    'petugas.created_at',
+                    'petugas.updated_at',
+                    'laporan_petugas.status_tugas',
+                    'laporan_petugas.catatan',
+                    'laporan_petugas.dikirim_pada',
+                    'laporan_petugas.is_active',
+                    'laporan_petugas.updated_at as pivot_updated_at'
+                )
+                ->orderBy('laporan_petugas.dikirim_pada', 'desc')
+                ->get();
+
+            // Ubah ke array asosiatif agar mirip Eloquent
+            $formatted = $petugas->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'nama' => $item->nama,
+                    'alamat' => $item->alamat,
+                    'nomor_telepon' => $item->nomor_telepon,
+                    'status' => $item->status,
+                    'created_at' => $item->created_at,
+                    'updated_at' => $item->updated_at,
+                    'pivot' => [
+                        'status_tugas' => $item->status_tugas,
+                        'catatan' => $item->catatan,
+                        'dikirim_pada' => $item->dikirim_pada,
+                        'is_active' => $item->is_active,
+                        'updated_at' => $item->pivot_updated_at,
+                    ]
+                ];
+            });
 
             return response()->json([
                 'success' => true,
-                'data' => $petugas,
+                'data' => $formatted,
                 'message' => 'Data petugas berhasil diambil',
-                'status_laporan' => $laporan->status
+                'status_laporan' => $laporan->status,
+                'count' => $formatted->count()
             ], 200);
         } catch (\Exception $e) {
-            Log::error('Error fetching petugas for laporan: ' . $e->getMessage());
+            Log::error('❌ Error fetching petugas for laporan: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data petugas: ' . $e->getMessage()

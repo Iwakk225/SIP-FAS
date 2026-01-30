@@ -13,6 +13,7 @@ export default function DataLaporanPage({
 
     const getStatusColor = (status) => {
         const statusLower = status?.toLowerCase();
+        if (statusLower === "ditolak" || statusLower === "rejected") return "bg-red-100 text-red-800";
         if (statusLower === "validasi" || statusLower === "pending") return "bg-yellow-100 text-yellow-800";
         if (statusLower === "tervalidasi" || statusLower === "validated") return "bg-green-100 text-green-800";
         if (statusLower === "dalam_proses" || statusLower === "dalam proses" || statusLower === "in_progress") 
@@ -23,6 +24,7 @@ export default function DataLaporanPage({
 
     const getStatusText = (status) => {
         const statusLower = status?.toLowerCase();
+        if (statusLower === "ditolak" || statusLower === "rejected") return "Ditolak";
         if (statusLower === "validasi" || statusLower === "pending") return "Validasi";
         if (statusLower === "tervalidasi" || statusLower === "validated") return "Tervalidasi";
         if (statusLower === "dalam_proses" || statusLower === "dalam proses" || statusLower === "in_progress") 

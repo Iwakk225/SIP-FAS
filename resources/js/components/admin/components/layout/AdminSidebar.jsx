@@ -7,8 +7,6 @@ export default function AdminSidebar({ activePage, setActivePage, isMobileMenuOp
         { id: "laporan", icon: FileText, label: "Data Laporan" },
         { id: "petugas", icon: Users, label: "Data Petugas" },
         { id: "user", icon: User, label: "Data User" },
-        { id: "profil", icon: User, label: "Profil" },
-        { id: "pengaturan", icon: Settings, label: "Pengaturan" },
     ];
 
     if (!isMobileMenuOpen) {

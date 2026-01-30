@@ -42,12 +42,12 @@ export default function LoginAdmin() {
     setLoading(false);
   };
 
-  const fillDemoCredentials = () => {
-    setFormData({
-      email: "sipfassby@gmail.com",
-      password: "admin123"
-    });
-  };
+  // const fillDemoCredentials = () => {
+  //   setFormData({
+  //     email: "sipfassby@gmail.com",
+  //     password: "admin123"
+  //   });
+  // };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
@@ -193,18 +193,7 @@ export default function LoginAdmin() {
             </form>
 
             {/* Demo Credentials */}
-            <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">
-                Credentials Admin:
-              </h3>
-              <button
-                onClick={fillDemoCredentials}
-                className="w-full text-left p-2 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                <div className="font-medium text-gray-900">sipfassby@gmail.com</div>
-                <div className="text-gray-500">Password: admin123</div>
-              </button>
-            </div>
+          
 
             {/* Back to Main Site */}
             <div className="mt-6 text-center">
