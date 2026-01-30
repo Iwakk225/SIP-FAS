@@ -15,6 +15,8 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [petugasLaporan, setPetugasLaporan] = useState([]);
   const [isLoadingPetugas, setIsLoadingPetugas] = useState(false);
+  const [adminReply, setAdminReply] = useState(null);
+  const [adminRepliedAt, setAdminRepliedAt] = useState(null);
 
   const trackingSteps = [
     {
@@ -114,9 +116,14 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
             setRating(res.data.rating.rating);
             setComment(res.data.rating.comment || '');
             setIsRated(true);
+
+            if (res.data.rating.admin_reply) {
+              setAdminReply(res.data.rating.admin_reply);
+              setAdminRepliedAt(res.data.rating.admin_replied_at);
+            }
           }
         } catch (err) {
-          // Ignore jika belum ada rating
+          // Tidak ada rating sebelumnya
         }
       };
 
@@ -505,13 +512,38 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                     ))}
                   </div>
 
-                  {comment ? (
-                    <div className="bg-white p-3 rounded border border-gray-200 text-sm">
-                      <p className="text-gray-800 whitespace-pre-wrap">{comment}</p>
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 italic text-sm">Tidak ada ulasan</p>
-                  )}
+                  <div className="space-y-3">
+                  {/* Komentar User */}
+                    {comment ? (
+                      <div className="bg-white p-3 rounded border border-gray-200 text-sm">
+                        <p className="text-gray-800 whitespace-pre-wrap">{comment}</p>
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 italic text-sm">Tidak ada ulasan</p>
+                    )}
+
+                    {/* 🔥 Balasan Admin */}
+                    {adminReply && (
+                      <div className="bg-gray-50 p-3 rounded border border-gray-200 text-sm">
+                        <div className="flex items-center mb-1">
+                          <Users className="w-4 h-4 text-blue-600 mr-2" />
+                          <span className="font-medium text-blue-700">Balasan Admin</span>
+                          {adminRepliedAt && (
+                            <span className="text-xs text-gray-500 ml-2">
+                              {new Date(adminRepliedAt).toLocaleDateString("id-ID", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit"
+                              })}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-800 whitespace-pre-wrap">{adminReply}</p>
+                      </div>
+                    )}
+                  </div>
 
                   <p className="text-xs text-gray-500 italic">
                     Ulasan telah dikirim. Tidak dapat diedit kembali.

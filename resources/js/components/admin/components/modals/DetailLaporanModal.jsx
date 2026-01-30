@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import UploadBuktiModal from "./UploadBuktiModal";
+import AdminRatingSection from "../sections/AdminRatingSection";
 
 export default function DetailLaporanModal({
     selectedLaporan,
@@ -989,6 +990,18 @@ export default function DetailLaporanModal({
                                     </div>
                                 </div>
                             </div>
+                        )}
+
+                        {/* RATING SECTION ADMIN JIKA LAPORAN SELESAI */}
+                        {selectedLaporan.status === "Selesai" && (
+                        <AdminRatingSection
+                            laporanId={selectedLaporan.id}
+                            adminToken={localStorage.getItem("admin_token")}
+                            onReplySuccess={() => {
+                            // Opsional: refresh data laporan agar rating terupdate
+                            if (fetchLaporanData) fetchLaporanData();
+                            }}
+                        />
                         )}
 
                         <div className="flex justify-end space-x-3 pt-6 border-t">

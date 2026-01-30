@@ -30,7 +30,7 @@ export default function LandingPage() {
 
     useEffect(() => {
         const CACHE_KEY = 'sipfas_public_reviews';
-        const EXPIRY_DAYS = 3; 
+        const EXPIRY_DAYS = 0; 
 
         const loadReviews = async () => {
             try {
@@ -378,9 +378,28 @@ export default function LandingPage() {
                                             />
                                         ))}
                                     </div>
-                                    <p className="text-gray-700 text-sm">
+                                    <div className="space-y-3">
+                                    {/* Komentar User */}
+                                    <p className="text-gray-700 text-sm whitespace-pre-wrap">
                                         {review.comment || "Tidak ada komentar."}
                                     </p>
+
+                                    {/* Balasan Admin */}
+                                    {review.admin_reply && (
+                                        <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded-r">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <div className="bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold">A</div>
+                                            <span className="text-xs font-medium text-blue-700">Admin SIP-FAS</span>
+                                        </div>
+                                        <p className="text-gray-700 text-sm whitespace-pre-wrap">{review.admin_reply}</p>
+                                        {review.admin_replied_at && (
+                                            <p className="text-xs text-gray-500 mt-1">
+                                            {new Date(review.admin_replied_at).toLocaleDateString('id-ID')}
+                                            </p>
+                                        )}
+                                        </div>
+                                    )}
+                                    </div>
                                 </div>
                             ))
                         ) : (

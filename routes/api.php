@@ -115,6 +115,7 @@ Route::prefix('admin')->group(function () {
         Route::put('/laporan/{id}/update-tugas', [LaporanAdminController::class, 'updateStatusTugas']);
         Route::get('/laporan/belum-ditugaskan', [LaporanAdminController::class, 'getLaporanBelumDitugaskan']);
         Route::get('/laporan/ditangani', [LaporanAdminController::class, 'getLaporanDitangani']);
+        Route::post('/ratings/{laporanId}/reply', [RatingController::class, 'reply']);
         
         // User Management
         Route::get('/users', [UserController::class, 'index']);
