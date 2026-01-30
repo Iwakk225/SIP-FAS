@@ -860,84 +860,84 @@ export default function DetailLaporanModal({
                             </div>
 
                               {petugasDitugaskan && selectedLaporan.status !== "Ditolak" ? (
-  // Tampilkan info petugas jika status BUKAN "Ditolak"
-  <div className="bg-gray-50 rounded-lg p-4">
-    <div className="flex justify-between items-center">
-      <div>
-        <div className="font-medium text-gray-900">{petugasDitugaskan.nama}</div>
-        <div className="text-sm text-gray-600">
-          <span className="font-medium">Telepon:</span> {petugasDitugaskan.nomor_telepon}
-        </div>
-        <div className="text-sm text-gray-500">
-          <span className="font-medium">Alamat:</span> {petugasDitugaskan.alamat}
-        </div>
-        <div className="text-gray-500 text-xs mt-2">
-          {petugasDitugaskan.pivot?.dikirim_pada
-            ? `Ditugaskan: ${new Date(petugasDitugaskan.pivot.dikirim_pada).toLocaleDateString("id-ID")}`
-            : "Baru ditugaskan"}
-        </div>
-      </div>
-      {/* Hanya tampilkan tombol "Lepaskan" jika status BUKAN "Selesai" dan BUKAN "Ditolak" */}
-      {selectedLaporan.status !== "Selesai" && selectedLaporan.status !== "Ditolak" && (
-        <button
-          onClick={handleReleasePetugas}
-          className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 cursor-pointer"
-          disabled={isUpdating}
-        >
-          Lepaskan
-        </button>
-      )}
-    </div>
-    {/* Tips hanya muncul saat masih bisa lepas/tugaskan */}
-    {selectedLaporan.status !== "Selesai" && selectedLaporan.status !== "Ditolak" && (
-      <div className="mt-3 pt-3 border-t border-gray-200">
-        <p className="text-xs text-gray-500">
-          <span className="font-medium">Info:</span> Ubah status tugas sesuai progress petugas
-        </p>
-        <p className="text-xs text-blue-600 mt-1">
-          💡 <span className="font-medium">Tips:</span> Ubah status laporan ke "Selesai" atau "Ditolak" untuk membuat petugas Tersedia kembali
-        </p>
-      </div>
-    )}
-  </div>
-) : selectedLaporan.status === "Ditolak" ? (
-  // Status "Ditolak": TIDAK TAMPILKAN APA-APA tentang petugas
-  <div>
-    <p className="text-gray-600 mb-3">
-      Laporan ini telah ditolak. Penugasan petugas tidak diperlukan.
-    </p>
-  </div>
-) : (
-  // Tidak ada petugas & status bukan Ditolak → tampilkan daftar tersedia
-  <div>
-    <p className="text-gray-600 mb-3">
-      Pilih petugas untuk menangani laporan ini:
-    </p>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-      {getPetugasTersedia().map((petugas) => (
-        <div
-          key={petugas.id}
-          className="border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all"
-          onClick={() => handleAssignPetugas(petugas.id)}
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="font-medium text-gray-900">{petugas.nama}</div>
-              <div className="text-sm text-gray-500">{petugas.nomor_telepon}</div>
-              <div className="text-xs text-gray-400 mt-1">{petugas.alamat}</div>
-            </div>
-            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Tersedia</span>
-          </div>
-        </div>
-      ))}
-      {getPetugasTersedia().length === 0 && (
-        <p className="text-gray-500 text-center py-4 col-span-full">
-          Tidak ada petugas yang tersedia. Semua petugas sedang dalam tugas.
-        </p>
-      )}
-    </div>
-  </div>
-)}
+                              // Tampilkan info petugas jika status BUKAN "Ditolak"
+                              <div className="bg-gray-50 rounded-lg p-4">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <div className="font-medium text-gray-900">{petugasDitugaskan.nama}</div>
+                                    <div className="text-sm text-gray-600">
+                                      <span className="font-medium">Telepon:</span> {petugasDitugaskan.nomor_telepon}
+                                    </div>
+                                    <div className="text-sm text-gray-500">
+                                      <span className="font-medium">Alamat:</span> {petugasDitugaskan.alamat}
+                                    </div>
+                                    <div className="text-gray-500 text-xs mt-2">
+                                      {petugasDitugaskan.pivot?.dikirim_pada
+                                        ? `Ditugaskan: ${new Date(petugasDitugaskan.pivot.dikirim_pada).toLocaleDateString("id-ID")}`
+                                        : "Baru ditugaskan"}
+                                    </div>
+                                  </div>
+                                  {/* Hanya tampilkan tombol "Lepaskan" jika status BUKAN "Selesai" dan BUKAN "Ditolak" */}
+                                  {selectedLaporan.status !== "Selesai" && selectedLaporan.status !== "Ditolak" && (
+                                    <button
+                                      onClick={handleReleasePetugas}
+                                      className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 cursor-pointer"
+                                      disabled={isUpdating}
+                                    >
+                                      Lepaskan
+                                    </button>
+                                  )}
+                                </div>
+                                {/* Tips hanya muncul saat masih bisa lepas/tugaskan */}
+                                {selectedLaporan.status !== "Selesai" && selectedLaporan.status !== "Ditolak" && (
+                                  <div className="mt-3 pt-3 border-t border-gray-200">
+                                    <p className="text-xs text-gray-500">
+                                      <span className="font-medium">Info:</span> Ubah status tugas sesuai progress petugas
+                                    </p>
+                                    <p className="text-xs text-blue-600 mt-1">
+                                      💡 <span className="font-medium">Tips:</span> Ubah status laporan ke "Selesai" atau "Ditolak" untuk membuat petugas Tersedia kembali
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            ) : selectedLaporan.status === "Ditolak" ? (
+                              // Status "Ditolak": TIDAK TAMPILKAN APA-APA tentang petugas
+                              <div>
+                                <p className="text-gray-600 mb-3">
+                                  Laporan ini telah ditolak. Penugasan petugas tidak diperlukan.
+                                </p>
+                              </div>
+                            ) : (
+                              // Tidak ada petugas & status bukan Ditolak → tampilkan daftar tersedia
+                              <div>
+                                <p className="text-gray-600 mb-3">
+                                  Pilih petugas untuk menangani laporan ini:
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {getPetugasTersedia().map((petugas) => (
+                                    <div
+                                      key={petugas.id}
+                                      className="border border-gray-200 rounded-lg p-3 hover:border-blue-300 hover:bg-blue-50 cursor-pointer transition-all"
+                                      onClick={() => handleAssignPetugas(petugas.id)}
+                                    >
+                                      <div className="flex justify-between items-start">
+                                        <div>
+                                          <div className="font-medium text-gray-900">{petugas.nama}</div>
+                                          <div className="text-sm text-gray-500">{petugas.nomor_telepon}</div>
+                                          <div className="text-xs text-gray-400 mt-1">{petugas.alamat}</div>
+                                        </div>
+                                        <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Tersedia</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {getPetugasTersedia().length === 0 && (
+                                    <p className="text-gray-500 text-center py-4 col-span-full">
+                                      Tidak ada petugas yang tersedia. Semua petugas sedang dalam tugas.
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                         </div>
 
                         {/* Upload Bukti Perbaikan */}

@@ -73,7 +73,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
       icon: CheckCircle,
       color: "text-green-500",
       bgColor: "bg-green-50",
-    },
+    }, 
   ];
 
   const getToken = () => {
@@ -99,7 +99,6 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
     }
   };
 
-  // 🔥 Fetch rating & komentar saat modal dibuka
   useEffect(() => {
     if (isOpen && laporan?.id) {
       fetchPetugas();
@@ -114,7 +113,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
           if (res.data.rating) {
             setRating(res.data.rating.rating);
             setComment(res.data.rating.comment || '');
-            setIsRated(true); // ✅ DITAMBAHKAN DI SINI — SEKARANG BERJALAN!
+            setIsRated(true);
           }
         } catch (err) {
           // Ignore jika belum ada rating
@@ -156,21 +155,15 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
     return trackingStepsLengkap;
   };
 
-  // ✅ Download file tanpa API call (lebih aman)
   const downloadFile = (fileUrl, filename) => {
     try {
       let downloadUrl = fileUrl;
 
       if (fileUrl.includes('cloudinary.com')) {
-        // Bersihkan URL dari /raw/ dan tambahkan fl_attachment
         downloadUrl = fileUrl.replace(/\/raw\/upload\//g, '/upload/');
-
-        // Tambahkan fl_attachment setelah /upload/
         if (downloadUrl.includes('/upload/')) {
           downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
         }
-
-        // Tambahkan ?dl=1 sebagai fallback
         if (!downloadUrl.includes('?dl=1')) {
           downloadUrl += (downloadUrl.includes('?') ? '&dl=1' : '?dl=1');
         }
@@ -179,7 +172,6 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = filename;
-      link.target = '_blank';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -189,7 +181,6 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
     }
   };
 
-  // 🔥 Kirim rating + komentar
   const handleRate = async () => {
     if (rating === 0) return;
 
@@ -230,6 +221,18 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
 
   const currentStep = getCurrentStep(laporan.status);
   const steps = getTrackingSteps(laporan.status);
+
+  // 🔥 CLEAN URL UNTUK FOTO — HANYA UNTUK PREVIEW
+  const cleanImageUrl = (url) => {
+    if (!url || typeof url !== 'string' || !url.includes('cloudinary.com')) {
+      return url;
+    }
+    return url
+      .replace(/\/fl_attachment\//g, '/')
+      .replace(/\?dl=1/g, '')
+      .replace(/&dl=1/g, '')
+      .replace(/\?$/, '');
+  };
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -388,7 +391,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                       src={foto}
                       alt={`Foto laporan ${index + 1}`}
                       className="w-full h-24 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80"
-                      onClick={() => window.open(foto, "_blank")}
+                      onClick={() => window.open(cleanImageUrl(foto), "_blank")} // ✅ FIX DI SINI
                       onError={(e) => {
                         e.target.style.display = 'none';
                         e.target.parentElement.innerHTML =
@@ -433,7 +436,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                             src={foto}
                             alt={`Bukti perbaikan ${index + 1}`}
                             className="w-full h-32 object-cover rounded-lg border border-green-200 cursor-pointer hover:opacity-80"
-                            onClick={() => window.open(foto, "_blank")}
+                            onClick={() => window.open(cleanImageUrl(foto), "_blank")} // ✅ FIX DI SINI
                             onError={(e) => {
                               e.target.style.display = 'none';
                               e.target.parentElement.innerHTML =
@@ -490,9 +493,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
               <h4 className="font-medium mb-2">Beri Rating untuk Perbaikan Ini</h4>
 
               {isRated ? (
-                // 🔹 Tampilan readonly setelah rating diberikan
                 <div className="space-y-3">
-                  {/* Bintang readonly */}
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <span
@@ -504,7 +505,6 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                     ))}
                   </div>
 
-                  {/* Komentar readonly */}
                   {comment ? (
                     <div className="bg-white p-3 rounded border border-gray-200 text-sm">
                       <p className="text-gray-800 whitespace-pre-wrap">{comment}</p>
@@ -518,9 +518,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                   </p>
                 </div>
               ) : (
-                // 🔹 Form input (sebelum rating)
                 <>
-                  {/* Bintang */}
                   <div className="flex items-center gap-1 mb-3">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
@@ -539,10 +537,9 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                     ))}
                   </div>
 
-                  {/* Textarea — gunakan readOnly saat isRated, bukan hanya disabled */}
                   <textarea
                     value={comment}
-                    onChange={(e) => !isRated && setComment(e.target.value)} // prevent change jika sudah rated
+                    onChange={(e) => !isRated && setComment(e.target.value)}
                     placeholder="Tulis ulasan Anda (opsional)..."
                     className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       isRated 
@@ -551,14 +548,13 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                     }`}
                     rows="2"
                     maxLength="1000"
-                    readOnly={isRated} // ✅ penting: readOnly agar tidak bisa edit, tapi tetap bisa select/copy
+                    readOnly={isRated}
                     disabled={isSubmitting}
                   />
 
-                  {/* Tombol Kirim */}
                   <button
                     onClick={handleRate}
-                    disabled={isSubmitting || rating === 0 || isRated} // tambahkan isRated di disabled
+                    disabled={isSubmitting || rating === 0 || isRated}
                     className={`mt-3 px-4 py-2 rounded font-medium ${
                       rating === 0 || isRated
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
