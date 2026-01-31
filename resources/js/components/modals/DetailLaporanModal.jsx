@@ -465,29 +465,63 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                 </div>
               )}
 
-              {/* PDF */}
+              {/* PDF dengan Preview Thumbnail */}
               {laporan.rincian_biaya_pdf && (
                 <div>
                   <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
                     <FileText className="w-4 h-4 mr-2" />
                     Rincian Biaya Perbaikan
                   </h4>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                    <div className="flex items-center">
-                      <FileText className="w-8 h-8 text-green-600 mr-3" />
-                      <div className="flex-1">
-                        <p className="text-green-800 font-medium">Dokumen Rincian Biaya</p>
-                        <p className="text-sm text-green-600 mt-1">
-                          Dokumen PDF berisi rincian biaya perbaikan fasilitas
-                        </p>
+
+                  {/* Preview Thumbnail + Info */}
+                  <div className="flex items-start gap-4 bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                    {/* Thumbnail Preview */}
+                    {laporan.rincian_biaya_preview_url ? (
+                      <div 
+                        className="relative group cursor-pointer"
+                        onClick={() => window.open(laporan.rincian_biaya_pdf, '_blank')}
+                      >
+                        <img
+                          src={laporan.rincian_biaya_preview_url}
+                          alt="Preview halaman pertama PDF"
+                          className="w-24 h-32 object-cover border border-gray-300 rounded shadow-sm hover:shadow-md transition"
+                          onError={(e) => {
+                            e.target.src = 'https://placehold.co/200x300?text=Preview+Tidak+Tersedia';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center rounded transition">
+                          <Eye className="text-white w-6 h-6" />
+                        </div>
                       </div>
+                    ) : (
+                      <div className="w-24 h-32 bg-gray-100 border border-gray-300 rounded flex items-center justify-center">
+                        <FileText className="text-gray-400 w-8 h-8" />
+                      </div>
+                    )}
+
+                    {/* Info Dokumen */}
+                    <div className="flex-1">
+                      <p className="text-green-800 font-medium">Rincian Biaya (PDF)</p>
+                      <p className="text-sm text-green-600 mt-1">
+                        Klik gambar untuk lihat dokumen lengkap
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Halaman 1 dari dokumen PDF
+                      </p>
                     </div>
                   </div>
+
+                  {/* Tombol Download */}
                   <button
-                    onClick={() => downloadFile(laporan.rincian_biaya_pdf, `rincian-biaya-${laporan.id}.pdf`)}
-                    className="bg-green-600 text-white px-4 py-2 rounded w-full flex items-center justify-center cursor-pointer"
+                    onClick={() => {
+                      // Gunakan URL download yang benar
+                      const downloadUrl = laporan.rincian_biaya_download_url || laporan.rincian_biaya_pdf;
+                      downloadFile(downloadUrl, `rincian-biaya-laporan-${laporan.id}.pdf`);
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full flex items-center justify-center gap-2 transition"
                   >
-                    <Download className="mr-2" /> Download Rincian Biaya (PDF)
+                    <Download className="w-4 h-4" />
+                    Download Rincian Biaya (PDF)
                   </button>
                 </div>
               )}

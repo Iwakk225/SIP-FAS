@@ -85,7 +85,7 @@ const LaporPage = () => {
     const [isGeocoding, setIsGeocoding] = useState(false);
     const [isGettingLocation, setIsGettingLocation] = useState(false);
 
-    // ✅ GUNAKAN isLoggedIn DARI CONTEXT
+    // Menggunakan isLoggedIn DARI CONTEXT
     const { isLoggedIn, user } = useAuth();
 
     const fileInputRef = useRef(null);
@@ -100,10 +100,12 @@ const LaporPage = () => {
 
     useEffect(() => {
         if (isLoggedIn && user) {
+            console.log("User phone dari context:", user.phone);
             setFormData((prev) => ({
                 ...prev,
                 pelapor_nama: user.name || "",
                 pelapor_email: user.email || "",
+                pelapor_telepon: user.phone || "",
             }));
         }
     }, [isLoggedIn, user]);
@@ -553,7 +555,6 @@ const LaporPage = () => {
             // Upload semua foto ke Cloudinary
             const photoUrls = await uploadAllPhotos();
 
-            // ✅ Field sudah sesuai dengan database
             const laporanData = {
                 judul: formData.judul,
                 lokasi: formData.lokasi,

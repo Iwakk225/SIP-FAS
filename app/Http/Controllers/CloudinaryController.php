@@ -35,7 +35,7 @@ class CloudinaryController extends Controller
                 'use_filename' => true,
                 'unique_filename' => false,
                 'overwrite' => false,
-                'access_mode' => 'public', // 👈 buat gambar juga public (opsional)
+                'access_mode' => 'public',
             ]);
 
             return response()->json([
@@ -55,7 +55,7 @@ class CloudinaryController extends Controller
         }
     }
 
-    // Upload PDF/Dokumen ke folder admin → JADI PUBLIC!
+    // Upload PDF/Dokumen → Generate thumbnail + URL download
     public function uploadDocument(Request $request): JsonResponse
     {
         try {
@@ -73,6 +73,7 @@ class CloudinaryController extends Controller
             $publicId = $folder . '/' . ($laporanId ? "laporan-{$laporanId}-" : '') 
                        . time() . '-' . Str::slug($fileName);
 
+            // Upload sebagai raw (PDF)
             $uploadedFile = Cloudinary::upload($file->getRealPath(), [
                 'public_id' => $publicId,
                 'folder' => $folder,
@@ -80,16 +81,33 @@ class CloudinaryController extends Controller
                 'use_filename' => true,
                 'unique_filename' => false,
                 'overwrite' => false,
-                'access_mode' => 'public', // buat dokumen jadi public
+                'access_mode' => 'public',
             ]);
 
             $secureUrl = $uploadedFile->getSecurePath();
-            $downloadUrl = $secureUrl; // nggak perlu ?fl_attachment
+
+            // 🔥 Generate thumbnail preview (halaman 1)
+            $thumbnailUrl = Cloudinary::url(
+                $uploadedFile->getPublicId(),
+                [
+                    'resource_type' => 'raw',
+                    'format' => 'jpg',
+                    'page' => 1,
+                    'width' => 400,
+                    'height' => 600,
+                    'crop' => 'fit',
+                    'quality' => 'auto',
+                ]
+            );
+
+            // 🔥 URL untuk download langsung
+            $downloadUrl = str_replace('/upload/', '/upload/fl_attachment/', $secureUrl);
 
             return response()->json([
                 'success' => true,
                 'url' => $secureUrl,
                 'download_url' => $downloadUrl,
+                'preview_url' => $thumbnailUrl, // ✅ untuk preview seperti foto
                 'public_id' => $uploadedFile->getPublicId(),
                 'folder' => $folder,
                 'resource_type' => 'raw',
@@ -105,7 +123,7 @@ class CloudinaryController extends Controller
         }
     }
 
-    // 🔥 Upload bukti perbaikan (admin) → PDF JUGA PUBLIC!
+    // 🔥 Upload bukti perbaikan (admin) → PDF + Thumbnail
     public function uploadBuktiAdmin(Request $request, $laporanId): JsonResponse
     {
         try {
@@ -117,7 +135,8 @@ class CloudinaryController extends Controller
             $uploadedData = [
                 'foto_bukti_perbaikan' => [],
                 'rincian_biaya_pdf' => null,
-                'rincian_biaya_download_url' => null
+                'rincian_biaya_download_url' => null,
+                'rincian_biaya_preview_url' => null, // ✅ tambahkan ini
             ];
 
             // Upload foto
@@ -129,13 +148,13 @@ class CloudinaryController extends Controller
                         'resource_type' => 'image',
                         'use_filename' => true,
                         'unique_filename' => true,
-                        'access_mode' => 'public', // opsional
+                        'access_mode' => 'public',
                     ]);
                     $uploadedData['foto_bukti_perbaikan'][] = $uploaded->getSecurePath();
                 }
             }
 
-            // Upload PDF → PUBLIC!
+            // Upload PDF → PUBLIC + THUMBNAIL
             if ($request->hasFile('rincian_biaya_pdf')) {
                 $file = $request->file('rincian_biaya_pdf');
                 $uploaded = Cloudinary::upload($file->getRealPath(), [
@@ -144,12 +163,29 @@ class CloudinaryController extends Controller
                     'resource_type' => 'raw',
                     'use_filename' => true,
                     'unique_filename' => true,
-                    'access_mode' => 'public', // ✅ INI KUNCI NYA!
+                    'access_mode' => 'public',
                 ]);
 
                 $secureUrl = $uploaded->getSecurePath();
+                $downloadUrl = str_replace('/upload/', '/upload/fl_attachment/', $secureUrl);
+
+                // 🔥 Generate thumbnail preview
+                $previewUrl = Cloudinary::url(
+                    $uploaded->getPublicId(),
+                    [
+                        'resource_type' => 'raw',
+                        'format' => 'jpg',
+                        'page' => 1,
+                        'width' => 400,
+                        'height' => 600,
+                        'crop' => 'fit',
+                        'quality' => 'auto',
+                    ]
+                );
+
                 $uploadedData['rincian_biaya_pdf'] = $secureUrl;
-                $uploadedData['rincian_biaya_download_url'] = $secureUrl; // langsung bisa dipakai
+                $uploadedData['rincian_biaya_download_url'] = $downloadUrl;
+                $uploadedData['rincian_biaya_preview_url'] = $previewUrl; // ✅
             }
 
             return response()->json([
