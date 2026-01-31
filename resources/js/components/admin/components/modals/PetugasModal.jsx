@@ -52,6 +52,7 @@ export default function PetugasModal({
                                 />
                             </div>
 
+                            {/* Alamat */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Alamat
@@ -66,6 +67,7 @@ export default function PetugasModal({
                                 />
                             </div>
 
+                            {/* Nomor Telepon */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Nomor Telepon
@@ -80,6 +82,22 @@ export default function PetugasModal({
                                 />
                             </div>
 
+                            {/* Email */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Email Petugas
+                                </label>
+                                <input
+                                    type="email"
+                                    value={formPetugas.email}
+                                    onChange={(e) => setFormPetugas({...formPetugas, email: e.target.value})}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                                    placeholder="Masukkan email aktif"
+                                    required
+                                />
+                            </div>
+
+                            {/* Status */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Status

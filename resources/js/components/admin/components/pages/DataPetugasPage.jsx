@@ -24,6 +24,7 @@ export default function DataPetugasPage({ showNotification }) {
         nama: "",
         alamat: "",
         nomor_telepon: "",
+        email: "",
         status: "Aktif",
     });
     const [isEditingPetugas, setIsEditingPetugas] = useState(false);
@@ -175,6 +176,9 @@ const getStatusGabungan = (petugas) => {
 const fetchPetugasData = async () => {
     setIsLoading(true);
     try {
+
+        setPetugasData([]); 
+        
         const token = localStorage.getItem("admin_token");
         
         const response = await axios.get(
@@ -314,7 +318,7 @@ const fetchPetugasData = async () => {
         try {
             const token = localStorage.getItem("admin_token");
             const response = await axios.post(
-                "http://localhost:8000/api/admin/petugas/assign-laporan",
+                `http://localhost:8000/api/admin/laporan/${laporanId}/assign-petugas`,
                 {
                     petugas_id: selectedPetugas.id,
                     catatan: "Ditugaskan oleh admin"
@@ -418,6 +422,7 @@ const fetchPetugasData = async () => {
             nama: "", 
             alamat: "", 
             nomor_telepon: "", 
+            email: "",
             status: "Aktif",
         });
         setIsEditingPetugas(false);

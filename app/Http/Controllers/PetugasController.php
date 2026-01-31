@@ -12,130 +12,128 @@ use Illuminate\Support\Facades\Log;
 class PetugasController extends Controller
 {
     public function index()
-{
-    try {
-        Log::info('🔄 Fetching all petugas data with accurate status');
-        
-        // 1. AMBIL SEMUA PETUGAS
-        $petugas = Petugas::with(['laporans' => function ($query) {
-            // Ambil SEMUA laporan yang terkait (tidak difilter)
-            $query->select('laporans.id', 'laporans.judul', 'laporans.status')
-                  ->withPivot('status_tugas', 'catatan', 'dikirim_pada', 'is_active');
-        }])->get();
-        
-        Log::info('📊 Total petugas fetched: ' . $petugas->count());
-        
-        // 2. HITUNG STATUS UNTUK SETIAP PETUGAS
-        $petugas->each(function ($item) {
-            // DEBUG: Tampilkan data laporans
-            $laporansCount = $item->laporans ? $item->laporans->count() : 0;
-            Log::info('🔍 Petugas: ' . $item->nama . ' - Laporans count: ' . $laporansCount);
+    {
+        try {
+            Log::info('🔄 Fetching all petugas data with accurate status');
             
-            if ($laporansCount > 0) {
-                Log::info('📋 Laporans detail:', $item->laporans->map(function($l) {
-                    return [
-                        'judul' => $l->judul,
-                        'status' => $l->status,
-                        'pivot' => $l->pivot
+            // 1. AMBIL SEMUA PETUGAS + HANYA LAPORAN AKTIF
+            $petugas = Petugas::with(['laporans' => function ($query) {
+                // 🔥 Hanya ambil laporan yang sedang aktif (is_active = 1)
+                $query->select('laporans.id', 'laporans.judul', 'laporans.status')
+                    ->withPivot('status_tugas', 'catatan', 'dikirim_pada', 'is_active')
+                    ->wherePivot('is_active', 1) // ← FILTER UTAMA
+                    ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
+            }])->get();
+            
+            Log::info('📊 Total petugas fetched: ' . $petugas->count());
+            
+            // 2. HITUNG STATUS UNTUK SETIAP PETUGAS
+            $petugas->each(function ($item) {
+                $laporansCount = $item->laporans ? $item->laporans->count() : 0;
+                Log::info('🔍 Petugas: ' . $item->nama . ' - Laporans count: ' . $laporansCount);
+                
+                if ($laporansCount > 0) {
+                    Log::info('📋 Laporans detail:', $item->laporans->map(function($l) {
+                        return [
+                            'judul' => $l->judul,
+                            'status' => $l->status,
+                            'pivot' => $l->pivot
+                        ];
+                    })->toArray());
+                }
+                
+                // 🔥 Sekarang $laporanAktif selalu = laporan aktif terbaru
+                $laporanAktif = $item->laporans->first();
+                
+                $item->sedang_dalam_tugas = !is_null($laporanAktif);
+                $item->status_penugasan = $item->sedang_dalam_tugas ? 'Dalam Tugas' : 'Tersedia';
+                $item->status_penugasan_color = $item->sedang_dalam_tugas ? 'warning' : 'success';
+
+                $item->is_tersedia = !$item->sedang_dalam_tugas && $item->status === 'Aktif';
+                
+                if ($item->sedang_dalam_tugas && $laporanAktif) {
+                    $item->laporan_ditangani = [
+                        'id' => $laporanAktif->id,
+                        'judul' => $laporanAktif->judul,
+                        'status' => $laporanAktif->status,
+                        'status_tugas' => $laporanAktif->pivot->status_tugas,
+                        'is_active' => $laporanAktif->pivot->is_active,
+                        'dikirim_pada' => $laporanAktif->pivot->dikirim_pada,
                     ];
-                })->toArray());
-            }
-            
-            // Cari laporan aktif (is_active=1 dan status tugas aktif)
-            $laporanAktif = $item->laporans->first(function ($laporan) {
-                $pivot = $laporan->pivot;
-                return $pivot && 
-                       $pivot->is_active == 1 &&
-                       in_array($pivot->status_tugas, ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
+                } else {
+                    $item->laporan_ditangani = null;
+                }
             });
-            
-            $item->sedang_dalam_tugas = !is_null($laporanAktif);
-            $item->status_penugasan = $item->sedang_dalam_tugas ? 'Dalam Tugas' : 'Tersedia';
-            $item->status_penugasan_color = $item->sedang_dalam_tugas ? 'warning' : 'success';
-            
-            if ($item->sedang_dalam_tugas && $laporanAktif) {
-                $item->laporan_ditangani = [
-                    'id' => $laporanAktif->id,
-                    'judul' => $laporanAktif->judul,
-                    'status' => $laporanAktif->status,
-                    'status_tugas' => $laporanAktif->pivot->status_tugas,
-                    'is_active' => $laporanAktif->pivot->is_active,
-                    'dikirim_pada' => $laporanAktif->pivot->dikirim_pada,
-                ];
-            } else {
-                $item->laporan_ditangani = null;
-            }
-        });
 
-        Log::info('📊 Petugas status summary:', [
-            'total' => $petugas->count(),
-            'dalam_tugas' => $petugas->where('sedang_dalam_tugas', true)->count(),
-            'tersedia' => $petugas->where('sedang_dalam_tugas', false)->count()
-        ]);
-
-        return response()->json([
-            'success' => true, 
-            'data' => $petugas,
-            'debug' => [
+            Log::info('📊 Petugas status summary:', [
                 'total' => $petugas->count(),
                 'dalam_tugas' => $petugas->where('sedang_dalam_tugas', true)->count(),
                 'tersedia' => $petugas->where('sedang_dalam_tugas', false)->count()
-            ]
-        ]);
-    } catch (\Exception $e) {
-        Log::error('Index Petugas Error: '.$e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Gagal mengambil data petugas'], 500);
-    }
-}
+            ]);
 
-// TAMBAHKAN METHOD INI DI PETUGAS CONTROLLER
-private function checkAndFixPetugasStatus()
-{
-    try {
-        Log::info('🧹 Checking for inconsistent petugas data...');
-        
-        // Cari data tidak konsisten: petugas dengan is_active=1 tapi laporan sudah selesai
-        $inconsistent = DB::table('laporan_petugas as lp')
-            ->join('laporans as l', 'lp.laporan_id', '=', 'l.id')
-            ->join('petugas as p', 'lp.petugas_id', '=', 'p.id')
-            ->where('lp.is_active', 1)
-            ->whereIn('lp.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
-            ->whereIn('l.status', ['Selesai', 'Ditolak'])
-            ->select('lp.*', 'p.nama as petugas_nama', 'l.judul', 'l.status as laporan_status')
-            ->get();
-        
-        if ($inconsistent->count() > 0) {
-            Log::warning('🚨 Found inconsistent data:', $inconsistent->toArray());
+            return response()->json([
+                'success' => true, 
+                'data' => $petugas,
+                'debug' => [
+                    'total' => $petugas->count(),
+                    'dalam_tugas' => $petugas->where('sedang_dalam_tugas', true)->count(),
+                    'tersedia' => $petugas->where('sedang_dalam_tugas', false)->count()
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Index Petugas Error: '.$e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Gagal mengambil data petugas'], 500);
+        }
+    }
+
+    // TAMBAHKAN METHOD INI DI PETUGAS CONTROLLER
+    private function checkAndFixPetugasStatus()
+    {
+        try {
+            Log::info('🧹 Checking for inconsistent petugas data...');
             
-            foreach ($inconsistent as $data) {
-                DB::table('laporan_petugas')
-                    ->where('id', $data->id)
-                    ->update([
-                        'status_tugas' => 'Selesai',
-                        'is_active' => 0,
-                        'catatan' => 'Auto-fixed by system: Laporan ' . $data->laporan_status,
-                        'updated_at' => now()
-                    ]);
+            // Cari data tidak konsisten: petugas dengan is_active=1 tapi laporan sudah selesai
+            $inconsistent = DB::table('laporan_petugas as lp')
+                ->join('laporans as l', 'lp.laporan_id', '=', 'l.id')
+                ->join('petugas as p', 'lp.petugas_id', '=', 'p.id')
+                ->where('lp.is_active', 1)
+                ->whereIn('lp.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
+                ->whereIn('l.status', ['Selesai', 'Ditolak'])
+                ->select('lp.*', 'p.nama as petugas_nama', 'l.judul', 'l.status as laporan_status')
+                ->get();
+            
+            if ($inconsistent->count() > 0) {
+                Log::warning('🚨 Found inconsistent data:', $inconsistent->toArray());
                 
-                Log::info('✅ Fixed:', [
-                    'petugas' => $data->petugas_nama,
-                    'laporan' => $data->judul,
-                    'old_status' => $data->laporan_status
-                ]);
+                foreach ($inconsistent as $data) {
+                    DB::table('laporan_petugas')
+                        ->where('id', $data->id)
+                        ->update([
+                            'status_tugas' => 'Selesai',
+                            'is_active' => 0,
+                            'catatan' => 'Auto-fixed by system: Laporan ' . $data->laporan_status,
+                            'updated_at' => now()
+                        ]);
+                    
+                    Log::info('✅ Fixed:', [
+                        'petugas' => $data->petugas_nama,
+                        'laporan' => $data->judul,
+                        'old_status' => $data->laporan_status
+                    ]);
+                }
+                
+                Log::info('🎉 Fixed ' . $inconsistent->count() . ' inconsistent records');
+            } else {
+                Log::info('✅ No inconsistent data found');
             }
             
-            Log::info('🎉 Fixed ' . $inconsistent->count() . ' inconsistent records');
-        } else {
-            Log::info('✅ No inconsistent data found');
+            return $inconsistent->count();
+            
+        } catch (\Exception $e) {
+            Log::error('Check and fix error: ' . $e->getMessage());
+            return 0;
         }
-        
-        return $inconsistent->count();
-        
-    } catch (\Exception $e) {
-        Log::error('Check and fix error: ' . $e->getMessage());
-        return 0;
     }
-}
 
     public function store(Request $request)
     {
@@ -143,6 +141,7 @@ private function checkAndFixPetugasStatus()
             'nama' => 'required|string|max:255',
             'alamat' => 'required|string',
             'nomor_telepon' => 'required|string|max:15',
+            'email' => 'required|email|unique:petugas,email',
             'status' => 'required|in:Aktif,Nonaktif'
         ]);
 
@@ -166,66 +165,66 @@ private function checkAndFixPetugasStatus()
 
     // Di PetugasController.php, tambahkan method baru
 
-public function refreshPetugasStatus()
-{
-    try {
-        // Ambil semua petugas
-        $petugas = Petugas::all();
-        
-        $petugas->each(function ($petugas) {
-            // Update status penugasan berdasarkan data terbaru
-            $petugas->load(['laporans' => function($q) {
-                $q->where('laporan_petugas.is_active', 1)
-                  ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
-            }]);
+    public function refreshPetugasStatus()
+    {
+        try {
+            // Ambil semua petugas
+            $petugas = Petugas::all();
             
-            // Simpan ke log untuk debugging
-            Log::info('🔄 Refresh petugas status', [
-                'petugas_id' => $petugas->id,
-                'nama' => $petugas->nama,
-                'laporans_active' => $petugas->laporans->count(),
-                'is_dalam_tugas' => $petugas->laporans->count() > 0
+            $petugas->each(function ($petugas) {
+                // Update status penugasan berdasarkan data terbaru
+                $petugas->load(['laporans' => function($q) {
+                    $q->where('laporan_petugas.is_active', 1)
+                    ->whereIn('laporan_petugas.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
+                }]);
+                
+                // Simpan ke log untuk debugging
+                Log::info('🔄 Refresh petugas status', [
+                    'petugas_id' => $petugas->id,
+                    'nama' => $petugas->nama,
+                    'laporans_active' => $petugas->laporans->count(),
+                    'is_dalam_tugas' => $petugas->laporans->count() > 0
+                ]);
+            });
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Status petugas berhasil di-refresh',
+                'total_petugas' => $petugas->count()
             ]);
-        });
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Status petugas berhasil di-refresh',
-            'total_petugas' => $petugas->count()
-        ]);
-        
-    } catch (\Exception $e) {
-        Log::error('Refresh petugas error: ' . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Gagal refresh status petugas'], 500);
+            
+        } catch (\Exception $e) {
+            Log::error('Refresh petugas error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Gagal refresh status petugas'], 500);
+        }
     }
-}
 
-// Di PetugasController.php, tambahkan route debug
-public function debugPetugas($id)
-{
-    try {
-        $petugas = Petugas::with(['laporans' => function ($query) {
-            $query->withPivot('status_tugas', 'is_active', 'catatan', 'dikirim_pada');
-        }])->findOrFail($id);
-        
-        return response()->json([
-            'success' => true,
-            'data' => $petugas,
-            'laporans_count' => $petugas->laporans->count(),
-            'laporans_detail' => $petugas->laporans->map(function($l) {
-                return [
-                    'id' => $l->id,
-                    'judul' => $l->judul,
-                    'status' => $l->status,
-                    'pivot' => $l->pivot
-                ];
-            })
-        ]);
-        
-    } catch (\Exception $e) {
-        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    // Di PetugasController.php, tambahkan route debug
+    public function debugPetugas($id)
+    {
+        try {
+            $petugas = Petugas::with(['laporans' => function ($query) {
+                $query->withPivot('status_tugas', 'is_active', 'catatan', 'dikirim_pada');
+            }])->findOrFail($id);
+            
+            return response()->json([
+                'success' => true,
+                'data' => $petugas,
+                'laporans_count' => $petugas->laporans->count(),
+                'laporans_detail' => $petugas->laporans->map(function($l) {
+                    return [
+                        'id' => $l->id,
+                        'judul' => $l->judul,
+                        'status' => $l->status,
+                        'pivot' => $l->pivot
+                    ];
+                })
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
-}
 
     public function update(Request $request, $id)
     {
@@ -233,6 +232,7 @@ public function debugPetugas($id)
             'nama' => 'required|string|max:255',
             'alamat' => 'required|string',
             'nomor_telepon' => 'required|string|max:15',
+            'email' => 'required|email|unique:petugas,email,'.$id,
             'status' => 'required|in:Aktif,Nonaktif'
         ]);
 
@@ -432,73 +432,54 @@ public function releaseFromLaporan(Request $request)
 {
     try {
         $laporanId = $request->laporan_id;
-        
-        Log::info("🔍 Fetch petugas tersedia - ENHANCED CHECK", [
-            'laporan_id' => $laporanId
-        ]);
-        
-        // 1. FIRST, CLEAN UP INCONSISTENT DATA
+
+        Log::info("🔍 Fetch petugas tersedia", ['laporan_id' => $laporanId]);
+
+        // 1. Bersihkan data inkonsisten (opsional tapi aman)
         $cleanedCount = $this->cleanInconsistentPetugasData();
         if ($cleanedCount > 0) {
             Log::info("🧹 Cleaned $cleanedCount inconsistent records");
         }
-        
-        // 2. AMBIL SEMUA PETUGAS AKTIF
-        $petugas = Petugas::where('status', 'Aktif')->get();
-        
-        // 3. FILTER YANG BENAR-BENAR TERSEDIA
-        $petugasTersedia = $petugas->filter(function ($petugas) use ($laporanId) {
-            // Cek apakah petugas memiliki tugas AKTIF di laporan LAIN
-            $hasActiveTask = DB::table('laporan_petugas as lp')
-                ->join('laporans as l', 'lp.laporan_id', '=', 'l.id')
-                ->where('lp.petugas_id', $petugas->id)
-                ->where(function($query) {
-                    // Kondisi 1: is_active=1 dan status tugas aktif
-                    $query->where(function($q) {
-                        $q->where('lp.is_active', 1)
-                          ->whereIn('lp.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
-                    })
-                    // Kondisi 2: is_active=0 tapi status tugas masih aktif (harusnya tidak terjadi)
-                    ->orWhere(function($q) {
-                        $q->where('lp.is_active', 0)
-                          ->whereIn('lp.status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan']);
-                    });
-                })
-                ->whereNotIn('l.status', ['Selesai', 'Ditolak']) // Laporan belum selesai
-                ->when($laporanId, function ($query) use ($laporanId) {
-                    // Jika cek untuk laporan tertentu, exclude laporan ini
-                    return $query->where('l.id', '!=', $laporanId);
-                })
+
+        // 2. Ambil semua petugas aktif
+        $petugasAktif = Petugas::where('status', 'Aktif')->get();
+
+        // 3. Filter hanya petugas yang TIDAK sedang aktif di laporan MANAPUN (termasuk laporan ini)
+        $petugasTersedia = $petugasAktif->filter(function ($petugas) {
+            return !DB::table('laporan_petugas')
+                ->where('petugas_id', $petugas->id)
+                ->where('is_active', 1)
+                ->whereIn('status_tugas', ['Dikirim', 'Diterima', 'Dalam Pengerjaan'])
                 ->exists();
-            
-            return !$hasActiveTask;
         })->values();
-        
-        // 4. TAMBAHKAN FLAG is_tersedia untuk frontend
+
+        // 4. Tambahkan flag untuk frontend
         $petugasTersedia->each(function ($petugas) {
             $petugas->is_tersedia = true;
         });
-        
-        Log::info("📊 Enhanced filter result:", [
-            'total_petugas' => $petugas->count(),
+
+        Log::info("📊 Filter result:", [
+            'total_aktif' => $petugasAktif->count(),
             'tersedia' => $petugasTersedia->count(),
-            'dalam_tugas' => $petugas->count() - $petugasTersedia->count(),
             'tersedia_list' => $petugasTersedia->pluck('nama')->toArray()
         ]);
-        
+
         return response()->json([
             'success' => true,
             'data' => $petugasTersedia,
             'debug' => [
-                'total_petugas' => $petugas->count(),
+                'total_aktif' => $petugasAktif->count(),
                 'tersedia_count' => $petugasTersedia->count(),
                 'cleaned_records' => $cleanedCount
             ]
         ]);
-        
+
     } catch (\Exception $e) {
         Log::error("❌ Fetch Tersedia Error: " . $e->getMessage());
-        return response()->json(['success' => false, 'message' => 'Gagal mengambil data petugas tersedia'], 500);
+        return response()->json([
+            'success' => false,
+            'message' => 'Gagal mengambil data petugas tersedia'
+        ], 500);
     }
 }
 

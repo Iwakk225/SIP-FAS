@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use App\Notifications\NotifikasiTugasPetugas;
+use App\Models\Petugas;
 use Illuminate\Support\Facades\Cache;
 use App\Http\Controllers\Controller;
 
@@ -141,11 +143,14 @@ class LaporanAdminController extends Controller
     {
         try {
             $laporan = Laporan::findOrFail($id);
+            
+            // Validasi input
             $validated = $request->validate([
                 'petugas_id' => 'required|exists:petugas,id',
                 'catatan' => 'nullable|string'
             ]);
 
+            // Cek apakah laporan sudah punya petugas
             if ($laporan->hasPetugas()) {
                 return response()->json([
                     'success' => false,
@@ -153,6 +158,9 @@ class LaporanAdminController extends Controller
                 ], 422);
             }
 
+            $petugas = Petugas::findOrFail($validated['petugas_id']);
+
+            // Assign petugas ke laporan
             $oldStatus = $laporan->status;
             $laporan->petugas()->attach($validated['petugas_id'], [
                 'status_tugas' => 'Dikirim',
@@ -165,11 +173,21 @@ class LaporanAdminController extends Controller
                 $query->withPivot('status_tugas', 'catatan', 'dikirim_pada');
             }]);
 
+            if (!empty($petugas->email)) {
+                try {
+                    // Kirim notifikasi ke petugas
+                    $petugas->notify(new NotifikasiTugasPetugas($laporan, $petugas));
+                } catch (\Exception $e) {
+                    Log::warning('Gagal kirim notifikasi email: ' . $e->getMessage());
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Petugas berhasil ditugaskan ke laporan',
                 'data' => $laporan
             ], 200);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -177,7 +195,7 @@ class LaporanAdminController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Error assigning petugas to laporan: ' . $e->getMessage());
+            Log::error('Error assigning petugas: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal menugaskan petugas: ' . $e->getMessage()
@@ -327,9 +345,6 @@ class LaporanAdminController extends Controller
     /**
      * Mendapatkan daftar petugas untuk sebuah laporan.
      */
-    /**
- * Mendapatkan daftar petugas untuk sebuah laporan.
- */
     public function getPetugasByLaporan($laporanId): JsonResponse
     {
         try {
@@ -338,10 +353,10 @@ class LaporanAdminController extends Controller
                 return response()->json(['success' => false, 'message' => 'Laporan tidak ditemukan'], 404);
             }
 
-            // Query langsung ke pivot table + join ke petugas
             $petugas = DB::table('laporan_petugas')
                 ->join('petugas', 'laporan_petugas.petugas_id', '=', 'petugas.id')
                 ->where('laporan_petugas.laporan_id', $laporanId)
+                ->where('laporan_petugas.is_active', 1) 
                 ->select(
                     'petugas.id',
                     'petugas.nama',
@@ -359,7 +374,6 @@ class LaporanAdminController extends Controller
                 ->orderBy('laporan_petugas.dikirim_pada', 'desc')
                 ->get();
 
-            // Ubah ke array asosiatif agar mirip Eloquent
             $formatted = $petugas->map(function ($item) {
                 return [
                     'id' => $item->id,
@@ -391,6 +405,41 @@ class LaporanAdminController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data petugas: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getRiwayatPenugasan($laporanId)
+    {
+        try {
+            $riwayat = DB::table('laporan_petugas')
+                ->join('petugas', 'laporan_petugas.petugas_id', '=', 'petugas.id')
+                ->where('laporan_petugas.laporan_id', $laporanId)
+                // ⚠️ JANGAN filter is_active — kita ingin SEMUA riwayat
+                ->select(
+                    'petugas.id',
+                    'petugas.nama',
+                    'petugas.nomor_telepon',
+                    'petugas.alamat',
+                    'petugas.status as petugas_status',
+                    'laporan_petugas.status_tugas',
+                    'laporan_petugas.catatan',
+                    'laporan_petugas.dikirim_pada',
+                    'laporan_petugas.updated_at as selesai_pada',
+                    'laporan_petugas.is_active'
+                )
+                ->orderBy('laporan_petugas.dikirim_pada', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $riwayat,
+                'message' => 'Riwayat penugasan berhasil dimuat'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil riwayat penugasan: ' . $e->getMessage()
             ], 500);
         }
     }

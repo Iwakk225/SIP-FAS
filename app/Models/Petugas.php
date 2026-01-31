@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\Notifiable;
 
 class Petugas extends Model
 {
@@ -15,12 +16,15 @@ class Petugas extends Model
         'nama',
         'alamat',
         'nomor_telepon',
+        'email',
         'status'
     ];
 
     protected $casts = [
         'status' => 'string'
     ];
+
+    use Notifiable;
 
     /*
     |--------------------------------------------------------------------------
