@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
+use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\Controller;
 
 class BuktiPerbaikanController extends Controller
@@ -62,7 +63,7 @@ class BuktiPerbaikanController extends Controller
     }
 
     /**
-     * Upload rincian biaya (PDF).
+     * Upload rincian biaya (PDF) → SIMPAN DI LOCAL STORAGE
      */
     public function uploadRincianBiaya(Request $request, $id): JsonResponse
     {
@@ -74,25 +75,25 @@ class BuktiPerbaikanController extends Controller
 
             $pdfUrl = null;
             if ($request->hasFile('rincian_biaya_pdf')) {
-                $file = $request->file('rincian_biaya_pdf');
-                $uploadedFile = Cloudinary::upload($file->getRealPath(), [
-                    'folder' => 'admin-bukti-perbaikan/rincian-biaya',
-                    'resource_type' => 'raw'
-                ]);
-                $pdfUrl = $uploadedFile->getSecurePath();
+                // Simpan ke storage/app/public/rincian-biaya/
+                $filename = 'rincian-biaya-laporan-' . $id . '-' . time() . '.' . $request->file('rincian_biaya_pdf')->extension();
+                $path = $request->file('rincian_biaya_pdf')->storeAs('bukti-perbaikan/rincian-biaya', $filename, 'public');
+                
+                // URL akses publik: /storage/rincian-biaya/...
+                $pdfUrl = Storage::url($path);
             }
 
+            // Simpan ke database
             $laporan->update([
                 'rincian_biaya_pdf' => $pdfUrl,
-                'rincian_biaya_download_url' => $pdfUrl . '?fl_attachment'
+                // Tidak perlu field terpisah untuk download — URL ini sudah bisa preview & download!
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Rincian biaya berhasil diupload',
                 'data' => [
-                    'rincian_biaya_pdf' => $pdfUrl,
-                    'rincian_biaya_download_url' => $pdfUrl . '?fl_attachment'
+                    'rincian_biaya_pdf' => $pdfUrl
                 ]
             ], 200);
         } catch (\Exception $e) {
@@ -115,7 +116,6 @@ class BuktiPerbaikanController extends Controller
                 'foto_bukti_perbaikan' => 'nullable|array',
                 'foto_bukti_perbaikan.*' => 'url',
                 'rincian_biaya_pdf' => 'nullable|url',
-                'rincian_biaya_download_url' => 'nullable|url',
             ]);
 
             $updateData = [];
@@ -130,10 +130,6 @@ class BuktiPerbaikanController extends Controller
                 $updateData['rincian_biaya_pdf'] = $request->rincian_biaya_pdf;
             }
 
-            if ($request->has('rincian_biaya_download_url')) {
-                $updateData['rincian_biaya_download_url'] = $request->rincian_biaya_download_url;
-            }
-
             if (!empty($updateData) && $laporan->status !== 'Selesai') {
                 $oldStatus = $laporan->status;
                 $updateData['status'] = 'Selesai';
@@ -145,15 +141,10 @@ class BuktiPerbaikanController extends Controller
                 $laporan->update($updateData);
             }
 
-            $responseData = $laporan->toArray();
-            $responseData['rincian_biaya_download_url'] = $request->rincian_biaya_download_url
-                ?? ($laporan->rincian_biaya_download_url ?? null)
-                ?? ($laporan->rincian_biaya_pdf . '?fl_attachment');
-
             return response()->json([
                 'success' => true,
                 'message' => 'Bukti perbaikan berhasil disimpan',
-                'data' => $responseData,
+                'data' => $laporan, 
                 'debug' => [
                     'folder_used' => 'admin-bukti-perbaikan/rincian-biaya',
                     'download_url_generated' => true

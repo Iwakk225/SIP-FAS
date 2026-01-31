@@ -268,29 +268,10 @@ export default function UploadBuktiModal({
                 }
             }
 
-            // 2. UPLOAD PDF → sekarang return object
-            let pdfData = null;
-            if (pdfFile) {
-                try {
-                    pdfData = await uploadPdfToCloudinary(pdfFile);
-                    showNotification("PDF berhasil diupload", "success");
-                } catch (error) {
-                    console.error("Error uploading PDF:", error);
-                    showNotification("Gagal upload PDF", "error");
-                    return; // stop if PDF fails
-                }
-            }
-
-            // 3. KIRIM ke backend
+            // 2. KIRIM KE BACKEND
             const payload = {
                 foto_bukti_perbaikan: fotoUrls,
-                rincian_biaya_pdf: pdfData?.secure_url || null,
             };
-
-            // 🔥 Kirim download_url juga — backend bisa simpan (opsional)
-            if (pdfData?.download_url) {
-                payload.rincian_biaya_download_url = pdfData.download_url;
-            }
 
             const response = await api.post(
                 `/admin/laporan/${selectedLaporanForUpload.id}/upload-all-bukti`,
@@ -301,6 +282,17 @@ export default function UploadBuktiModal({
                     },
                 }
             );
+
+            if (pdfFile) {
+                const formData = new FormData();
+                formData.append('rincian_biaya_pdf', pdfFile);
+                
+                await api.post(
+                    `/admin/laporan/${selectedLaporanForUpload.id}/upload-rincian-biaya`,
+                    formData,
+                    { headers: { 'Content-Type': 'multipart/form-data' } }
+                );
+            }
 
             if (response.data.success) {
                 showNotification("✅ Bukti berhasil diupload!", "success");
@@ -345,44 +337,6 @@ export default function UploadBuktiModal({
         } catch (error) {
             console.error("Error uploading to Cloudinary:", error);
             throw new Error(`Gagal upload: ${error.message}`);
-        }
-    };
-
-        /// ✅ FIXED: Upload PDF dengan benar
-    const uploadPdfToCloudinary = async (file) => {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("upload_preset", "sip-fas");
-        formData.append("folder", "admin-bukti-perbaikan/rincian-biaya");
-
-        try {
-            // ✅ Gunakan /auto/upload (bukan /raw/upload)
-            const response = await fetch(
-            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-            {
-                method: "POST",
-                body: formData,
-            }
-            );
-
-            const data = await response.json();
-            if (!response.ok) {
-            throw new Error(data.error?.message || `Upload PDF failed: ${response.statusText}`);
-            }
-
-            // ✅ Data yang benar dari Cloudinary
-            const secureUrl = data.secure_url; // URL untuk akses
-            // Untuk download, tambahkan fl_attachment di frontend saat download
-
-            return {
-            secure_url: secureUrl,
-            public_id: data.public_id,
-            original_filename: file.name,
-            resource_type: data.resource_type, // Harusnya 'raw' jika benar
-            };
-        } catch (error) {
-            console.error("PDF upload error:", error);
-            throw error;
         }
     };
 
