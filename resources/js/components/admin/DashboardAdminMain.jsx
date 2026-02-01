@@ -9,9 +9,11 @@ import DataPetugasPage from "./components/pages/DataPetugasPage";
 import DataUserPage from "./components/pages/DataUserPage";
 import ProfilPage from "./components/pages/ProfilPage";
 import PengaturanPage from "./components/pages/PengaturanPage";
+import RiwayatPenugasanPage from "./components/pages/RiwayatPenugasanPage";
 import { useLaporanData } from "./hooks/useLaporanData";
 import { usePetugasData } from "./hooks/usePetugasData";
 import { useNotification } from "./hooks/useNotification";
+import { useRiwayatPenugasan } from "./hooks/useRiwayatPenugasan";
 
 export default function DashboardAdminMain() {
     const [activePage, setActivePage] = useState("dashboard");
@@ -22,6 +24,7 @@ export default function DashboardAdminMain() {
     const { laporanData, statsData, wilayahData, recentActivities, isLoading, fetchLaporanData } = useLaporanData();
     const { petugasData, fetchPetugasData } = usePetugasData();
     const { notification, showNotification } = useNotification();
+    const { riwayatData, loading } = useRiwayatPenugasan();
 
     // Fungsi Logout
     const handleLogout = () => {
@@ -57,6 +60,8 @@ export default function DashboardAdminMain() {
                 return <PengaturanPage {...pageProps} />;
             case "user":
                 return <DataUserPage {...pageProps} />;
+            case "riwayat":
+                return <RiwayatPenugasanPage riwayatData={riwayatData} loading={loading} />;
             default:
                 return <DashboardPage {...pageProps} />;
         }

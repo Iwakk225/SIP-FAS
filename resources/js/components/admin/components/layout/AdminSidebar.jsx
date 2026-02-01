@@ -1,11 +1,12 @@
 import React from "react";
-import { BarChart3, FileText, Users, User, Settings } from "lucide-react";
+import { BarChart3, FileText, Users, User, Settings, Clock } from "lucide-react";
 
 export default function AdminSidebar({ activePage, setActivePage, isMobileMenuOpen }) {
     const menuItems = [
         { id: "dashboard", icon: BarChart3, label: "Dashboard" },
         { id: "laporan", icon: FileText, label: "Data Laporan" },
         { id: "petugas", icon: Users, label: "Data Petugas" },
+        { id: "riwayat", icon: Clock, label: "Riwayat Penugasan" },
         { id: "user", icon: User, label: "Data User" },
     ];
 

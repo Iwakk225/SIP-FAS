@@ -444,6 +444,47 @@ class LaporanAdminController extends Controller
         }
     }
 
+    public function getRiwayatPenugasanGlobal(Request $request)
+    {
+        try {
+            $perPage = $request->get('per_page', 20);
+
+            // Ambil langsung dari pivot table, tanpa join ke laporan/petugas (untuk sekarang)
+            $riwayat = DB::table('laporan_petugas')
+                ->select(
+                    'laporan_id',
+                    'petugas_id',
+                    'status_tugas',
+                    'catatan',
+                    'dikirim_pada',
+                    'updated_at as selesai_pada',
+                    'is_active'
+                )
+                ->orderBy('dikirim_pada', 'desc')
+                ->paginate($perPage);
+
+            // Optional: jika ingin nama petugas & judul laporan, lakukan join setelah pastikan tabelnya benar
+            // Tapi untuk MVP, ini sudah cukup & aman.
+
+            return response()->json([
+                'success' => true,
+                'data' => $riwayat->items(),
+                'pagination' => [
+                    'current_page' => $riwayat->currentPage(),
+                    'last_page' => $riwayat->lastPage(),
+                    'per_page' => $riwayat->perPage(),
+                    'total' => $riwayat->total(),
+                ]
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error fetching global riwayat: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal mengambil riwayat penugasan'
+            ], 500);
+        }
+    }
+
     // Fungsi helper untuk notifikasi (bisa dipindahkan ke service nanti)
     private function createUserNotification($laporan, $oldStatus, $newStatus, $alasanPenolakan = null)
     {
