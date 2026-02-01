@@ -174,29 +174,25 @@ export default function DetailLaporanModal({
         try {
             setIsLoading(true);
             const token = localStorage.getItem("admin_token");
+
             const response = await axios.post(
-            "http://localhost:8000/api/admin/petugas/assign-laporan",
-            {
-                laporan_id: laporanId,
-                petugas_id: pid,
-                catatan: formData.catatan || "Ditugaskan melalui detail laporan",
-            },
-            { headers: { Authorization: `Bearer ${token}` } }
+                `http://localhost:8000/api/admin/laporan/${laporanId}/assign-petugas`,
+                {
+                    petugas_id: pid,
+                    catatan: formData.catatan || "Ditugaskan melalui detail laporan",
+                },
+                { headers: { Authorization: `Bearer ${token}` } }
             );
 
             if (response.data.success) {
-            showNotification("Petugas berhasil ditugaskan ke laporan", "success");
+                showNotification("Petugas berhasil ditugaskan ke laporan", "success");
 
-            // ✅ HAPUS semua manipulasi manual
-            // ❌ JANGAN setPetugasDitugaskan di sini!
-
-            // ✅ REFRESH DARI API — ini yang benar
-            await fetchPetugasData(true);          // update availablePetugas
-            await checkPetugasLaporan();           // update petugasDitugaskan dari DB
-
-            if (fetchLaporanData) {
-                setTimeout(() => fetchLaporanData(), 300);
-            }
+                // ✅ REFRESH SEMUA DATA
+                await fetchPetugasData(true);
+                await checkPetugasLaporan();
+                if (fetchLaporanData) {
+                    setTimeout(() => fetchLaporanData(), 300);
+                }
             }
         } catch (error) {
             console.error("Error assigning petugas:", error);
