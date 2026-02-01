@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Laporan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\Rating;
 
 class StatistikController extends Controller
@@ -12,41 +13,34 @@ class StatistikController extends Controller
     public function getStatistik(Request $request)
     {
         try {
-            // Filter berdasarkan periode jika ada
             $periode = $request->input('periode');
+            Log::info('Periode yang diterima:', ['periode' => $periode]);
             $query = Laporan::query();
 
-            if ($periode) {
-                switch ($periode) {
-                    case '1 Minggu':
-                        $query->where('created_at', '>=', now()->subWeek());
-                        break;
-                    case '1 Bulan':
-                        $query->where('created_at', '>=', now()->subMonth());
-                        break;
-                    case '1 Tahun':
-                        $query->where('created_at', '>=', now()->subYear());
-                        break;
-                }
+            // Filter berdasarkan periode
+            switch ($periode) {
+                case 'hari_ini':
+                    $query->whereDate('created_at', now()->toDateString());
+                    break;
+                case 'bulan_ini':
+                    $query->whereBetween('created_at', [
+                        now()->startOfMonth(),
+                        now()->endOfMonth()
+                    ]);
+                    break;
+                case 'tahun_ini':
+                    $query->whereYear('created_at', now()->year);
+                    break;
             }
 
-            // Total laporan
+            // Ambil data
             $totalLaporan = $query->count();
-
-            // Laporan per status
             $laporanSelesai = (clone $query)->where('status', 'Selesai')->count();
             $dalamProses = (clone $query)->where('status', 'Dalam Proses')->count();
             $menungguVerifikasi = (clone $query)->where('status', 'Validasi')->count();
             $tervalidasi = (clone $query)->where('status', 'Tervalidasi')->count();
 
-            // Laporan per wilayah - kelompokkan berdasarkan mapping wilayah
             $laporanPerWilayah = $this->getLaporanPerWilayah($query);
-
-            // Hitung persentase perubahan
-            $previousPeriodTotal = $this->getPreviousPeriodTotal($periode);
-            $persentasePerubahan = $previousPeriodTotal > 0 
-                ? (($totalLaporan - $previousPeriodTotal) / $previousPeriodTotal) * 100 
-                : 0;
 
             return response()->json([
                 'success' => true,
@@ -57,17 +51,18 @@ class StatistikController extends Controller
                     'menunggu_verifikasi' => $menungguVerifikasi,
                     'tervalidasi' => $tervalidasi,
                     'laporan_per_wilayah' => $laporanPerWilayah,
-                    'persentase_perubahan' => round($persentasePerubahan, 2)
+                    'persentase_perubahan' => 0
                 ]
-            ], 200);
+            ]);
 
         } catch (\Exception $e) {
+            Log::error('Statistik Error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Gagal mengambil data statistik: ' . $e->getMessage()
+                'message' => 'Terjadi kesalahan pada server.'
             ], 500);
         }
-    }
+}
 
    private function getLaporanPerWilayah($query)
 {

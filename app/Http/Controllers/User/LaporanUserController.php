@@ -182,49 +182,41 @@ class LaporanUserController extends Controller
 
             $query = Laporan::query();
 
-            if ($periode === '1 Minggu') {
-                $query->where('created_at', '>=', now()->subWeek());
-            } elseif ($periode === '1 Bulan') {
-                $query->where('created_at', '>=', now()->subMonth());
-            } elseif ($periode === '1 Tahun') {
-                $query->where('created_at', '>=', now()->subYear());
+                Log::info('🔍 Query params:', $request->all());
+        Log::info('🔍 Periode value:', ['periode' => $request->query('periode')]);
+
+            switch ($periode) {
+                case 'hari_ini':
+                    $query->whereDate('created_at', now()->toDateString());
+                    break;
+                case 'bulan_ini':
+                    $query->whereBetween('created_at', [
+                        now()->startOfMonth(),
+                        now()->endOfMonth()
+                    ]);
+                    break;
+                case 'tahun_ini':
+                    $query->whereYear('created_at', now()->year);
+                    break;
+                case '1 Minggu':
+                    $query->where('created_at', '>=', now()->subWeek());
+                    break;
+                case '1 Bulan':
+                    $query->where('created_at', '>=', now()->subMonth());
+                    break;
+                case '1 Tahun':
+                    $query->where('created_at', '>=', now()->subYear());
+                    break;
+                // default: tidak filter → semua data
             }
 
             $total = $query->count();
-            $selesai = $query->clone()->where('status', 'Selesai')->count();
-            $dalamProses = $query->clone()->where('status', 'Dalam Proses')->count();
-            $menunggu = $query->clone()->where('status', 'Validasi')->count();
-            $tervalidasi = $query->clone()->where('status', 'Tervalidasi')->count();
+            $selesai = (clone $query)->where('status', 'Selesai')->count();
+            $dalamProses = (clone $query)->where('status', 'Dalam Proses')->count();
+            $menunggu = (clone $query)->where('status', 'Validasi')->count();
+            $tervalidasi = (clone $query)->where('status', 'Tervalidasi')->count();
 
-            $persentasePerubahan = 0;
-            if ($periode) {
-                $startDate = match($periode) {
-                    '1 Minggu' => now()->subWeeks(2),
-                    '1 Bulan'  => now()->subMonths(2),
-                    '1 Tahun'  => now()->subYears(2),
-                    default    => null
-                };
-
-                if ($startDate) {
-                    // ✅ PERBAIKAN: Ganti now()->sub($periode) dengan match
-                    $endDateSebelumnya = match($periode) {
-                        '1 Minggu' => now()->subWeek(),
-                        '1 Bulan'  => now()->subMonth(),
-                        '1 Tahun'  => now()->subYear(),
-                        default    => now()
-                    };
-
-                    $periodeSebelumnya = Laporan::whereBetween('created_at', [
-                        $startDate,
-                        $endDateSebelumnya
-                    ])->count();
-
-                    if ($periodeSebelumnya > 0) {
-                        $persentasePerubahan = round((($total - $periodeSebelumnya) / $periodeSebelumnya) * 100, 1);
-                    }
-                }
-            }
-
+            // Hitung wilayah
             $wilayahCount = [
                 'Surabaya Barat' => 0,
                 'Surabaya Timur' => 0,
@@ -272,14 +264,13 @@ class LaporanUserController extends Controller
                     'dalam_proses' => $dalamProses,
                     'menunggu_verifikasi' => $menunggu,
                     'tervalidasi' => $tervalidasi,
-                    'persentase_perubahan' => $persentasePerubahan,
+                    'persentase_perubahan' => 0,
                     'laporan_per_wilayah' => $laporanPerWilayah
                 ],
                 'message' => 'Data statistik umum berhasil diambil'
             ], 200);
         } catch (\Exception $e) {
             Log::error('Error fetching statistik umum: ' . $e->getMessage());
-            Log::error('Stack trace:', $e->getTrace());
             return response()->json([
                 'success' => false,
                 'message' => 'Gagal mengambil data statistik: ' . $e->getMessage()

@@ -9,7 +9,6 @@ export default function Statistik() {
   const [periode, setPeriode] = useState("");
   const [error, setError] = useState("");
 
-  // Base URL API - sesuaikan dengan environment
   const API_BASE_URL = "http://localhost:8000/api";
 
   const fetchStatistik = async (selectedPeriode = "") => {
@@ -43,33 +42,20 @@ export default function Statistik() {
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      await Promise.all([
-        fetchStatistik()
-      ]);
-    };
-    
-    loadData();
+    fetchStatistik(periode);
+  }, [periode]);
+
+  useEffect(() => {
   }, []);
 
-  const handlePeriodeChange = (e) => {
-    const selectedPeriode = e.target.value;
-    setPeriode(selectedPeriode);
-    
-    if (selectedPeriode !== "Pilih") {
-      fetchStatistik(selectedPeriode);
-    } else {
-      fetchStatistik("");
-    }
-  };
-
-  // Data fallback untuk loading/error
+  // Data fallback
   const fallbackStatistik = {
     total_laporan: 0,
     laporan_selesai: 0,
     dalam_proses: 0,
     menunggu_verifikasi: 0,
-    laporan_per_wilayah: []
+    laporan_per_wilayah: [],
+    persentase_perubahan: 0
   };
 
   const fallbackWaktuRespon = {
@@ -115,18 +101,17 @@ export default function Statistik() {
             <span className="text-gray-700 font-medium">Filter data</span>
             <div className="flex items-center gap-2">
               <label htmlFor="periode" className="text-gray-700">
-                Periode :
+                Periode:
               </label>
               <select
-                id="periode"
                 value={periode}
-                onChange={handlePeriodeChange}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#FDBD59] cursor-pointer"
+                onChange={(e) => setPeriode(e.target.value)} // ✅ Cukup set state
+                className="border border-gray-300 rounded-lg px-3 py-2"
               >
                 <option value="">Semua</option>
-                <option value="hari_ini">Hari Ini</option>
-                <option value="bulan_ini">Bulan Ini</option>
-                <option value="tahun_ini">Tahun Ini</option>
+                <option value="hari_ini">Hari ini</option>
+                <option value="bulan_ini">Bulan ini</option>
+                <option value="tahun_ini">Tahun ini</option>
               </select>
             </div>
           </div>
@@ -146,6 +131,8 @@ export default function Statistik() {
                 data.persentase_perubahan > 0 ? 'text-green-500' : 
                 data.persentase_perubahan < 0 ? 'text-red-500' : 'text-gray-500'
               }`}>
+                {data.persentase_perubahan > 0 ? `↑ ${data.persentase_perubahan}%` : 
+                 data.persentase_perubahan < 0 ? `↓ ${Math.abs(data.persentase_perubahan)}%` : '—'}
               </p>
             </div>
           </div>
@@ -233,25 +220,24 @@ export default function Statistik() {
 
             <div className="space-y-4">
               {data.laporan_per_wilayah && data.laporan_per_wilayah.length > 0 ? (
-                  // Urutkan: Barat, Timur, Utara, Selatan, Pusat (sesuai screenshot admin)
-                  data.laporan_per_wilayah.map((item, index) => (
-                      <div
-                          key={index}
-                          className="flex justify-between items-center border-b pb-3 last:border-b-0 last:pb-0"
-                      >
-                          <div className="flex items-center gap-3">
-                              <div className="bg-[#F3F4F6] p-2 rounded-lg">
-                                  <MapPin size={18} className="text-gray-700" />
-                              </div>
-                              <p className="text-gray-700 font-medium">{item.lokasi}</p>
-                          </div>
-                          <span className="text-gray-900 font-semibold">{item.total}</span>
+                data.laporan_per_wilayah.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center border-b pb-3 last:border-b-0 last:pb-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="bg-[#F3F4F6] p-2 rounded-lg">
+                        <MapPin size={18} className="text-gray-700" />
                       </div>
-                  ))
-              ) : (
-                  <div className="text-center text-gray-500 py-4">
-                      Tidak ada data laporan per wilayah
+                      <p className="text-gray-700 font-medium">{item.lokasi}</p>
+                    </div>
+                    <span className="text-gray-900 font-semibold">{item.total}</span>
                   </div>
+                ))
+              ) : (
+                <div className="text-center text-gray-500 py-4">
+                  Tidak ada data laporan per wilayah
+                </div>
               )}
             </div>
           </div>

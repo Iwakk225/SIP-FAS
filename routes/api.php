@@ -70,12 +70,12 @@ Route::get('/geocode/search', [GeocodeController::class, 'search']);
 Route::get('/geocode/reverse', [GeocodeController::class, 'reverse']);
 Route::get('/nominatim/search', [GeocodeController::class, 'search']);
 Route::get('/stats/landing', [StatistikController::class, 'getLandingStats']);
+Route::get('/statistik', [\App\Http\Controllers\User\LaporanUserController::class, 'getStatistikUmum']);
 Route::get('/public-reviews', [RatingController::class, 'publicReviews']);
 
 // ========== STATISTIK ROUTES ==========
 Route::prefix('statistik')->group(function () {
     Route::get('/waktu-respon', [StatistikController::class, 'getWaktuRespon']);
-    Route::get('/', [StatistikAdminController::class, 'getStatistikUmum']);
 });
 
 // ========== PROTECTED USER ROUTES ==========
