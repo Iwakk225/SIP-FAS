@@ -2,11 +2,11 @@ import React, { useState, useEffect } from "react";
 import { User, Mail, Phone, MapPin, Edit2, Save, X, Camera, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Footer from "./Footer";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; 
+
 import axios from 'axios';
 import { useAuth } from "../contexts/AuthContext";
 
-// ✅ Fungsi upload ke Cloudinary (sama seperti di LaporPage)
 const uploadToCloudinary = async (file) => {
   const formData = new FormData();
   formData.append("file", file);
@@ -91,7 +91,7 @@ export default function ProfilePage() {
     if (user) {
       fetchUserStats();
       if (user.profile_photo_path) {
-        setPhotoPreview(user.profile_photo_path); // ✅ Cloudinary URL langsung
+        setPhotoPreview(user.profile_photo_path); // kirim url ke cloudinary
       }
     }
   }, [user]);
@@ -119,10 +119,9 @@ export default function ProfilePage() {
       let response;
 
       if (photoFile) {
-        // ✅ Upload ke Cloudinary dulu
+        //upload foto profile ke cloudinary
         const photoUrl = await uploadToCloudinary(photoFile);
 
-        // ✅ Kirim URL ke backend
         response = await axios.put(`${API_URL}/profile`, {
           name: formData.name,
           email: formData.email,
@@ -442,6 +441,23 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+
+          {isEditing && (
+            <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Keamanan Akun</h2>
+              <div className="space-y-4">
+                <Link
+                  to="/ForgotPassword"
+                  className="block w-full text-center bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-colors cursor-pointer font-semibold"
+                >
+                  🔐 Reset Password
+                </Link>
+                <p className="text-sm text-gray-600 text-center">
+                  Ganti password akun Anda kapan saja
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Logout Section */}
           <div className="bg-white rounded-2xl shadow-sm p-6">
