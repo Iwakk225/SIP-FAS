@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import DetailLaporanModal from "../modals/DetailLaporanModal";
 
@@ -10,6 +10,34 @@ export default function DataLaporanPage({
 }) {
     const [selectedLaporan, setSelectedLaporan] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [statusFilter, setStatusFilter] = useState("Semua Status"); // <-- tambah state filter
+    const [filteredData, setFilteredData] = useState([]); // <-- data hasil filter
+
+    // Efek untuk memfilter data saat laporanData atau statusFilter berubah
+    useEffect(() => {
+        if (!Array.isArray(laporanData)) {
+            setFilteredData([]);
+            return;
+        }
+
+        let result = [...laporanData];
+
+        if (statusFilter !== "Semua Status") {
+            const filterValue = statusFilter.toLowerCase();
+            result = result.filter((laporan) => {
+                const status = (laporan.status || "").toLowerCase().replace(/\s+/g, "_");
+                // Normalisasi status ke bentuk konsisten
+                if (filterValue === "validasi") return status === "validasi" || status === "pending";
+                if (filterValue === "tervalidasi") return status === "tervalidasi" || status === "validated";
+                if (filterValue === "dalam proses") return ["dalam_proses", "dalam proses", "in_progress"].includes(status);
+                if (filterValue === "selesai") return status === "selesai" || status === "completed";
+                if (filterValue === "ditolak") return status === "ditolak" || status === "rejected";
+                return false;
+            });
+        }
+
+        setFilteredData(result);
+    }, [laporanData, statusFilter]);
 
     const getStatusColor = (status) => {
         const statusLower = status?.toLowerCase();
@@ -54,18 +82,17 @@ export default function DataLaporanPage({
                         <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
                         <span>Refresh</span>
                     </button>
-                    <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                        <option>Semua Waktu</option>
-                        <option>Hari Ini</option>
-                        <option>Minggu Ini</option>
-                        <option>Bulan Ini</option>
-                    </select>
-                    <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <select 
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    >
                         <option>Semua Status</option>
                         <option>Validasi</option>
                         <option>Tervalidasi</option>
                         <option>Dalam Proses</option>
                         <option>Selesai</option>
+                        <option>Ditolak</option>
                     </select>
                 </div>
             </div>
@@ -90,8 +117,8 @@ export default function DataLaporanPage({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {laporanData.length > 0 ? (
-                                    laporanData.map((laporan, index) => (
+                                {filteredData.length > 0 ? ( // <-- GUNAKAN filteredData di sini
+                                    filteredData.map((laporan, index) => (
                                         <tr key={laporan.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 text-sm text-gray-900">{index + 1}</td>
                                             <td className="px-6 py-4">
@@ -122,7 +149,9 @@ export default function DataLaporanPage({
                                 ) : (
                                     <tr>
                                         <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                                            Belum ada laporan yang masuk
+                                            {statusFilter === "Semua Status" 
+                                                ? "Belum ada laporan yang masuk" 
+                                                : "Tidak ada laporan dengan status tersebut"}
                                         </td>
                                     </tr>
                                 )}
