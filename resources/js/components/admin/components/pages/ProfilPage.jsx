@@ -1,7 +1,75 @@
-import React from "react";
+import React, { useState } from "react";
 import { User } from "lucide-react";
 
 export default function ProfilPage() {
+    const [showPasswordForm, setShowPasswordForm] = useState(false);
+    const [code, setCode] = useState("");
+    const [newPassword, setNewPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState("");
+
+    const handleRequestCode = async () => {
+        setLoading(true);
+        setMessage("");
+        try {
+            const response = await fetch("/api/admin/request-reset-code", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("admin_token")}`,
+                    "Content-Type": "application/json",
+                },
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setMessage(data.message);
+                setShowPasswordForm(true);
+            } else {
+                setMessage(data.message || "Gagal mengirim kode");
+            }
+        } catch (error) {
+            setMessage("Terjadi kesalahan");
+        }
+        setLoading(false);
+    };
+
+    const handleResetPassword = async (e) => {
+        e.preventDefault();
+        if (newPassword !== confirmPassword) {
+            setMessage("Password konfirmasi tidak cocok");
+            return;
+        }
+        setLoading(true);
+        setMessage("");
+        try {
+            const response = await fetch("/api/admin/reset-password", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem("admin_token")}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    code,
+                    password: newPassword,
+                    password_confirmation: confirmPassword,
+                }),
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setMessage(data.message);
+                setShowPasswordForm(false);
+                setCode("");
+                setNewPassword("");
+                setConfirmPassword("");
+            } else {
+                setMessage(data.message || "Gagal mengubah password");
+            }
+        } catch (error) {
+            setMessage("Terjadi kesalahan");
+        }
+        setLoading(false);
+    };
+
     return (
         <div className="space-y-6">
             <div>
@@ -48,6 +116,82 @@ export default function ProfilPage() {
                     <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium cursor-pointer">
                         Simpan Perubahan
                     </button>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+                <div>
+                    <h2 className="text-xl font-semibold text-gray-900 mb-4">Ganti Password</h2>
+                    <p className="text-gray-600 mb-4">Untuk keamanan akun, gunakan password yang kuat dan unik.</p>
+                    {!showPasswordForm ? (
+                        <button
+                            onClick={handleRequestCode}
+                            disabled={loading}
+                            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium cursor-pointer"
+                        >
+                            {loading ? "Mengirim..." : "Reset Password"}
+                        </button>
+                    ) : (
+                        <form onSubmit={handleResetPassword} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Kode OTP</label>
+                                <input
+                                    type="text"
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value)}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Masukkan kode 6 digit"
+                                    maxLength="6"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Password Baru</label>
+                                <input
+                                    type="password"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Minimal 6 karakter"
+                                    minLength="6"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">Konfirmasi Password Baru</label>
+                                <input
+                                    type="password"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Ulangi password baru"
+                                    minLength="6"
+                                    required
+                                />
+                            </div>
+                            <div className="flex space-x-4">
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium cursor-pointer"
+                                >
+                                    {loading ? "Mengubah..." : "Ubah Password"}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPasswordForm(false)}
+                                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium cursor-pointer"
+                                >
+                                    Batal
+                                </button>
+                            </div>
+                        </form>
+                    )}
+                    {message && (
+                        <div className={`mt-4 p-3 rounded-lg ${message.includes("berhasil") ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                            {message}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

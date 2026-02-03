@@ -105,6 +105,8 @@ Route::prefix('admin')->group(function () {
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/logout', [AdminAuthController::class, 'logout']);
         Route::get('/me', [AdminAuthController::class, 'me']);
+        Route::post('/request-reset-code', [AdminAuthController::class, 'requestResetCode']);
+        Route::post('/reset-password', [AdminAuthController::class, 'resetPassword']);
         Route::get('/laporan', [LaporanAdminController::class, 'index']);
         Route::put('/laporan/{id}', [LaporanAdminController::class, 'update']);
         Route::put('/laporan/{id}/validate', [LaporanAdminController::class, 'validateLaporan']);
