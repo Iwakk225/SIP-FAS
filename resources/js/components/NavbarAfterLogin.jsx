@@ -91,6 +91,7 @@ export default function NavbarAfterLogin() {
             if (response.data.success) {
                 showToast("Semua notifikasi ditandai sebagai dibaca", "success");
                 setUnreadCount(0);
+                setNotifications(prev => prev.map(notif => ({ ...notif, is_read: true })));
                 await fetchNotifications();
             }
         } catch (error) {
@@ -119,7 +120,7 @@ export default function NavbarAfterLogin() {
                 setNotifications(prev => 
                     prev.map(notif => 
                         notif.id === notificationId 
-                            ? { ...notif, is_new: false } 
+                            ? { ...notif, is_read: true } 
                             : notif
                     )
                 );
@@ -141,13 +142,14 @@ export default function NavbarAfterLogin() {
     }, [user]);
 
     useEffect(() => {
-        if (isNotificationDropdownOpen && unreadCount > 0) {
-            const timer = setTimeout(() => {
-                console.log('🔔 Auto-mark notifications as read');
-                handleMarkAllAsRead();
-            }, 5000);
-            return () => clearTimeout(timer);
-        }
+        // Disabled auto-mark for testing
+        // if (isNotificationDropdownOpen && unreadCount > 0) {
+        //     const timer = setTimeout(() => {
+        //         console.log('🔔 Auto-mark notifications as read');
+        //         handleMarkAllAsRead();
+        //     }, 5000);
+        //     return () => clearTimeout(timer);
+        // }
     }, [isNotificationDropdownOpen, unreadCount]);
 
     const handleLogout = () => {
@@ -290,16 +292,16 @@ export default function NavbarAfterLogin() {
                                                         handleMarkAsRead(notif.id);
                                                     }}
                                                     className={`px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors ${
-                                                        notif.is_new ? 'bg-blue-50' : ''
+                                                        !notif.is_read ? 'bg-blue-50' : ''
                                                     }`}
                                                 >
                                                     <div className="flex items-start space-x-3">
                                                         <div className="mt-0.5">
-                                                            {getStatusIcon(notif.status)}
+                                                            {getStatusIcon(notif.report?.status)}
                                                         </div>
                                                         <div className="flex-1">
                                                             <p className="text-sm font-medium text-gray-900">
-                                                                {notif.judul}
+                                                                {notif.report?.judul}
                                                             </p>
                                                             <p className="text-xs text-gray-600 mt-1">
                                                                 {notif.message}
@@ -308,7 +310,7 @@ export default function NavbarAfterLogin() {
                                                                 <p className="text-xs text-gray-400">
                                                                     {formatTime(notif.updated_at)}
                                                                 </p>
-                                                                {notif.is_new && (
+                                                                {!notif.is_read && (
                                                                     <span className="text-xs text-blue-600 font-medium">
                                                                         Baru
                                                                     </span>
@@ -515,16 +517,16 @@ export default function NavbarAfterLogin() {
                                         setIsNotificationDropdownOpen(false);
                                     }}
                                     className={`px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors ${
-                                        notif.is_new ? 'bg-blue-50' : ''
+                                        !notif.is_read ? 'bg-blue-50' : ''
                                     }`}
                                 >
                                     <div className="flex items-start space-x-3">
                                         <div className="mt-0.5">
-                                            {getStatusIcon(notif.status)}
+                                            {getStatusIcon(notif.report?.status)}
                                         </div>
                                         <div className="flex-1">
                                             <p className="text-sm font-medium text-gray-900">
-                                                {notif.judul}
+                                                {notif.report?.judul}
                                             </p>
                                             <p className="text-xs text-gray-600 mt-1">
                                                 {notif.message}
@@ -533,7 +535,7 @@ export default function NavbarAfterLogin() {
                                                 <p className="text-xs text-gray-400">
                                                     {formatTime(notif.updated_at)}
                                                 </p>
-                                                {notif.is_new && (
+                                                {!notif.is_read && (
                                                     <span className="text-xs text-blue-600 font-medium">
                                                         Baru
                                                     </span>

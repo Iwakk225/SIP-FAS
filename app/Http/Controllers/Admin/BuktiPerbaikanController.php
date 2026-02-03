@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Notification;
 use App\Http\Controllers\Controller;
 
 class BuktiPerbaikanController extends Controller
@@ -173,9 +174,7 @@ class BuktiPerbaikanController extends Controller
                 'alasan_penolakan' => $alasanPenolakan
             ]);
 
-            $user = \App\Models\User::where('email', $laporan->pelapor_email)
-                ->orWhere('name', $laporan->pelapor_nama)
-                ->first();
+            $user = $laporan->user;
 
             if (!$user) {
                 Log::warning('🔔 User tidak ditemukan untuk notifikasi laporan: ' . $laporan->id);
@@ -201,6 +200,16 @@ class BuktiPerbaikanController extends Controller
                 'title' => $title,
                 'message' => $message,
                 'user_id' => $user->id
+            ]);
+
+            // Buat notifikasi di database
+            Notification::create([
+                'user_id' => $user->id,
+                'report_id' => $laporan->id,
+                'title' => $title,
+                'message' => $message,
+                'type' => 'status_update',
+                'is_read' => false
             ]);
 
             $logData = [

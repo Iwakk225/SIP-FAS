@@ -83,7 +83,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user/notifications', [NotificationController::class, 'index']);
-    Route::post('/user/notifications/{laporanId}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/user/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/user/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
     Route::post('/profile/request-email-change', [AuthController::class, 'requestEmailChange']);
     Route::post('/profile/verify-email-change', [AuthController::class, 'verifyEmailChange']);

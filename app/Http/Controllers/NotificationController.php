@@ -10,11 +10,11 @@ use Illuminate\Support\Facades\Log;
 
 class NotificationController extends Controller
 {
-    public function getUserNotifications(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         try {
             $user = Auth::user();
-            
+
             if (!$user) {
                 return response()->json([
                     'success' => false,
@@ -22,8 +22,9 @@ class NotificationController extends Controller
                 ], 401);
             }
 
-            // Ambil dari database notifications
-            $notifications = Notification::where('user_id', $user->id)
+            // Ambil notifikasi + relasi report
+            $notifications = Notification::with('report:id,judul,status') // Sesuaikan kolom
+                ->where('user_id', $user->id)
                 ->orderBy('created_at', 'desc')
                 ->limit(20)
                 ->get();
@@ -51,7 +52,7 @@ class NotificationController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             $notification = Notification::where('id', $id)
                 ->where('user_id', $user->id)
                 ->first();
@@ -83,7 +84,7 @@ class NotificationController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             Notification::where('user_id', $user->id)
                 ->where('is_read', false)
                 ->update(['is_read' => true]);

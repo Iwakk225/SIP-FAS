@@ -8,8 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Notifications\NotifikasiTugasPetugas;
-use App\Models\Petugas;
-use Illuminate\Support\Facades\Cache;
+use App\Models\Notification;
 use App\Http\Controllers\Controller;
 
 class LaporanAdminController extends Controller
@@ -496,9 +495,7 @@ class LaporanAdminController extends Controller
                 'alasan_penolakan' => $alasanPenolakan
             ]);
 
-            $user = \App\Models\User::where('email', $laporan->pelapor_email)
-                ->orWhere('name', $laporan->pelapor_nama)
-                ->first();
+            $user = $laporan->user;
 
             if (!$user) {
                 Log::warning('🔔 User tidak ditemukan untuk notifikasi laporan: ' . $laporan->id);
@@ -524,6 +521,16 @@ class LaporanAdminController extends Controller
                 'title' => $title,
                 'message' => $message,
                 'user_id' => $user->id
+            ]);
+
+            // Buat notifikasi di database
+            Notification::create([
+                'user_id' => $user->id,
+                'report_id' => $laporan->id,
+                'title' => $title,
+                'message' => $message,
+                'type' => 'status_update',
+                'is_read' => false
             ]);
 
             $logData = [

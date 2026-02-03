@@ -11,6 +11,7 @@ class Notification extends Model
 
     protected $fillable = [
         'user_id',
+        'report_id',
         'title',
         'message',
         'type',
@@ -26,5 +27,10 @@ class Notification extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function report()
+    {
+        return $this->belongsTo(\App\Models\Laporan::class, 'report_id'); 
     }
 }
