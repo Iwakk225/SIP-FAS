@@ -1,3 +1,4 @@
+// modals/DetailLaporanModal.jsx
 import React, { useState, useEffect } from "react";
 import {
   X, Send, Clock, UserCheck, Wrench, CheckCircle, XCircle,
@@ -10,7 +11,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
   if (!isOpen || !laporan) return null;
 
   const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState(''); 
+  const [comment, setComment] = useState('');
   const [isRated, setIsRated] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [petugasLaporan, setPetugasLaporan] = useState([]);
@@ -77,7 +78,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
       icon: CheckCircle,
       color: "text-green-500",
       bgColor: "bg-green-50",
-    }, 
+    },
   ];
 
   const getToken = () => {
@@ -94,7 +95,8 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
           `http://localhost:8000/api/laporan/${laporan.id}/petugas`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        setPetugasLaporan(res.data.data || []);
+        // 🔥 PASTIKAN DATA ADALAH ARRAY
+        setPetugasLaporan(Array.isArray(res.data.data) ? res.data.data : []);
       } catch (err) {
         setPetugasLaporan([]);
       } finally {
@@ -112,7 +114,8 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
           `http://localhost:8000/api/laporan/${laporan.id}/riwayat-petugas`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        setRiwayatPetugas(res.data.data || []);
+        // 🔥 PASTIKAN DATA ADALAH ARRAY
+        setRiwayatPetugas(Array.isArray(res.data.data) ? res.data.data : []);
       } catch (err) {
         setRiwayatPetugas([]);
       } finally {
@@ -217,7 +220,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
       const token = getToken();
       const res = await axios.post(
         `http://localhost:8000/api/laporan/${laporan.id}/rating`,
-        { 
+        {
           rating: rating,
           comment: comment.trim() || null
         },
@@ -261,6 +264,10 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
       .replace(/&dl=1/g, '')
       .replace(/\?$/, '');
   };
+
+  // 🔥 VALIDASI KEAMANAN DATA
+  const fotoLaporan = Array.isArray(laporan.foto_laporan) ? laporan.foto_laporan : [];
+  const fotoBukti = Array.isArray(laporan.foto_bukti_perbaikan) ? laporan.foto_bukti_perbaikan : [];
 
   return (
     <div className="fixed inset-0 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -409,17 +416,17 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
           </div>
 
           {/* Foto Laporan */}
-          {laporan.foto_laporan?.length > 0 && (
+          {fotoLaporan.length > 0 && (
             <div className="border-t border-gray-200 pt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Foto Laporan</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {laporan.foto_laporan.map((foto, index) => (
+                {fotoLaporan.map((foto, index) => (
                   <div key={index} className="relative group">
                     <img
                       src={foto}
                       alt={`Foto laporan ${index + 1}`}
                       className="w-full h-24 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80"
-                      onClick={() => window.open(cleanImageUrl(foto), "_blank")} // ✅ FIX DI SINI
+                      onClick={() => window.open(cleanImageUrl(foto), "_blank")}
                       onError={(e) => {
                         e.target.style.display = 'none';
                         e.target.parentElement.innerHTML =
@@ -437,7 +444,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
             </div>
           )}
 
-          {/* 🔥 BUKTI PERBAIKAN + RATING (Hanya untuk Selesai) */}
+          {/* BUKTI PERBAIKAN + RATING (Hanya untuk Selesai) */}
           {laporan.status === "Selesai" && (
             <div className="border-t border-gray-200 pt-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
@@ -446,17 +453,17 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
               </h3>
 
               {/* Foto Bukti */}
-              {laporan.foto_bukti_perbaikan?.length > 0 && (
+              {fotoBukti.length > 0 && (
                 <div className="mb-6">
                   <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
                     <Camera className="w-4 h-4 mr-2" />
                     Foto Hasil Perbaikan
                     <span className="ml-2 text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                      {laporan.foto_bukti_perbaikan.length} foto
+                      {fotoBukti.length} foto
                     </span>
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {laporan.foto_bukti_perbaikan.map((foto, index) => {
+                    {fotoBukti.map((foto, index) => {
                       if (!foto || typeof foto !== 'string') return null;
                       return (
                         <div key={index} className="relative group">
@@ -464,7 +471,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                             src={foto}
                             alt={`Bukti perbaikan ${index + 1}`}
                             className="w-full h-32 object-cover rounded-lg border border-green-200 cursor-pointer hover:opacity-80"
-                            onClick={() => window.open(cleanImageUrl(foto), "_blank")} // ✅ FIX DI SINI
+                            onClick={() => window.open(cleanImageUrl(foto), "_blank")}
                             onError={(e) => {
                               e.target.style.display = 'none';
                               e.target.parentElement.innerHTML =
@@ -498,7 +505,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                   <div className="flex items-start gap-4 bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                     {/* Thumbnail Preview */}
                     {laporan.rincian_biaya_preview_url ? (
-                      <div 
+                      <div
                         className="relative group cursor-pointer"
                         onClick={() => window.open(laporan.rincian_biaya_pdf, '_blank')}
                       >
@@ -574,16 +581,16 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                           <div className="flex items-center justify-between">
                             <h4 className="text-sm font-medium text-gray-900">{petugas.nama}</h4>
                             <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                              petugas.status_tugas === 'Selesai' 
+                              petugas.status_tugas === 'Selesai'
                                 ? 'bg-green-100 text-green-800'
-                                : petugas.is_active 
-                                  ? 'bg-blue-100 text-blue-800' 
+                                : petugas.is_active
+                                  ? 'bg-blue-100 text-blue-800'
                                   : 'bg-gray-100 text-gray-800'
                             }`}>
                               {petugas.status_tugas || 'Tidak diketahui'}
                             </span>
                           </div>
-                          
+
                           <div className="mt-2 space-y-1 text-xs text-gray-600">
                             <div className="flex items-center">
                               <Phone className="w-3 h-3 mr-1" />
@@ -602,11 +609,11 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                             {petugas.selesai_pada && (
                               <div className="flex items-center">
                                 <CheckCircle className="w-3 h-3 mr-1" />
-                                Selesai: {formatDateTime(petugas.selesai_pada)}
+                                Selesai: {formatDateTime(petugas.selesai_pona)}
                               </div>
                             )}
                           </div>
-                          
+
                           {petugas.catatan && (
                             <div className="mt-2 p-2 bg-white border border-gray-200 rounded text-xs text-gray-700">
                               <strong>Catatan:</strong> {petugas.catatan}
@@ -626,7 +633,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
             </div>
           )}
 
-          {/* 🔥 FORM RATING + KOMENTAR */}
+          {/* FORM RATING + KOMENTAR */}
           {laporan.status === "Selesai" && (
             <div className="mb-6 p-4 rounded-lg bg-blue-50">
               <h4 className="font-medium mb-2">Beri Rating untuk Perbaikan Ini</h4>
@@ -645,7 +652,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                   </div>
 
                   <div className="space-y-3">
-                  {/* Komentar User */}
+                    {/* Komentar User */}
                     {comment ? (
                       <div className="bg-white p-3 rounded border border-gray-200 text-sm">
                         <p className="text-gray-800 whitespace-pre-wrap">{comment}</p>
@@ -654,7 +661,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                       <p className="text-gray-500 italic text-sm">Tidak ada ulasan</p>
                     )}
 
-                    {/* 🔥 Balasan Admin */}
+                    {/* Balasan Admin */}
                     {adminReply && (
                       <div className="bg-gray-50 p-3 rounded border border-gray-200 text-sm">
                         <div className="flex items-center mb-1">
@@ -690,8 +697,8 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                         onClick={() => setRating(star)}
                         disabled={isSubmitting}
                         className={`text-2xl transition-colors ${
-                          star <= rating 
-                            ? 'text-yellow-500 hover:text-yellow-600' 
+                          star <= rating
+                            ? 'text-yellow-500 hover:text-yellow-600'
                             : 'text-gray-300 hover:text-gray-400'
                         }`}
                         aria-label={`Berikan rating ${star} bintang`}
@@ -706,8 +713,8 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                     onChange={(e) => !isRated && setComment(e.target.value)}
                     placeholder="Tulis ulasan Anda (opsional)..."
                     className={`w-full p-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isRated 
-                        ? 'bg-gray-50 border-gray-300 text-gray-700 cursor-default' 
+                      isRated
+                        ? 'bg-gray-50 border-gray-300 text-gray-700 cursor-default'
                         : 'bg-white border-gray-300 focus:ring-blue-500'
                     }`}
                     rows="2"

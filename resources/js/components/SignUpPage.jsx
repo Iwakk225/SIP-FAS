@@ -149,7 +149,7 @@ export default function SignUpPage() {
             {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone[0]}</p>}
           </div>
 
-          {/* Password */}
+          {/*   Password   */}
           <div className="mb-5">
             <label className="block text-gray-800 font-medium mb-2">
               Kata Sandi

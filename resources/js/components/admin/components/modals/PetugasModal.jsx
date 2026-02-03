@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, Mail } from "lucide-react"; // Tambahkan icon Mail jika diinginkan
+import { X, Mail } from "lucide-react"; 
 
 export default function PetugasModal({
     showPetugasModal,
@@ -20,11 +20,13 @@ export default function PetugasModal({
         resetFormPetugas();
     };
 
+    // ganti email
     const handleEmailChangeClick = () => {
-        setTempEmail(formPetugas.email); // Selalu reset temp ke email saat ini
+        setTempEmail(formPetugas.email); 
         setIsChangingEmail(true);
     };
 
+    // save email baru`
     const handleSaveNewEmail = () => {
         // Validasi opsional bisa ditambahkan di sini
         if (tempEmail.trim()) {
