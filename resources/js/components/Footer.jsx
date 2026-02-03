@@ -1,5 +1,6 @@
 import React from "react";
 import { Facebook, Twitter, Instagram, Mail, Phone, MapPin, Building2 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Footer() {
   return (
@@ -38,10 +39,10 @@ export default function Footer() {
         <div>
           <h3 className="text-white font-semibold mb-3">Menu</h3>
           <ul className="space-y-2 text-sm">
-            <li><a href="#" className="hover:text-[#FDBD59] transition">Beranda</a></li>
-            <li><a href="#" className="hover:text-[#FDBD59] transition">Buat Laporan</a></li>
-            <li><a href="#" className="hover:text-[#FDBD59] transition">Status Laporan</a></li>
-            <li><a href="#" className="hover:text-[#FDBD59] transition">Statistik</a></li>
+            <li><Link to="/" className="hover:text-[#FDBD59] transition">Beranda</Link></li>
+            <li><Link to="/LaporPage" className="hover:text-[#FDBD59] transition">Buat Laporan</Link></li>
+            <li><Link to="/StatusPage" className="hover:text-[#FDBD59] transition">Status Laporan</Link></li>
+            <li><Link to="/Statistik" className="hover:text-[#FDBD59] transition">Statistik</Link></li>
           </ul>
         </div>
 
@@ -50,10 +51,12 @@ export default function Footer() {
           <h3 className="text-white font-semibold mb-3">Kontak</h3>
           <ul className="space-y-2 text-sm">
             <li className="flex items-center space-x-2">
-              <Phone size={16} /> <span>+62 812-345-678</span>
+              <Phone size={16} />
+              <a href="tel:+62812345678" className="hover:text-[#FDBD59] transition">+62 812-345-678</a>
             </li>
             <li className="flex items-center space-x-2">
-              <Mail size={16} /> <span>sipfassby@gmail.com</span>
+              <Mail size={16} />
+              <a href="mailto:sipfassby@gmail.com" className="hover:text-[#FDBD59] transition">sipfassby@gmail.com</a>
             </li>
             <li className="flex items-center space-x-2">
               <MapPin size={16} /> <span>Surabaya, Indonesia</span>

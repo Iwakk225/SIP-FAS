@@ -250,6 +250,7 @@ const fetchPetugasData = async () => {
             nama: petugas.nama,
             alamat: petugas.alamat,
             nomor_telepon: petugas.nomor_telepon,
+            email: petugas.email || "",
             status: petugas.status,
         });
         setIsEditingPetugas(true);

@@ -93,6 +93,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/laporan/{laporanId}/rating', [LaporanUserController::class, 'submitRating']);
     Route::get('/statistik-user', [LaporanUserController::class, 'getStatistikUser']);
     Route::get('/laporan/{id}/petugas', [LaporanAdminController::class, 'getPetugasByLaporan']);
+    Route::get('/laporan/{id}/riwayat-petugas', [LaporanAdminController::class, 'getRiwayatPenugasan']);
     Route::get('/laporan/{laporanId}/rating', [RatingController::class, 'show']);
     Route::post('/laporan/{laporanId}/rating', [RatingController::class, 'store']);
 });
