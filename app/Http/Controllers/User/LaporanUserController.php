@@ -51,6 +51,22 @@ class LaporanUserController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak terautentikasi'
+                ], 401);
+            }
+
+            // Cek status user
+            if ($user->status !== 'aktif') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Akun Anda dinonaktifkan. Tidak dapat membuat laporan.'
+                ], 403);
+            }
+
             $validated = $request->validate([
                 'judul' => 'required|string|max:255',
                 'lokasi' => 'required|string',

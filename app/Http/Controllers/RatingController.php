@@ -13,6 +13,16 @@ class RatingController extends Controller
     // RatingController.php
     public function store(Request $request, $laporanId)
     {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'User tidak terautentikasi'], 401);
+        }
+
+        // Cek status user
+        if ($user->status !== 'aktif') {
+            return response()->json(['message' => 'Akun Anda dinonaktifkan. Tidak dapat memberikan rating.'], 403);
+        }
+
         $laporan = Laporan::findOrFail($laporanId);
 
         if ($laporan->status !== 'Selesai') {

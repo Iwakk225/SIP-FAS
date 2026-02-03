@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Notifications\NotifikasiTugasPetugas;
 use App\Models\Notification;
+use App\Models\Petugas;
 use App\Http\Controllers\Controller;
 
 class LaporanAdminController extends Controller

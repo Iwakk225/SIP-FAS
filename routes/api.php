@@ -64,7 +64,6 @@ Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
 Route::post('/verify-reset-code', [PasswordResetController::class, 'verifyCode']);
 Route::post('/reset-password', [PasswordResetController::class, 'reset']);
 Route::post('/contact', [ContactController::class, 'sendEmail']);
-Route::post('/laporan', [LaporanUserController::class, 'store']);
 Route::get('/laporan/{id}', [LaporanUserController::class, 'show']);
 Route::get('/geocode/search', [GeocodeController::class, 'search']);
 Route::get('/geocode/reverse', [GeocodeController::class, 'reverse']);
@@ -90,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile', [AuthController::class, 'updateProfile']);
     Route::post('/profile/photo', [AuthController::class, 'updateProfilePhoto']);
     Route::get('/laporan-user', [LaporanUserController::class, 'index']);
+    Route::post('/laporan', [LaporanUserController::class, 'store']);
     Route::post('/laporan/{laporanId}/rating', [LaporanUserController::class, 'submitRating']);
     Route::get('/statistik-user', [LaporanUserController::class, 'getStatistikUser']);
     Route::get('/laporan/{id}/petugas', [LaporanAdminController::class, 'getPetugasByLaporan']);

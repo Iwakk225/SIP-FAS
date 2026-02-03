@@ -30,6 +30,7 @@ export default function LandingPage() {
     const [publicReviews, setPublicReviews] = useState([]);
     const [loadingReviews, setLoadingReviews] = useState(true);
 
+    // publik rating dan ulasan dengan caching
     useEffect(() => {
         const CACHE_KEY = 'sipfas_public_reviews';
         const EXPIRY_DAYS = 0; 
@@ -78,7 +79,7 @@ export default function LandingPage() {
         loadReviews();
     }, []);
 
-    // ✅ FETCH STATISTIK
+    // FETCH STATISTIK
     useEffect(() => {
         const fetchLandingStats = async () => {
             try {

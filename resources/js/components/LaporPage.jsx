@@ -110,6 +110,13 @@ const LaporPage = () => {
         }
     }, [isLoggedIn, user]);
 
+    // Cek login saat pertama load
+    useEffect(() => {
+        if (!isLoggedIn) {
+            setShowLoginModal(true);
+        }
+    }, [isLoggedIn]);
+
     // Auto geser setelah user menginput alamat/lokasi
     useEffect(() => {
         const timeout = setTimeout(async () => {

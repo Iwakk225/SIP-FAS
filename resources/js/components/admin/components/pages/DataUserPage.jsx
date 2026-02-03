@@ -309,16 +309,14 @@ export default function DataUserPage({ showNotification }) {
     };
 
     // Get status badge color
-    const getStatusColor = (status, emailVerified) => {
+    const getStatusColor = (status) => {
         if (status === "nonaktif") return "bg-red-100 text-red-800";
-        if (!emailVerified) return "bg-yellow-100 text-yellow-800";
         return "bg-green-100 text-green-800";
     };
 
     // Get status text
     const getStatusText = (user) => {
         if (user.status === "nonaktif") return "Nonaktif";
-        if (!user.email_verified_at) return "Belum Verifikasi";
         return "Aktif";
     };
 
@@ -381,7 +379,6 @@ export default function DataUserPage({ showNotification }) {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NAMA</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">EMAIL</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">TELEPON</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">TERVERIFIKASI</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">STATUS</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">DIBUAT</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">AKSI</th>
@@ -399,16 +396,7 @@ export default function DataUserPage({ showNotification }) {
                                             {user.phone || "-"}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                                user.email_verified_at 
-                                                    ? "bg-green-100 text-green-800" 
-                                                    : "bg-yellow-100 text-yellow-800"
-                                            }`}>
-                                                {user.email_verified_at ? "✓" : "✗"}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status, user.email_verified_at)}`}>
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
                                                 {getStatusText(user)}
                                             </span>
                                         </td>
