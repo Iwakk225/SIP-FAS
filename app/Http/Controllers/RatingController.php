@@ -34,10 +34,22 @@ class RatingController extends Controller
 
     public function show($laporanId)
     {
-        $rating = Rating::where('laporan_id', $laporanId)
-                        ->where('user_id', Auth::id())
-                        ->select('id', 'rating', 'comment', 'admin_reply', 'admin_replied_at', 'created_at')
-                        ->first();
+        // Cek apakah yang login adalah admin
+        $isAdmin = Auth::guard('admin')->check() || (Auth::user() instanceof \App\Models\Admin);
+
+        if ($isAdmin) {
+            // Jika admin, ambil rating dari user manapun untuk laporan ini
+            $rating = Rating::where('laporan_id', $laporanId)
+                            ->with('user:id,name') // Relasi user
+                            ->select('id', 'user_id', 'rating', 'comment', 'admin_reply', 'admin_replied_at', 'created_at')
+                            ->first();
+        } else {
+            // Jika user biasa, ambil rating milik mereka sendiri
+            $rating = Rating::where('laporan_id', $laporanId)
+                            ->where('user_id', Auth::id())
+                            ->select('id', 'rating', 'comment', 'admin_reply', 'admin_replied_at', 'created_at')
+                            ->first();
+        }
 
         return response()->json(['rating' => $rating]);
     }

@@ -14,8 +14,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import NavbarBeforeLogin from "./NavbarBeforeLogin";
 import Footer from "./Footer";
+import formImg from "@/assets/Form.png";
+import trackImg from "@/assets/Track.png";
+import feedbackImg from "@/assets/Feedback.png";
 
 export default function LandingPage() {
     const [stats, setStats] = useState({
@@ -223,7 +225,7 @@ export default function LandingPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
                     <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition p-6">
                         <img
-                            src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80"
+                            src={formImg}
                             alt="Pelaporan Mudah"
                             className="rounded-lg mb-6 h-48 w-full object-cover"
                         />
@@ -240,7 +242,7 @@ export default function LandingPage() {
                     </div>
                     <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition p-6">
                         <img
-                            src="https://images.unsplash.com/photo-1527443224154-9f3c2c2f3e29?auto=format&fit=crop&w=1200&q=80"
+                            src={trackImg}
                             alt="Tracking Real-time"
                             className="rounded-lg mb-6 h-48 w-full object-cover"
                         />
@@ -257,7 +259,7 @@ export default function LandingPage() {
                     </div>
                     <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition p-6">
                         <img
-                            src="https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=1200&q=80"
+                            src={feedbackImg}
                             alt="Sistem Feedback"
                             className="rounded-lg mb-6 h-48 w-full object-cover"
                         />
