@@ -91,7 +91,7 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $user->id,
             'phone' => 'nullable|string|max:15',
-            'profile_photo_url' => 'nullable|url', // ✅ Terima URL Cloudinary
+            'profile_photo_url' => 'nullable|url', // Terima URL Cloudinary
         ]);
 
         if ($validator->fails()) {
@@ -105,7 +105,7 @@ class AuthController extends Controller
         $user->email = $request->email;
         $user->phone = $request->phone;
 
-        // ✅ Simpan URL Cloudinary ke kolom profile_photo_path
+        // Simpan URL Cloudinary ke kolom profile_photo_path
         if ($request->filled('profile_photo_url')) {
             $user->profile_photo_path = $request->profile_photo_url;
         }

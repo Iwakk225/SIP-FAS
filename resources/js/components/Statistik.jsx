@@ -11,6 +11,7 @@ export default function Statistik() {
 
   const API_BASE_URL = "http://localhost:8000/api";
 
+  //fucntion fecth statistik
   const fetchStatistik = async (selectedPeriode = "") => {
     try {
       setLoading(true);

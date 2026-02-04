@@ -84,9 +84,11 @@ const LaporPage = () => {
     const [geocodeError, setGeocodeError] = useState(null);
     const [isGeocoding, setIsGeocoding] = useState(false);
     const [isGettingLocation, setIsGettingLocation] = useState(false);
+    const [isEditingPelapor, setIsEditingPelapor] = useState(false);
+    const [backupPelaporData, setBackupPelaporData] = useState({});
 
     // Menggunakan isLoggedIn DARI CONTEXT
-    const { isLoggedIn, user } = useAuth();
+    const { isLoggedIn, user, getToken, performLogout } = useAuth();
 
     const fileInputRef = useRef(null);
     const videoRef = useRef(null);
@@ -181,6 +183,32 @@ const LaporPage = () => {
             ...prev,
             [name]: value,
         }));
+    };
+
+    // Mulai edit informasi pelapor
+    const startEditPelapor = () => {
+        setBackupPelaporData({
+            pelapor_nama: formData.pelapor_nama,
+            pelapor_telepon: formData.pelapor_telepon,
+        });
+        setIsEditingPelapor(true);
+    };
+
+    // Simpan perubahan informasi pelapor
+    const savePelaporData = () => {
+        setIsEditingPelapor(false);
+        setBackupPelaporData({});
+    };
+
+    // Batal edit informasi pelapor
+    const cancelEditPelapor = () => {
+        setFormData((prev) => ({
+            ...prev,
+            pelapor_nama: backupPelaporData.pelapor_nama,
+            pelapor_telepon: backupPelaporData.pelapor_telepon,
+        }));
+        setIsEditingPelapor(false);
+        setBackupPelaporData({});
     };
 
     // Handle drag and drop events
@@ -539,6 +567,14 @@ const LaporPage = () => {
             return;
         }
 
+        // Verifikasi token masih valid sebelum submit
+        const currentToken = getToken();
+        if (!currentToken) {
+            alert("Sesi login telah berakhir. Silakan login kembali.");
+            performLogout();
+            return;
+        }
+
         // Validasi form
         if (
             !formData.judul ||
@@ -712,17 +748,57 @@ const LaporPage = () => {
                         {/* Informasi Pelapor */}
                         {isLoggedIn && (
                             <div className="border-b pb-4">
-                                <h3 className="text-lg font-medium text-gray-900 mb-3">
-                                Informasi Pelapor
-                                </h3>
+                                <div className="flex justify-between items-center mb-3">
+                                    <h3 className="text-lg font-medium text-gray-900">
+                                    Informasi Pelapor
+                                    </h3>
+                                    {!isEditingPelapor ? (
+                                        <Button
+                                            type="button"
+                                            onClick={startEditPelapor}
+                                            className="bg-gray-600 hover:bg-gray-700 text-white text-sm py-1 px-3 cursor-pointer"
+                                        >
+                                            Edit
+                                        </Button>
+                                    ) : (
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                onClick={cancelEditPelapor}
+                                                variant="outline"
+                                                className="text-sm py-1 px-3 cursor-pointer"
+                                            >
+                                                Batal
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                onClick={savePelaporData}
+                                                className="bg-green-600 hover:bg-green-700 text-white text-sm py-1 px-3 cursor-pointer"
+                                            >
+                                                Simpan
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Nama Pelapor
                                     </label>
-                                    <div className="p-2 bg-gray-100 rounded border border-gray-300 text-gray-800">
-                                    {user?.name || "-"}
-                                    </div>
+                                    {isEditingPelapor ? (
+                                        <input
+                                            type="text"
+                                            name="pelapor_nama"
+                                            value={formData.pelapor_nama || ""}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            placeholder="Masukkan nama pelapor"
+                                        />
+                                    ) : (
+                                        <div className="p-2 bg-gray-100 rounded border border-gray-300 text-gray-800">
+                                        {formData.pelapor_nama || "-"}
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -736,9 +812,20 @@ const LaporPage = () => {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                     Nomor Telepon
                                     </label>
-                                    <div className="p-2 bg-gray-100 rounded border border-gray-300 text-gray-800">
-                                    {user?.phone || "-"}
-                                    </div>
+                                    {isEditingPelapor ? (
+                                        <input
+                                            type="tel"
+                                            name="pelapor_telepon"
+                                            value={formData.pelapor_telepon || ""}
+                                            onChange={handleInputChange}
+                                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            placeholder="Masukkan nomor telepon"
+                                        />
+                                    ) : (
+                                        <div className="p-2 bg-gray-100 rounded border border-gray-300 text-gray-800">
+                                        {formData.pelapor_telepon || "-"}
+                                        </div>
+                                    )}
                                 </div>
                                 </div>
                             </div>

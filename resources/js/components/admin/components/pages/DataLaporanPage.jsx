@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Search, Calendar } from "lucide-react";
 import DetailLaporanModal from "../modals/DetailLaporanModal";
 
 export default function DataLaporanPage({ 
@@ -10,10 +10,12 @@ export default function DataLaporanPage({
 }) {
     const [selectedLaporan, setSelectedLaporan] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
-    const [statusFilter, setStatusFilter] = useState("Semua Status"); // <-- tambah state filter
+    const [statusFilter, setStatusFilter] = useState("Semua Status");
+    const [searchTerm, setSearchTerm] = useState(""); // <-- Tambah state search
+    const [tanggalFilter, setTanggalFilter] = useState(""); // <-- Tambah state filter tanggal
     const [filteredData, setFilteredData] = useState([]); // <-- data hasil filter
 
-    // Efek untuk memfilter data saat laporanData atau statusFilter berubah
+    // Efek untuk memfilter data saat laporanData, statusFilter, searchTerm atau tanggalFilter berubah
     useEffect(() => {
         if (!Array.isArray(laporanData)) {
             setFilteredData([]);
@@ -22,11 +24,11 @@ export default function DataLaporanPage({
 
         let result = [...laporanData];
 
+        // Filter berdasarkan status
         if (statusFilter !== "Semua Status") {
             const filterValue = statusFilter.toLowerCase();
             result = result.filter((laporan) => {
                 const status = (laporan.status || "").toLowerCase().replace(/\s+/g, "_");
-                // Normalisasi status ke bentuk konsisten
                 if (filterValue === "validasi") return status === "validasi" || status === "pending";
                 if (filterValue === "tervalidasi") return status === "tervalidasi" || status === "validated";
                 if (filterValue === "dalam proses") return ["dalam_proses", "dalam proses", "in_progress"].includes(status);
@@ -36,8 +38,23 @@ export default function DataLaporanPage({
             });
         }
 
+        // Filter berdasarkan judul
+        if (searchTerm) {
+            result = result.filter((laporan) =>
+                laporan.judul.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+        }
+
+        // Filter berdasarkan tanggal
+        if (tanggalFilter) {
+            result = result.filter((laporan) => {
+                const laporanDate = new Date(laporan.created_at).toISOString().split('T')[0];
+                return laporanDate === tanggalFilter;
+            });
+        }
+
         setFilteredData(result);
-    }, [laporanData, statusFilter]);
+    }, [laporanData, statusFilter, searchTerm, tanggalFilter]);
 
     const getStatusColor = (status) => {
         const statusLower = status?.toLowerCase();
@@ -73,7 +90,7 @@ export default function DataLaporanPage({
                     <h1 className="text-2xl font-bold text-gray-900">Data Laporan</h1>
                     <p className="text-gray-600">Kelola semua laporan fasilitas umum dari database</p>
                 </div>
-                <div className="flex space-x-2 mt-4 md:mt-0">
+                <div className="flex flex-wrap gap-2 mt-4 md:mt-0">
                     <button
                         onClick={fetchLaporanData}
                         disabled={isLoading}
@@ -97,6 +114,31 @@ export default function DataLaporanPage({
                 </div>
             </div>
 
+            {/* Baris input search dan filter tanggal */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Cari judul laporan..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                    </div>
+                    <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                            type="date"
+                            value={tanggalFilter}
+                            onChange={(e) => setTanggalFilter(e.target.value)}
+                            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                    </div>
+                </div>
+            </div>
+
             {isLoading ? (
                 <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
                     <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-4" />
@@ -117,7 +159,7 @@ export default function DataLaporanPage({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {filteredData.length > 0 ? ( // <-- GUNAKAN filteredData di sini
+                                {filteredData.length > 0 ? (
                                     filteredData.map((laporan, index) => (
                                         <tr key={laporan.id} className="hover:bg-gray-50">
                                             <td className="px-6 py-4 text-sm text-gray-900">{index + 1}</td>
@@ -129,7 +171,7 @@ export default function DataLaporanPage({
                                             </td>
                                             <td className="px-6 py-4 text-sm text-gray-900">{laporan.lokasi}</td>
                                             <td className="px-6 py-4 text-sm text-gray-500">
-                                                {laporan.tanggal || laporan.created_at?.split("T")[0]}
+                                                {new Date(laporan.created_at).toLocaleDateString()}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(laporan.status)}`}>
@@ -149,9 +191,9 @@ export default function DataLaporanPage({
                                 ) : (
                                     <tr>
                                         <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                                            {statusFilter === "Semua Status" 
-                                                ? "Belum ada laporan yang masuk" 
-                                                : "Tidak ada laporan dengan status tersebut"}
+                                            {filteredData.length === 0 && (searchTerm || tanggalFilter || statusFilter !== "Semua Status")
+                                                ? "Tidak ditemukan laporan dengan kriteria yang dipilih."
+                                                : "Belum ada laporan yang masuk"}
                                         </td>
                                     </tr>
                                 )}

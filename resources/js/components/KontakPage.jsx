@@ -36,7 +36,7 @@ export default function KontakPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Simple validation
+    // validasi sederhana
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = "Nama lengkap wajib diisi";
     if (!formData.email.trim()) newErrors.email = "Email wajib diisi";

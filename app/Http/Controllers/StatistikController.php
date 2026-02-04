@@ -234,6 +234,7 @@ private function detectByPattern($locationText)
     return 'Lokasi Lain';
 }
 
+// pemisahan wilayah berdasarkan koordinat
 private function getWilayahFromCoordinates($lat, $lng)
 {
     // Batas koordinat Surabaya yang lebih akurat

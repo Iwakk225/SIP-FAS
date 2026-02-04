@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log; // ✅ TAMBAH INI
+use Illuminate\Support\Facades\Log; 
 
 class GeocodeController extends Controller
 {
@@ -73,7 +73,7 @@ class GeocodeController extends Controller
             return response()->json(['error' => 'Failed to fetch location'], 500);
             
         } catch (\Exception $e) {
-            Log::error('Geocode error: ' . $e->getMessage()); // ✅ PERBAIKAN: Log::error()
+            Log::error('Geocode error: ' . $e->getMessage()); 
             return response()->json([
                 'error' => 'Service temporarily unavailable',
                 'message' => $e->getMessage()
@@ -123,7 +123,7 @@ class GeocodeController extends Controller
             return response()->json(['error' => 'Failed to reverse geocode'], 500);
             
         } catch (\Exception $e) {
-            Log::error('Reverse geocode error: ' . $e->getMessage()); // ✅ PERBAIKAN: Log::error()
+            Log::error('Reverse geocode error: ' . $e->getMessage()); 
             return response()->json([
                 'error' => 'Service temporarily unavailable'
             ], 500);

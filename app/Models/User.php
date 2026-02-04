@@ -22,6 +22,7 @@ class User extends Authenticatable
         'status', 
         'address',
         'profile_photo_path',
+        'email_verified_at',
     ];
 
     protected $hidden = [

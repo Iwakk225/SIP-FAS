@@ -83,7 +83,9 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const validateToken = async () => {
-    const token = localStorage.getItem('auth_token');
+    // Menggunakan getToken() untuk mendapatkan token dari storage 
+    // berdasarkan setting rememberMe, bukan hardcoded localStorage
+    const token = getToken();
     if (!token) return;
 
     try {
@@ -127,6 +129,9 @@ export const AuthProvider = ({ children }) => {
       try {
         setUser(JSON.parse(userData));
         setIsLoggedIn(true);
+        // Mengatur ulang header Authorization di axios setelah menemukan token di localStorage
+        // untuk memastikan semua request selanjutnya membawa token autentikasi
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       } catch (error) {
         console.error('Error parsing user data:', error);
         performLogout();
@@ -137,6 +142,9 @@ export const AuthProvider = ({ children }) => {
         const sessionUser = sessionStorage.getItem('user');
         setUser(JSON.parse(sessionUser));
         setIsLoggedIn(true);
+        // Mengatur ulang header Authorization di axios setelah menemukan token di sessionStorage
+        // untuk memastikan semua request selanjutnya membawa token autentikasi
+        axios.defaults.headers.common['Authorization'] = `Bearer ${sessionToken}`;
       } catch (error) {
         console.error('Error parsing session data:', error);
         performLogout();
@@ -208,11 +216,10 @@ export const AuthProvider = ({ children }) => {
     setUser(updatedUserData);
   };
 
-  // ✅ Sertakan updateUser di context
   const value = {
     isLoggedIn: !!user,
     user,
-    updateUser, // ✅ sekarang sudah didefinisikan
+    updateUser, 
     login,
     logout, 
     performLogout,

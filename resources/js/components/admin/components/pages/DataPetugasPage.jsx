@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, UserCheck, UserX, X, AlertTriangle, MapPin, User, Check } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, UserX, X, AlertTriangle, MapPin, User, Check, Search } from "lucide-react";
 import PetugasModal from "../modals/PetugasModal";
 import axios from "axios";
 
@@ -20,6 +20,8 @@ export default function DataPetugasPage({ showNotification }) {
     const [selectedLaporanId, setSelectedLaporanId] = useState(null);
     
     const [petugasData, setPetugasData] = useState([]);
+    const [filteredPetugasData, setFilteredPetugasData] = useState([]); // <-- Data hasil filter
+    const [searchTerm, setSearchTerm] = useState(""); // <-- State search
     const [formPetugas, setFormPetugas] = useState({
         nama: "",
         alamat: "",
@@ -230,6 +232,14 @@ const fetchPetugasData = async () => {
         }
     };
 
+    // Efek untuk memfilter data petugas
+    useEffect(() => {
+        const result = petugasData.filter(petugas => 
+            petugas.nama.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        setFilteredPetugasData(result);
+    }, [petugasData, searchTerm]); // Update filter saat data petugas atau search term berubah
+
     useEffect(() => {
         fetchPetugasData();
         fetchLaporanData();
@@ -329,7 +339,7 @@ const fetchPetugasData = async () => {
 
             if (response.data.success) {
                 showNotification(`Petugas ${selectedPetugas.nama} berhasil ditugaskan ke laporan`, "success");
-                fetchPetugasData();
+                fetchPetugasData(); // Refresh data untuk update status penugasan
                 fetchLaporanData();
                 setShowLaporanModal(false);
                 setSelectedPetugas(null);
@@ -360,7 +370,7 @@ const fetchPetugasData = async () => {
 
             if (response.data.success) {
                 showNotification(`Petugas ${petugas.nama} berhasil dilepas dari laporan`, "success");
-                fetchPetugasData();
+                fetchPetugasData(); // Refresh data
                 fetchLaporanData();
             }
         } catch (error) {
@@ -381,7 +391,7 @@ const fetchPetugasData = async () => {
 
             if (response.data.success) {
                 showNotification("Petugas berhasil dihapus", "success");
-                fetchPetugasData();
+                fetchPetugasData(); // Refresh data
             }
         } catch (error) {
             console.error("Error deleting petugas:", error);
@@ -409,7 +419,7 @@ const fetchPetugasData = async () => {
                 );
                 setShowPetugasModal(false);
                 resetFormPetugas();
-                fetchPetugasData();
+                fetchPetugasData(); // Refresh data
             }
         } catch (error) {
             console.error("Error submitting petugas:", error);
@@ -460,6 +470,20 @@ const fetchPetugasData = async () => {
                 </button>
             </div>
 
+            {/* Baris input search nama petugas */}
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                        type="text"
+                        placeholder="Cari nama petugas..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                </div>
+            </div>
+
             <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
@@ -473,7 +497,7 @@ const fetchPetugasData = async () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {petugasData.map((petugas) => {
+                            {filteredPetugasData.map((petugas) => { // <-- GUNAKAN filteredPetugasData
                                 const statusGabungan = getStatusGabungan(petugas);
                                 const dalamTugas = isPetugasDalamTugas(petugas);
                                 
@@ -539,6 +563,13 @@ const fetchPetugasData = async () => {
                     </table>
                 </div>
             </div>
+
+            {/* Tampilkan pesan jika tidak ada hasil pencarian */}
+            {filteredPetugasData.length === 0 && searchTerm && (
+                <div className="text-center py-8 bg-white rounded-lg border border-gray-200">
+                    <p className="text-gray-500">Tidak ditemukan petugas dengan nama "{searchTerm}"</p>
+                </div>
+            )}
 
             {/* Modal Konfirmasi (untuk Lepaskan dan Hapus) */}
             {showConfirmModal && (
