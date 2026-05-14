@@ -20,7 +20,7 @@ export default function NavbarBeforeLogin() {
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
         {/* Logo */}
         <div className="flex items-center space-x-2">
-          <div className="bg-[#FDBD59] p-2 rounded-lg">
+          <div className="bg-[#FDBD59] p-2 rounded-lg shadow-sm">
             <Building2 className="w-6 h-6 text-[#1A1A1A]" />
           </div>
           <span className="font-bold text-lg text-[#1A1A1A]">SIP-FAS</span>
@@ -34,7 +34,7 @@ export default function NavbarBeforeLogin() {
               to={link.path}
               className={`text-sm font-medium transition-colors ${
                 location.pathname === link.path
-                  ? "text-[#FDBD59]"
+                  ? "text-[#FDBD59] drop-shadow-sm"
                   : "text-gray-700 hover:text-[#FDBD59]"
               }`}
             >
@@ -46,7 +46,7 @@ export default function NavbarBeforeLogin() {
         {/* Tombol Login desktop */}
         <div className="hidden md:block">
           <Link to="/LoginPage">
-            <Button className="bg-[#FDBD59] text-black hover:bg-[#fcae3b] px-10 py-4 rounded-md font-semibold cursor-pointer">
+            <Button className="bg-[#FDBD59] text-black hover:bg-[#fcae3b] px-10 py-4 rounded-md font-semibold cursor-pointer shadow-md hover:shadow-lg transition-all">
               Login
             </Button>
           </Link>
@@ -54,7 +54,7 @@ export default function NavbarBeforeLogin() {
 
         {/* Tombol menu mobile */}
         <div className="md:hidden flex items-center">
-          <button onClick={() => setIsMenuOpen(!isMenuOpen)}>
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 bg-gray-100 rounded-lg">
             {isMenuOpen ? (
               <X className="w-6 h-6 text-gray-800" />
             ) : (
@@ -66,7 +66,7 @@ export default function NavbarBeforeLogin() {
 
       {/* Menu dropdown mobile */}
       {isMenuOpen && (
-        <div className="md:hidden bg-white shadow-md">
+        <div className="md:hidden bg-white shadow-md border-t border-gray-100">
           <div className="flex flex-col items-start px-6 py-4 space-y-3">
             {navLinks.map((link) => (
               <Link

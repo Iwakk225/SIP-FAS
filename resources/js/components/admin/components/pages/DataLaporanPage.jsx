@@ -58,13 +58,13 @@ export default function DataLaporanPage({
 
     const getStatusColor = (status) => {
         const statusLower = status?.toLowerCase();
-        if (statusLower === "ditolak" || statusLower === "rejected") return "bg-red-100 text-red-800";
-        if (statusLower === "validasi" || statusLower === "pending") return "bg-yellow-100 text-yellow-800";
-        if (statusLower === "tervalidasi" || statusLower === "validated") return "bg-green-100 text-green-800";
+        if (statusLower === "ditolak" || statusLower === "rejected") return "bg-rose-100 text-rose-700 border border-rose-200";
+        if (statusLower === "validasi" || statusLower === "pending") return "bg-amber-100 text-amber-700 border border-amber-200";
+        if (statusLower === "tervalidasi" || statusLower === "validated") return "bg-emerald-100 text-emerald-700 border border-emerald-200";
         if (statusLower === "dalam_proses" || statusLower === "dalam proses" || statusLower === "in_progress") 
-            return "bg-blue-100 text-blue-800";
-        if (statusLower === "selesai" || statusLower === "completed") return "bg-gray-100 text-gray-800";
-        return "bg-gray-100 text-gray-800";
+            return "bg-indigo-100 text-indigo-700 border border-indigo-200";
+        if (statusLower === "selesai" || statusLower === "completed") return "bg-slate-100 text-slate-700 border border-slate-200";
+        return "bg-slate-100 text-slate-700 border border-slate-200";
     };
 
     const getStatusText = (status) => {
@@ -94,7 +94,7 @@ export default function DataLaporanPage({
                     <button
                         onClick={fetchLaporanData}
                         disabled={isLoading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium cursor-pointer transition-colors disabled:opacity-50 flex items-center space-x-2"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium cursor-pointer transition-colors disabled:opacity-50 flex items-center space-x-2 shadow-sm"
                     >
                         <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
                         <span>Refresh</span>
@@ -102,7 +102,7 @@ export default function DataLaporanPage({
                     <select 
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-800 font-medium bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm cursor-pointer"
                     >
                         <option>Semua Status</option>
                         <option>Validasi</option>
@@ -115,25 +115,25 @@ export default function DataLaporanPage({
             </div>
 
             {/* Baris input search dan filter tanggal */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
                         <input
                             type="text"
                             placeholder="Cari judul laporan..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="pl-11 pr-4 py-2.5 w-full border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#FDBD59] focus:border-[#FDBD59] transition-all bg-white text-sm text-slate-800 placeholder-slate-400 font-medium outline-none"
                         />
                     </div>
                     <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-500 w-4 h-4" />
                         <input
                             type="date"
                             value={tanggalFilter}
                             onChange={(e) => setTanggalFilter(e.target.value)}
-                            className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="pl-11 pr-4 py-2.5 w-full border border-slate-300 rounded-xl focus:ring-2 focus:ring-[#FDBD59] focus:border-[#FDBD59] transition-all bg-white text-sm text-slate-800 font-medium outline-none cursor-pointer"
                         />
                     </div>
                 </div>
@@ -145,43 +145,43 @@ export default function DataLaporanPage({
                     <p className="text-gray-600">Memuat data laporan dari database...</p>
                 </div>
             ) : (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NO</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">JUDUL LAPORAN</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">LOKASI</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">WAKTU</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">STATUS</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">AKSI</th>
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-100 border-b border-slate-200">
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase tracking-wider">NO</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase tracking-wider">JUDUL LAPORAN</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase tracking-wider">LOKASI</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase tracking-wider">WAKTU</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase tracking-wider">STATUS</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-slate-700 uppercase tracking-wider">AKSI</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-200">
+                            <tbody className="divide-y divide-slate-200">
                                 {filteredData.length > 0 ? (
                                     filteredData.map((laporan, index) => (
-                                        <tr key={laporan.id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 text-sm text-gray-900">{index + 1}</td>
+                                        <tr key={laporan.id} className="hover:bg-slate-50 transition-colors group">
+                                            <td className="px-6 py-4 text-sm font-medium text-slate-800">{index + 1}</td>
                                             <td className="px-6 py-4">
                                                 <div>
-                                                    <div className="text-sm font-medium text-gray-900">{laporan.judul}</div>
-                                                    <div className="text-sm text-gray-500">Pelapor: {laporan.pelapor_nama}</div>
+                                                    <div className="text-sm font-bold text-slate-900 mb-0.5">{laporan.judul}</div>
+                                                    <div className="text-xs font-medium text-slate-600">Pelapor: <span className="font-semibold text-slate-800">{laporan.pelapor_nama}</span></div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-sm text-gray-900">{laporan.lokasi}</td>
-                                            <td className="px-6 py-4 text-sm text-gray-500">
-                                                {new Date(laporan.created_at).toLocaleDateString()}
+                                            <td className="px-6 py-4 text-sm font-medium text-slate-800">{laporan.lokasi}</td>
+                                            <td className="px-6 py-4 text-sm font-medium text-slate-700">
+                                                {new Date(laporan.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(laporan.status)}`}>
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${getStatusColor(laporan.status)}`}>
                                                     {getStatusText(laporan.status)}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <button
                                                     onClick={() => handleDetailClick(laporan)}
-                                                    className="text-blue-600 hover:text-blue-900 text-sm font-medium cursor-pointer"
+                                                    className="bg-indigo-600 text-white hover:bg-indigo-700 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer shadow-sm shadow-indigo-600/20"
                                                 >
                                                     Detail
                                                 </button>

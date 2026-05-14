@@ -22,6 +22,9 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import DetailLaporanModal from "../components/modals/DetailLaporanModal";
 import SimpleReportModal from "../components/modals/SimpleReportModal";
+import { LogIn, UserPlus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const StatusPage = () => {
   const [laporanData, setLaporanData] = useState([]);
@@ -84,7 +87,7 @@ const StatusPage = () => {
   // Fetch data laporan user
   const fetchLaporanUser = async () => {
     if (!user) {
-      navigate('/LoginPage');
+      setIsLoading(false);
       return;
     }
     setIsLoading(true);
@@ -108,7 +111,6 @@ const StatusPage = () => {
       if (error.response?.status === 401) {
         localStorage.removeItem('auth_token');
         sessionStorage.removeItem('auth_token');
-        navigate('/LoginPage');
       }
       setError("Gagal memuat data laporan. Silakan coba lagi.");
       setLaporanData([]);
@@ -234,7 +236,40 @@ const StatusPage = () => {
           </div>
         </div>
 
+        {/* Alert untuk Guest */}
+        {!user && (
+          <Alert className="bg-amber-50 border-amber-200 mb-6">
+            <AlertCircle className="w-4 h-4 text-amber-600" />
+            <AlertDescription className="text-sm text-amber-800 ml-2">
+                <p className="font-medium">
+                    ⚠️ Anda perlu login untuk melihat status laporan
+                </p>
+                <p className="text-xs mt-1">
+                    Silakan login atau daftar akun terlebih dahulu untuk memantau progress laporan Anda.
+                </p>
+                <div className="flex gap-2 mt-3">
+                    <Link to="/LoginPage">
+                        <Button className="bg-amber-500 hover:bg-amber-600 text-white text-xs py-1 h-auto cursor-pointer">
+                            <LogIn className="w-3 h-3 mr-1" />
+                            Login
+                        </Button>
+                    </Link>
+                    <Link to="/SignUpPage">
+                        <Button
+                            variant="outline" 
+                            className="text-xs py-1 h-auto cursor-pointer"
+                        >
+                            <UserPlus className="w-3 h-3 mr-1" />
+                            Daftar
+                        </Button>
+                    </Link>
+                </div>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Filter & Search */}
+        {user && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
@@ -277,6 +312,7 @@ const StatusPage = () => {
             </div>
           </div>
         </div>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -307,7 +343,7 @@ const StatusPage = () => {
         )}
 
         {/* Laporan List */}
-        {!isLoading && !error && (
+        {user && !isLoading && !error && (
           <div className="space-y-4">
             {filteredData.length > 0 ? (
               filteredData.map((laporan) => (

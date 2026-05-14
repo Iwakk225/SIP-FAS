@@ -310,8 +310,8 @@ export default function DataUserPage({ showNotification }) {
 
     // Get status badge color
     const getStatusColor = (status) => {
-        if (status === "nonaktif") return "bg-red-100 text-red-800";
-        return "bg-green-100 text-green-800";
+        if (status === "nonaktif") return "bg-rose-100 text-rose-700 border border-rose-200";
+        return "bg-emerald-100 text-emerald-700 border border-emerald-200";
     };
 
     // Get status text
@@ -346,17 +346,17 @@ export default function DataUserPage({ showNotification }) {
             </div>
 
             {/* Filter dan Search */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Search */}
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <div className="relative md:col-span-2">
+                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                         <input
                             type="text"
                             placeholder="Cari nama, email, atau telepon..."
                             value={searchTerm}
                             onChange={handleSearch}
-                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full pl-11 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#FDBD59] focus:border-[#FDBD59] transition-all bg-slate-50 focus:bg-white text-sm"
                         />
                     </div>
 
@@ -371,50 +371,50 @@ export default function DataUserPage({ showNotification }) {
             </div>
 
             {/* Tabel User */}
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NAMA</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">EMAIL</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">TELEPON</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">STATUS</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">DIBUAT</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">AKSI</th>
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-100">
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">NAMA</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">EMAIL</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">TELEPON</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">STATUS</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">DIBUAT</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">AKSI</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody className="divide-y divide-slate-100">
                             {filteredUsers.length > 0 ? (
                                 filteredUsers.map((user) => (
-                                    <tr key={user.id} className="hover:bg-gray-50">
+                                    <tr key={user.id} className="hover:bg-slate-50/80 transition-colors group">
                                         <td className="px-6 py-4">
-                                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                                            <div className="text-sm font-bold text-slate-800">{user.name}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">{user.email}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">
+                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">{user.email}</td>
+                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">
                                             {user.phone || "-"}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(user.status)}`}>
+                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${getStatusColor(user.status)}`}>
                                                 {getStatusText(user)}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                        <td className="px-6 py-4 text-sm font-medium text-slate-500">
                                             {formatDate(user.created_at)}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex space-x-2">
                                                 <button
                                                     onClick={() => handleViewUser(user)}
-                                                    className="text-blue-600 hover:text-blue-900 cursor-pointer"
+                                                    className="text-indigo-600 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 p-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer opacity-80 group-hover:opacity-100"
                                                     title="Lihat detail"
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleEditUser(user)}
-                                                    className="text-green-600 hover:text-green-900 cursor-pointer"
+                                                    className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer opacity-80 group-hover:opacity-100"
                                                     title="Edit user"
                                                 >
                                                     <Edit className="w-4 h-4" />
@@ -422,15 +422,15 @@ export default function DataUserPage({ showNotification }) {
                                                 <button
                                                     onClick={() => handleToggleStatus(user)}
                                                     className={user.status === "aktif" 
-                                                        ? "text-yellow-600 hover:text-yellow-900 cursor-pointer" 
-                                                        : "text-green-600 hover:text-green-900 cursor-pointer"}
+                                                        ? "text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 p-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer opacity-80 group-hover:opacity-100" 
+                                                        : "text-emerald-600 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 p-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer opacity-80 group-hover:opacity-100"}
                                                     title={user.status === "aktif" ? "Nonaktifkan" : "Aktifkan"}
                                                 >
                                                     {user.status === "aktif" ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteUser(user)}
-                                                    className="text-red-600 hover:text-red-900 cursor-pointer"
+                                                    className="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 p-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer opacity-80 group-hover:opacity-100"
                                                     title="Hapus user"
                                                 >
                                                     <Trash2 className="w-4 h-4" />

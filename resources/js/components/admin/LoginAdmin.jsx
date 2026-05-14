@@ -50,11 +50,14 @@ export default function LoginAdmin() {
   // };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full grid grid-cols-1 lg:grid-cols-2 bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="max-w-4xl w-full grid grid-cols-1 lg:grid-cols-2 bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 overflow-hidden">
         {/* Left Side - Branding */}
-        <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-8 text-white hidden lg:flex flex-col justify-between">
-          <div>
+        <div className="bg-slate-900 p-8 text-white hidden lg:flex flex-col justify-between relative overflow-hidden">
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-blue-500/20 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 rounded-full bg-indigo-500/20 blur-3xl"></div>
+          
+          <div className="relative z-10">
             <div className="flex items-center space-x-3 mb-8">
               <div className="bg-white p-2 rounded-lg">
                 <Building2 className="w-8 h-8 text-blue-600" />
@@ -86,7 +89,7 @@ export default function LoginAdmin() {
             </div>
           </div>
           
-          <div className="text-blue-200 text-sm">
+          <div className="text-slate-400 text-sm relative z-10">
             <p>© 2024 Dinas PU Kota Surabaya</p>
             <p>Versi 2.1.0</p>
           </div>

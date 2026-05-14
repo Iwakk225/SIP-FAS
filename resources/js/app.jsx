@@ -2,7 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import { AdminAuthProvider, useAdminAuth } from "./contexts/AdminAuthContext"; 
+import { ThemeProvider } from "./contexts/ThemeContext";
+import { AdminAuthProvider, useAdminAuth } from "./contexts/AdminAuthContext";
 import LandingPage from "./components/LandingPage";
 import LoginPage from "./components/LoginPage";
 import SignUpPage from "./components/SignUpPage";
@@ -73,13 +74,15 @@ function AppLayout() {
 function App() {
   return (
     <React.StrictMode>
-      <BrowserRouter>
-        <AuthProvider>
-          <AdminAuthProvider>
-            <AppLayout />
-          </AdminAuthProvider>
-        </AuthProvider>
-      </BrowserRouter>
+      <ThemeProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <AdminAuthProvider>
+              <AppLayout />
+            </AdminAuthProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </ThemeProvider>
     </React.StrictMode>
   );
 }

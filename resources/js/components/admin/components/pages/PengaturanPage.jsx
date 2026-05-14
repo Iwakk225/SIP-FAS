@@ -8,8 +8,8 @@ export default function PengaturanPage() {
                 <p className="text-gray-600">Kelola pengaturan sistem</p>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-gray-600">Fitur pengaturan akan segera tersedia.</p>
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-8 text-center">
+                <p className="text-slate-500 font-medium">Fitur pengaturan akan segera tersedia.</p>
             </div>
         </div>
     );

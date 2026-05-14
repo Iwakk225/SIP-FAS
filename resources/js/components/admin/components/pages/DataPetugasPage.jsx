@@ -104,7 +104,7 @@ const getStatusGabungan = (petugas) => {
     if (petugas.status === "Nonaktif") {
         return {
             text: "Nonaktif",
-            color: "bg-red-100 text-red-800"
+            color: "bg-rose-100 text-rose-700 border border-rose-200"
         };
     }
 
@@ -118,7 +118,7 @@ const getStatusGabungan = (petugas) => {
 
     return {
         text: hasActiveTask ? "Dalam Tugas" : "Tersedia",
-        color: hasActiveTask ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"
+        color: hasActiveTask ? "bg-indigo-100 text-indigo-700 border border-indigo-200" : "bg-emerald-100 text-emerald-700 border border-emerald-200"
     };
 };
 
@@ -471,45 +471,45 @@ const fetchPetugasData = async () => {
             </div>
 
             {/* Baris input search nama petugas */}
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <input
                         type="text"
                         placeholder="Cari nama petugas..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="pl-11 pr-4 py-2.5 w-full border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#FDBD59] focus:border-[#FDBD59] transition-all bg-slate-50 focus:bg-white text-sm"
                     />
                 </div>
             </div>
 
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NAMA</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ALAMAT</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">NOMOR TELEPON</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">STATUS</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">AKSI</th>
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-slate-50/80 border-b border-slate-100">
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">NAMA</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">ALAMAT</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">NOMOR TELEPON</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">STATUS</th>
+                                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">AKSI</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-200">
+                        <tbody className="divide-y divide-slate-100">
                             {filteredPetugasData.map((petugas) => { // <-- GUNAKAN filteredPetugasData
                                 const statusGabungan = getStatusGabungan(petugas);
                                 const dalamTugas = isPetugasDalamTugas(petugas);
                                 
                                 return (
-                                    <tr key={petugas.id} className="hover:bg-gray-50">
+                                    <tr key={petugas.id} className="hover:bg-slate-50/80 transition-colors group">
                                         <td className="px-6 py-4">
-                                            <div className="text-sm font-medium text-gray-900">{petugas.nama}</div>
+                                            <div className="text-sm font-bold text-slate-800">{petugas.nama}</div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">{petugas.alamat}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">{petugas.nomor_telepon}</td>
+                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">{petugas.alamat}</td>
+                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">{petugas.nomor_telepon}</td>
                                         <td className="px-6 py-4">
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusGabungan.color}`}>
+                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${statusGabungan.color}`}>
                                                 {statusGabungan.text}
                                             </span>
                                         </td>
@@ -517,10 +517,10 @@ const fetchPetugasData = async () => {
                                             <div className="flex space-x-2">
                                                 <button
                                                     onClick={() => handleEditPetugas(petugas)}
-                                                    className="text-blue-600 hover:text-blue-900 text-sm font-medium cursor-pointer flex items-center"
+                                                    className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 p-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer opacity-80 group-hover:opacity-100"
+                                                    title="Edit Petugas"
                                                 >
-                                                    <Edit className="w-4 h-4 mr-1" />
-                                                    Edit
+                                                    <Edit className="w-4 h-4" />
                                                 </button>
                                                 
                                                 {petugas.status === "Aktif" && (
@@ -528,20 +528,18 @@ const fetchPetugasData = async () => {
                                                         {!dalamTugas ? (
                                                             <button
                                                                 onClick={() => handleOpenTugaskan(petugas)}
-                                                                className="text-green-600 hover:text-green-900 text-sm font-medium cursor-pointer flex items-center"
+                                                                className="text-emerald-600 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 p-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer opacity-80 group-hover:opacity-100"
                                                                 title="Tugaskan petugas"
                                                             >
-                                                                <UserCheck className="w-4 h-4 mr-1" />
-                                                                Tugaskan
+                                                                <UserCheck className="w-4 h-4" />
                                                             </button>
                                                         ) : (
                                                             <button
                                                                 onClick={() => handleOpenLepaskan(petugas)}
-                                                                className="text-orange-600 hover:text-orange-900 text-sm font-medium cursor-pointer flex items-center"
+                                                                className="text-amber-600 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 p-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer opacity-80 group-hover:opacity-100"
                                                                 title="Lepaskan dari tugas"
                                                             >
-                                                                <UserX className="w-4 h-4 mr-1" />
-                                                                Lepaskan
+                                                                <UserX className="w-4 h-4" />
                                                             </button>
                                                         )}
                                                     </>
@@ -549,10 +547,10 @@ const fetchPetugasData = async () => {
                                                 
                                                 <button
                                                     onClick={() => handleOpenHapus(petugas)}
-                                                    className="text-red-600 hover:text-red-900 text-sm font-medium cursor-pointer flex items-center"
+                                                    className="text-rose-600 hover:text-rose-900 bg-rose-50 hover:bg-rose-100 p-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer opacity-80 group-hover:opacity-100"
+                                                    title="Hapus Petugas"
                                                 >
-                                                    <Trash2 className="w-4 h-4 mr-1" />
-                                                    Hapus
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
                                         </td>

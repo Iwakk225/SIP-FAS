@@ -112,11 +112,9 @@ const LaporPage = () => {
         }
     }, [isLoggedIn, user]);
 
-    // Cek login saat pertama load
+    // Cek login saat pertama load - Dihapus agar tidak auto popup modal
     useEffect(() => {
-        if (!isLoggedIn) {
-            setShowLoginModal(true);
-        }
+        // Hanya mengandalkan inline alert
     }, [isLoggedIn]);
 
     // Auto geser setelah user menginput alamat/lokasi

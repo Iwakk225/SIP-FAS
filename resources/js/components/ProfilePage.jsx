@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { User, Mail, Phone, MapPin, Edit2, Save, X, Camera, LogOut } from "lucide-react";
+import { User, Mail, Phone, MapPin, Edit2, Save, X, Camera, LogOut, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Footer from "./Footer";
 import { Link, useNavigate } from "react-router-dom"; 
@@ -251,10 +251,10 @@ export default function ProfilePage() {
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 py-8 transition-colors duration-300">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+          <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 transition-colors duration-300">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Profil Saya</h1>
@@ -420,7 +420,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Stats Section */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+          <div className="bg-white rounded-2xl shadow-sm p-6 mb-6 transition-colors duration-300">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Statistik Laporan Saya</h2>
             
             {loadingStats ? (
@@ -460,7 +460,7 @@ export default function ProfilePage() {
           )}
 
           {/* Logout Section */}
-          <div className="bg-white rounded-2xl shadow-sm p-6">
+          <div className="bg-white rounded-2xl shadow-sm p-6 transition-colors duration-300">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Keluar Akun</h2>
             <div className="space-y-4">
               <button
