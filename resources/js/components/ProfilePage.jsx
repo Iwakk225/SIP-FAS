@@ -48,7 +48,8 @@ export default function ProfilePage() {
   const [pendingNewEmail, setPendingNewEmail] = useState('');
   const navigate = useNavigate();
   
-  const { user, logout, updateUser } = useAuth();
+  const authContext = useAuth();
+  const { user, logout, updateUser } = authContext;
   
   const API_URL = 'http://localhost:8000/api';
   
@@ -59,10 +60,19 @@ export default function ProfilePage() {
     address: 'Surabaya, Jawa Timur'
   });
 
+  // Helper function untuk mendapatkan token dengan fallback
+  const getAuthToken = () => {
+    if (authContext?.getToken) {
+      return authContext.getToken();
+    }
+    // Fallback ke localStorage atau sessionStorage
+    return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+  };
+
   const fetchUserStats = async () => {
     try {
       setLoadingStats(true);
-      const token = localStorage.getItem('auth_token');
+      const token = getAuthToken();
       const response = await axios.get(`${API_URL}/statistik-user`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -113,7 +123,7 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = getAuthToken();
       const headers = { 'Authorization': `Bearer ${token}` };
 
       let response;
@@ -159,7 +169,7 @@ export default function ProfilePage() {
 
   const handleUpdateEmail = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = getAuthToken();
       const headers = { 'Authorization': `Bearer ${token}` };
 
       const newEmail = formData.email;
@@ -182,7 +192,7 @@ export default function ProfilePage() {
 
   const handleVerifyEmailChange = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = getAuthToken();
       const response = await axios.post(`${API_URL}/profile/verify-email-change`, {
         email: user.email,
         new_email: pendingNewEmail,
@@ -222,7 +232,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = getAuthToken();
       if (token) {
         await axios.post(`${API_URL}/logout`, {}, {
           headers: {

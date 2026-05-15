@@ -11,51 +11,42 @@ export default function AdminSidebar({ activePage, setActivePage, isMobileMenuOp
         { id: "profil", icon: Settings, label: "Profil Admin" },
     ];
 
-    if (!isMobileMenuOpen) {
-        return (
-            <div className="hidden lg:block lg:w-64 flex-shrink-0">
-                <nav className="bg-white rounded-lg border border-gray-200 p-4 sticky top-8">
-                    <div className="space-y-2">
-                        {menuItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => setActivePage(item.id)}
-                                className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                                    activePage === item.id
-                                        ? "bg-slate-900 text-white shadow-md"
-                                        : "text-gray-600 hover:bg-gray-100/80 hover:text-gray-900"
-                                }`}
-                            >
-                                <item.icon className="w-5 h-5" />
-                                <span>{item.label}</span>
-                            </button>
-                        ))}
-                    </div>
-                </nav>
-            </div>
-        );
-    }
+    const renderMenuItems = () => (
+        <div className="space-y-2">
+            {menuItems.map((item) => (
+                <button
+                    key={item.id}
+                    onClick={() => setActivePage(item.id)}
+                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                        activePage === item.id
+                            ? "bg-slate-900 text-white shadow-md"
+                            : "text-gray-600 hover:bg-gray-100/80 hover:text-gray-900"
+                    }`}
+                >
+                    <item.icon className="w-5 h-5" />
+                    <span>{item.label}</span>
+                </button>
+            ))}
+        </div>
+    );
 
     return (
-        <div className="lg:hidden">
-            <nav className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-                <div className="space-y-2">
-                    {menuItems.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => setActivePage(item.id)}
-                            className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
-                                activePage === item.id
-                                    ? "bg-slate-900 text-white shadow-md"
-                                    : "text-gray-600 hover:bg-gray-100/80 hover:text-gray-900"
-                            }`}
-                        >
-                            <item.icon className="w-5 h-5" />
-                            <span>{item.label}</span>
-                        </button>
-                    ))}
+        <>
+            {/* Desktop Sidebar - Always render, visibility controlled by Tailwind */}
+            <div className="hidden lg:block lg:w-64 flex-shrink-0">
+                <nav className="bg-white rounded-lg border border-gray-200 p-4 sticky top-8">
+                    {renderMenuItems()}
+                </nav>
+            </div>
+
+            {/* Mobile Sidebar - Show only when menu is open on mobile */}
+            {isMobileMenuOpen && (
+                <div className="lg:hidden">
+                    <nav className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+                        {renderMenuItems()}
+                    </nav>
                 </div>
-            </nav>
-        </div>
+            )}
+        </>
     );
 }

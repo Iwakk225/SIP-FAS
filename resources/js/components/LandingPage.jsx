@@ -22,9 +22,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Footer from "./Footer";
-import formImg from "@/assets/Form.png";
-import trackImg from "@/assets/Track.png";
-import feedbackImg from "@/assets/Feedback.png";
+import formImg from "@/assets/Form.webp";
+import trackImg from "@/assets/Track.webp";
+import feedbackImg from "@/assets/Feedback.webp";
 
 export default function LandingPage() {
     const [stats, setStats] = useState({
@@ -183,19 +183,20 @@ export default function LandingPage() {
                             efisien.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-5 mt-10">
-                            <button onClick={(e) => handleProtectedNavigation(e, "/LaporPage")} className="w-full sm:w-auto group">
-                                <Button className="bg-gradient-to-r from-[#FDBD59] to-[#FCA311] hover:from-[#FCA311] hover:to-[#E58C00] text-gray-900 font-bold h-16 px-10 rounded-full shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-3 text-lg w-full sm:w-auto cursor-pointer border border-[#FCA311]/50 ring-4 ring-[#FDBD59]/20">
+                            <div className="w-full sm:w-auto group">
+                                <Button onClick={(e) => handleProtectedNavigation(e, "/LaporPage")} className="bg-gradient-to-r from-[#FDBD59] to-[#FCA311] hover:from-[#FCA311] hover:to-[#E58C00] text-gray-900 font-bold h-16 px-10 rounded-full shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-3 text-lg w-full sm:w-auto cursor-pointer border border-[#FCA311]/50 ring-4 ring-[#FDBD59]/20">
                                     <Camera size={24} className="group-hover:scale-110 transition-transform duration-300" /> Laporkan Sekarang
                                 </Button>
-                            </button>
-                            <button onClick={(e) => handleProtectedNavigation(e, "/StatusPage")} className="w-full sm:w-auto group">
+                            </div>
+                            <div className="w-full sm:w-auto group">
                                 <Button
+                                    onClick={(e) => handleProtectedNavigation(e, "/StatusPage")}
                                     variant="outline"
                                     className="border-2 border-gray-800 text-gray-800 bg-white/90 backdrop-blur-xl hover:bg-gray-900 hover:text-white font-bold h-16 px-10 rounded-full shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-3 text-lg w-full sm:w-auto cursor-pointer"
                                 >
                                     <Search size={24} className="group-hover:scale-110 transition-transform duration-300" /> Cek Status Laporan
                                 </Button>
-                            </button>
+                            </div>
                         </div>
                         <div className="flex flex-wrap justify-start gap-6 mt-10 text-gray-700">
                             <div className="flex items-center gap-2">
@@ -397,11 +398,11 @@ export default function LandingPage() {
                             Setiap laporan yang Anda buat membantu menciptakan
                             lingkungan yang lebih baik dan aman untuk kita semua.
                         </p>
-                        <button onClick={(e) => handleProtectedNavigation(e, "/LaporPage")}>
-                            <Button className="bg-gray-900 hover:bg-gray-800 text-white font-medium px-10 py-6 rounded-full shadow-xl hover:shadow-2xl transition-all cursor-pointer text-lg">
+                        <div className="flex justify-center w-full" onClick={(e) => handleProtectedNavigation(e, "/LaporPage")}>
+                            <Button className="bg-gray-900 hover:bg-gray-800 text-white font-medium px-6 sm:px-10 py-6 rounded-full shadow-xl hover:shadow-2xl transition-all cursor-pointer text-base sm:text-lg w-full sm:w-auto">
                                 Mulai Melaporkan Sekarang
                             </Button>
-                        </button>
+                        </div>
                     </div>
                 </div>
             </section>
