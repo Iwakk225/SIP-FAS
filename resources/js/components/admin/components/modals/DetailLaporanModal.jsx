@@ -48,12 +48,6 @@ export default function DetailLaporanModal({
             // Tambahkan timestamp untuk force refresh cache
             const timestamp = forceRefresh ? `&_=${Date.now()}` : "";
 
-            console.log(
-                `📡 Fetching petugas data ${
-                    forceRefresh ? "(FORCE REFRESH)" : ""
-                } for laporan:`,
-                selectedLaporan.id
-            );
 
             const response = await axios.get(
                 `http://localhost:8000/api/admin/petugas/tersedia?laporan_id=${selectedLaporan.id}${timestamp}`,
@@ -67,10 +61,6 @@ export default function DetailLaporanModal({
             );
 
             if (response.data.success) {
-                console.log("✅ Petugas data received:", {
-                    count: response.data.data.length,
-                    petugas: response.data.data.map((p) => p.nama),
-                });
                 setAvailablePetugas(response.data.data);
             } else {
                 console.error("❌ API response not successful:", response.data);
@@ -87,7 +77,6 @@ export default function DetailLaporanModal({
         try {
             const token = localStorage.getItem("admin_token");
 
-            console.log("🔍 Checking petugas for laporan:", selectedLaporan.id);
 
             // 🔥 GUNAKAN ENDPOINT YANG BENAR-BENAR ADA DENGAN PRIORITAS
             const endpoints = [
@@ -98,7 +87,6 @@ export default function DetailLaporanModal({
 
             for (const endpoint of endpoints) {
                 try {
-                    console.log(`🔍 Trying endpoint: ${endpoint}`);
                     response = await axios.get(endpoint, {
                         headers: {
                             Authorization: `Bearer ${token}`,
@@ -107,19 +95,11 @@ export default function DetailLaporanModal({
                         timeout: 3000,
                     });
 
-                    console.log(
-                        "📡 Response status:",
-                        response.status,
-                        "data:",
-                        response.data
-                    );
 
                     if (response.data && response.data.success) {
-                        console.log("✅ Endpoint valid:", endpoint);
                         break;
                     }
                 } catch (err) {
-                    console.log(`❌ Endpoint ${endpoint} failed:`, err.message);
                     continue;
                 }
             }
@@ -130,16 +110,8 @@ export default function DetailLaporanModal({
                 response.data.data.length > 0
             ) {
                 const petugas = response.data.data[0];
-                console.log("✅ Petugas sudah ditugaskan:", {
-                    nama: petugas.nama,
-                    id: petugas.id,
-                    pivot: petugas.pivot,
-                });
                 setPetugasDitugaskan(petugas);
             } else {
-                console.log(
-                    "ℹ️ Tidak ada petugas yang ditugaskan ke laporan ini"
-                );
                 setPetugasDitugaskan(null);
             }
         } catch (error) {
@@ -204,7 +176,6 @@ export default function DetailLaporanModal({
     };
 
     const handleManualRefresh = async () => {
-        console.log('🔄 Manual refresh triggered');
         setIsLoading(true);
         try {
             await Promise.all([
@@ -234,11 +205,6 @@ export default function DetailLaporanModal({
         try {
             const token = localStorage.getItem("admin_token");
 
-            console.log("🔓 Releasing petugas:", {
-                laporan_id: selectedLaporan.id,
-                petugas_id: petugasDitugaskan.id,
-                petugas_nama: petugasDitugaskan.nama,
-            });
 
             const response = await axios.post(
                 "http://localhost:8000/api/admin/petugas/release-laporan",
@@ -263,7 +229,6 @@ export default function DetailLaporanModal({
                     "success"
                 );
 
-                console.log("✅ Petugas released successfully:", response.data);
 
                 // 🔥 RESET STATE SECARA INSTAN TANPA TUNGGU API
                 const releasedPetugas = { ...petugasDitugaskan };
@@ -293,9 +258,6 @@ export default function DetailLaporanModal({
                     });
                 }, 100);
 
-                console.log(
-                    "🔄 State updated instantly: petugas removed from assigned"
-                );
 
                 setTimeout(async () => {
                     await fetchPetugasData(true);
@@ -383,10 +345,6 @@ export default function DetailLaporanModal({
                             });
                         }, 100);
 
-                        console.log(
-                            "🎉 Petugas otomatis dilepas dari state karena laporan",
-                            newStatus
-                        );
                     }
 
                     setTimeout(async () => {
@@ -437,7 +395,6 @@ export default function DetailLaporanModal({
     };
 
     const handleUploadSuccess = (laporanId) => {
-        console.log("✅ Upload berhasil untuk laporan ID:", laporanId);
 
         if (fetchLaporanData) {
             setTimeout(() => {
@@ -448,7 +405,6 @@ export default function DetailLaporanModal({
         setShowUploadModal(false);
 
         if (selectedLaporan.id === laporanId) {
-            console.log("Reloading current laporan data...");
         }
     };
 
@@ -469,40 +425,27 @@ export default function DetailLaporanModal({
 
     const getPetugasTersedia = () => {
         if (availablePetugas.length === 0) {
-            console.log("📭 No petugas available");
             return [];
         }
 
         const filtered = availablePetugas.filter((petugas) => {
             if (petugasDitugaskan && petugas.id === petugasDitugaskan.id) {
-                console.log(`⏭️ Skipping ${petugas.nama} - currently assigned`);
                 return false;
             }
 
             if (petugas.is_tersedia !== undefined) {
                 const result = petugas.is_tersedia === true;
                 if (!result) {
-                    console.log(
-                        `⏭️ Skipping ${petugas.nama} - is_tersedia = false`
-                    );
                 }
                 return result;
             }
 
             const isAktif = petugas.status === "Aktif";
             if (!isAktif) {
-                console.log(
-                    `⏭️ Skipping ${petugas.nama} - status = ${petugas.status}`
-                );
             }
             return isAktif;
         });
 
-        console.log("🎯 Filtered petugas tersedia:", {
-            total: availablePetugas.length,
-            tersedia: filtered.length,
-            filtered_names: filtered.map((p) => p.nama),
-        });
 
         return filtered;
     };
@@ -536,11 +479,6 @@ export default function DetailLaporanModal({
     // 🔥 PERBAIKAN: Pindahkan useEffect setelah semua fungsi didefinisikan
     useEffect(() => {
         if (selectedLaporan) {
-            console.log(
-                "🔔 Modal opened for laporan:",
-                selectedLaporan.id,
-                selectedLaporan.judul
-            );
 
             setFormData({
                 status: selectedLaporan.status || "",
@@ -550,7 +488,6 @@ export default function DetailLaporanModal({
             setRejectionReason(selectedLaporan.alasan_penolakan || "");
 
             const loadData = async () => {
-                console.log("🔄 Loading data for modal...");
                 await fetchPetugasData(true);
                 await checkPetugasLaporan();
                 loadBuktiData();
@@ -559,7 +496,6 @@ export default function DetailLaporanModal({
             loadData();
 
             return () => {
-                console.log("🧹 Cleaning up modal data");
                 setAvailablePetugas([]);
                 setPetugasDitugaskan(null);
                 setRejectionReason("");

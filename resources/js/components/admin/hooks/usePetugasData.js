@@ -14,7 +14,6 @@ export const usePetugasData = () => {
                 },
             });
 
-            console.log("Data petugas:", response.data);
             setPetugasData(response.data.data || response.data);
         } catch (error) {
             console.error("Error fetching petugas data:", error);

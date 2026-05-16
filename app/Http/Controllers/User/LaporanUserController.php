@@ -169,6 +169,7 @@ class LaporanUserController extends Controller
                 ->selectRaw('SUM(CASE WHEN status = "Selesai" THEN 1 ELSE 0 END) as selesai')
                 ->selectRaw('SUM(CASE WHEN status = "Dalam Proses" THEN 1 ELSE 0 END) as dalam_proses')
                 ->selectRaw('SUM(CASE WHEN status = "Validasi" THEN 1 ELSE 0 END) as menunggu')
+                ->selectRaw('SUM(CASE WHEN status = "Tervalidasi" THEN 1 ELSE 0 END) as tervalidasi')
                 ->selectRaw('SUM(CASE WHEN status = "Ditolak" THEN 1 ELSE 0 END) as ditolak')
                 ->first();
 
@@ -179,6 +180,7 @@ class LaporanUserController extends Controller
                     'selesai' => $statistik->selesai ?? 0,
                     'dalam_proses' => $statistik->dalam_proses ?? 0,
                     'menunggu' => $statistik->menunggu ?? 0,
+                    'tervalidasi' => $statistik->tervalidasi ?? 0,
                     'ditolak' => $statistik->ditolak ?? 0
                 ]
             ], 200);

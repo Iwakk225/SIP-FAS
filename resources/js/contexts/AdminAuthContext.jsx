@@ -54,7 +54,6 @@ export function AdminAuthProvider({ children }) {
         });
       }
     } catch (error) {
-      console.log('Logout error:', error);
     } finally {
       localStorage.removeItem('admin_token');
       localStorage.removeItem('admin_user');

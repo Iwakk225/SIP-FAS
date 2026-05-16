@@ -6,8 +6,10 @@ export const useLaporanData = () => {
     const [statsData, setStatsData] = useState({
         total: 0,
         validated: 0,
+        waiting: 0,
         inProgress: 0,
         completed: 0,
+        rejected: 0,
     });
     const [wilayahData, setWilayahData] = useState([
         { name: "Surabaya Barat", laporan: 0 },
@@ -56,8 +58,6 @@ export const useLaporanData = () => {
                 timeout: 10000,
             });
 
-            console.log("API Response:", response.data);
-
             const laporanArray = response.data.data || response.data;
 
             if (!Array.isArray(laporanArray)) {
@@ -65,28 +65,33 @@ export const useLaporanData = () => {
                 return;
             }
 
-            console.log("Data dari database:", laporanArray);
+            const normalizeStatus = (status) =>
+                (status || "").toString().toLowerCase().replace(/[_\s]+/g, " ").trim();
 
             // Update stats data
-            const total = laporanArray.length;
-            const validated = laporanArray.filter(
-                (l) => l.status === "Tervalidasi" || l.status === "tervalidasi"
-            ).length;
-            const inProgress = laporanArray.filter(
-                (l) =>
-                    l.status === "Dalam Proses" ||
-                    l.status === "dalam_proses" ||
-                    l.status === "dalam proses"
-            ).length;
-            const completed = laporanArray.filter(
-                (l) => l.status === "Selesai" || l.status === "selesai"
-            ).length;
+            let total = laporanArray.length;
+            let validated = 0;
+            let waiting = 0;
+            let inProgress = 0;
+            let completed = 0;
+            let rejected = 0;
+
+            laporanArray.forEach((laporan) => {
+                const status = normalizeStatus(laporan.status);
+                if (status === "tervalidasi" || status === "validated") validated++;
+                else if (status === "validasi" || status === "menunggu") waiting++;
+                else if (status === "dalam proses" || status === "in progress" || status === "in_progress") inProgress++;
+                else if (status === "selesai" || status === "completed") completed++;
+                else if (status === "ditolak" || status === "rejected") rejected++;
+            });
 
             setStatsData({
                 total,
                 validated,
+                waiting,
                 inProgress,
                 completed,
+                rejected,
             });
 
             // Update data per wilayah
@@ -177,20 +182,27 @@ export const useLaporanData = () => {
                 const storedLaporan = localStorage.getItem("laporan_data");
                 if (storedLaporan) {
                     const laporanArray = JSON.parse(storedLaporan);
-                    console.log("Menggunakan data dari localStorage:", laporanArray);
+
+                    const normalizeStatus = (status) =>
+                        (status || "").toString().toLowerCase().replace(/[_\s]+/g, " ").trim();
 
                     const total = laporanArray.length;
-                    const validated = laporanArray.filter(
-                        (l) => l.status === "Tervalidasi"
-                    ).length;
-                    const inProgress = laporanArray.filter(
-                        (l) => l.status === "Dalam Proses"
-                    ).length;
-                    const completed = laporanArray.filter(
-                        (l) => l.status === "Selesai"
-                    ).length;
+                    let validated = 0;
+                    let waiting = 0;
+                    let inProgress = 0;
+                    let completed = 0;
+                    let rejected = 0;
 
-                    setStatsData({ total, validated, inProgress, completed });
+                    laporanArray.forEach((laporan) => {
+                        const status = normalizeStatus(laporan.status);
+                        if (status === "tervalidasi" || status === "validated") validated++;
+                        else if (status === "validasi" || status === "menunggu") waiting++;
+                        else if (status === "dalam proses" || status === "in progress" || status === "in_progress") inProgress++;
+                        else if (status === "selesai" || status === "completed") completed++;
+                        else if (status === "ditolak" || status === "rejected") rejected++;
+                    });
+
+                    setStatsData({ total, validated, waiting, inProgress, completed, rejected });
                     setLaporanData(laporanArray);
                 }
             } catch (fallbackError) {

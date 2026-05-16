@@ -34,12 +34,7 @@ const uploadToCloudinary = async (file) => {
     formData.append("upload_preset", "sip-fas");
     formData.append("folder", "laporan-fasilitas"); 
     
-    // DEBUG: Cek apakah preset ada
-    console.log("Upload preset:", "ml_default");
-    
     try {
-        console.log("Uploading file:", file.name, file.size, file.type);
-        
         const response = await fetch(
             `https://api.cloudinary.com/v1_1/${import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dlwfk4gly'}/image/upload`,
             {
@@ -49,7 +44,6 @@ const uploadToCloudinary = async (file) => {
         );
 
         const data = await response.json();
-        console.log("Response data:", data); // Debug response
         
         if (!response.ok) {
             console.error("Cloudinary error:", data);
@@ -58,7 +52,6 @@ const uploadToCloudinary = async (file) => {
             );
         }
 
-        console.log("Upload success:", data.secure_url);
         return data.secure_url;
     } catch (error) {
         console.error("Error uploading to Cloudinary:", error);
@@ -102,7 +95,6 @@ const LaporPage = () => {
 
     useEffect(() => {
         if (isLoggedIn && user) {
-            console.log("User phone dari context:", user.phone);
             setFormData((prev) => ({
                 ...prev,
                 pelapor_nama: user.name || "",
@@ -125,8 +117,6 @@ const LaporPage = () => {
                 setIsGeocoding(true);
                 
                 try {
-                    console.log('Searching location:', formData.lokasi);
-                    
                     const response = await axios.get('/api/geocode/search', {
                         params: {
                             q: `${formData.lokasi} Surabaya`,
@@ -135,8 +125,6 @@ const LaporPage = () => {
                         },
                         timeout: 5000,
                     });
-                    
-                    console.log('Geocode response:', response.data);
                     
                     if (response.data && response.data.length > 0 && !response.data.error) {
                         const { lat, lon } = response.data[0];
@@ -279,8 +267,6 @@ const LaporPage = () => {
                 streamRef.current = null;
             }
 
-            console.log("Memulai kamera...");
-
             // Tampilkan modal terlebih dahulu
             setShowCameraModal(true);
 
@@ -297,17 +283,12 @@ const LaporPage = () => {
             try {
                 stream = await navigator.mediaDevices.getUserMedia(constraints);
             } catch (err) {
-                console.log(
-                    "Constraint pertama gagal, mencoba fallback...",
-                    err
-                );
                 // Fallback ke constraint minimal
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: true,
                 });
             }
 
-            console.log("Stream berhasil didapat:", stream);
 
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
@@ -419,7 +400,6 @@ const LaporPage = () => {
             const videoDevices = devices.filter(
                 (device) => device.kind === "videoinput"
             );
-            console.log("Kamera yang tersedia:", videoDevices);
             return videoDevices;
         } catch (error) {
             console.error("Error enumerating devices:", error);
@@ -441,11 +421,10 @@ const LaporPage = () => {
         const video = videoRef.current;
 
         const handleCanPlay = () => {
-            console.log("Video bisa diputar");
         };
 
         const handleLoadedMetadata = () => {
-            console.log("Metadata video dimuat");
+            // no-op
         };
 
         video.addEventListener("canplay", handleCanPlay);
@@ -608,8 +587,6 @@ const LaporPage = () => {
                 user_id: user?.id || null,
             };
 
-            console.log("Data yang dikirim ke backend:", laporanData); // Debug
-
             const response = await axios.post(
                 "http://localhost:8000/api/laporan",
                 laporanData,
@@ -636,8 +613,7 @@ const LaporPage = () => {
             });
             setPhotos([]);
         } catch (error) {
-            console.error("Full error response:", error.response?.data); // Debug detail
-            console.error("Error details:", error);
+            console.error("Error submitting laporan:", error.message || error);
 
             if (error.response) {
                 // Server responded with error status
@@ -1172,8 +1148,6 @@ const LaporPage = () => {
                                 muted
                                 className="w-full h-64 object-cover"
                                 style={{ transform: "scaleX(-1)" }}
-                                onLoadedData={() => console.log("Video data loaded")}
-                                onCanPlay={() => console.log("Video can play")}
                             />
 
                             {/* Loading indicator */}

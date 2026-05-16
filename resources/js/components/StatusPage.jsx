@@ -167,13 +167,15 @@ const StatusPage = () => {
     fetchLaporanUser();
   };
 
-  // Stats calculation
+  // Stats calculation (case-insensitive, include Tervalidasi)
+  const normalizeStatus = (s) => (s || "").toString().toLowerCase().trim();
   const stats = {
     total: laporanData.length,
-    menunggu: laporanData.filter((l) => l.status === "Validasi").length,
-    dalamProses: laporanData.filter((l) => l.status === "Dalam Proses").length,
-    selesai: laporanData.filter((l) => l.status === "Selesai").length,
-    ditolak: laporanData.filter((l) => l.status === "Ditolak").length,
+    menunggu: laporanData.filter((l) => normalizeStatus(l.status) === "validasi").length,
+    tervalidasi: laporanData.filter((l) => normalizeStatus(l.status) === "tervalidasi").length,
+    dalamProses: laporanData.filter((l) => normalizeStatus(l.status) === "dalam proses").length,
+    selesai: laporanData.filter((l) => normalizeStatus(l.status) === "selesai").length,
+    ditolak: laporanData.filter((l) => normalizeStatus(l.status) === "ditolak").length,
   };
 
   const getStatusText = (status) => {
@@ -212,7 +214,7 @@ const StatusPage = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Laporan Saya</h1>
           <p className="text-gray-600">Pantau progress laporan yang telah Anda kirim</p>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mt-6">
             <div className="bg-blue-50 rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-blue-600">{stats.total}</div>
               <div className="text-sm text-blue-800">Total Laporan</div>
@@ -220,6 +222,10 @@ const StatusPage = () => {
             <div className="bg-yellow-50 rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-yellow-600">{stats.menunggu}</div>
               <div className="text-sm text-yellow-800">Menunggu</div>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-4 text-center">
+              <div className="text-2xl font-bold text-blue-600">{stats.tervalidasi}</div>
+              <div className="text-sm text-blue-800">Tervalidasi</div>
             </div>
             <div className="bg-orange-50 rounded-lg p-4 text-center">
               <div className="text-2xl font-bold text-orange-600">{stats.dalamProses}</div>

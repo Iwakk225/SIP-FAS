@@ -90,6 +90,7 @@ export default function ProfilePage() {
         selesai: 0,
         dalam_proses: 0,
         menunggu: 0,
+        tervalidasi: 0,
         ditolak: 0
       });
     } finally {
@@ -242,7 +243,6 @@ export default function ProfilePage() {
         });
       }
     } catch (error) {
-      console.log('Logout API error:', error);
     } finally {
       logout();
       navigate('/');
@@ -254,6 +254,7 @@ export default function ProfilePage() {
     { label: "Selesai", value: userStats?.selesai ?? 0, color: "bg-green-500" },
     { label: "Dalam Proses", value: userStats?.dalam_proses ?? 0, color: "bg-yellow-500" },
     { label: "Menunggu", value: userStats?.menunggu ?? 0, color: "bg-gray-500" },
+    { label: "Tervalidasi", value: userStats?.tervalidasi ?? 0, color: "bg-blue-300" },
     { label: "Ditolak", value: userStats?.ditolak ?? 0, color: "bg-red-500" }
   ];
 
@@ -439,7 +440,7 @@ export default function ProfilePage() {
                 <p className="text-gray-600 mt-2">Memuat statistik...</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                 {stats.map((stat, index) => (
                   <div key={index} className="text-center p-4 bg-gray-50 rounded-lg">
                     <div className={`w-12 h-12 ${stat.color} rounded-full flex items-center justify-center mx-auto mb-2`}>

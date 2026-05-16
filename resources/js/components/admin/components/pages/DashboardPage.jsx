@@ -36,7 +36,7 @@ export default function DashboardPage({
 
             {!isLoading && (
                 <>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-6">
                         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                             <div className="text-3xl font-extrabold text-slate-800 mb-1">{statsData.total}</div>
                             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Laporan</div>
@@ -52,6 +52,14 @@ export default function DashboardPage({
                         <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                             <div className="text-3xl font-extrabold text-blue-600 mb-1">{statsData.completed}</div>
                             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Selesai</div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-3xl font-extrabold text-gray-700 mb-1">{statsData.waiting}</div>
+                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Menunggu</div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="text-3xl font-extrabold text-red-600 mb-1">{statsData.rejected}</div>
+                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ditolak</div>
                         </div>
                     </div>
 

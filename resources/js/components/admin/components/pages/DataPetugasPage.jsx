@@ -36,37 +36,22 @@ export default function DataPetugasPage({ showNotification }) {
 
     // Cek apakah petugas sedang dalam tugas (dengan logika yang lebih akurat)
 const isPetugasDalamTugas = (petugas) => {
-    console.log('🔍 Checking petugas tugas:', {
-        nama: petugas.nama,
-        status_penugasan: petugas.status_penugasan,
-        sedang_dalam_tugas: petugas.sedang_dalam_tugas,
-        laporan_ditangani: petugas.laporan_ditangani,
-        laporans_count: petugas.laporans?.length || 0
-    });
     
     // 1. Gunakan flag dari backend jika ada
     if (petugas.sedang_dalam_tugas !== undefined) {
-        console.log('✅ Using sedang_dalam_tugas flag:', petugas.sedang_dalam_tugas);
         return petugas.sedang_dalam_tugas;
     }
     
     // 2. Gunakan status_penugasan
     if (petugas.status_penugasan === 'Dalam Tugas') {
-        console.log('✅ Using status_penugasan:', petugas.status_penugasan);
         return true;
     }
     
     // 3. Cek manual dari data laporans
     if (!petugas.laporans || !Array.isArray(petugas.laporans)) {
-        console.log('❌ No laporans data');
         return false;
     }
     
-    console.log('📋 Laporans data:', petugas.laporans.map(l => ({
-        judul: l.judul,
-        status: l.status,
-        pivot: l.pivot
-    })));
     
     const isDalamTugas = petugas.laporans.some(laporan => {
         const pivot = laporan.pivot;
@@ -74,21 +59,15 @@ const isPetugasDalamTugas = (petugas) => {
                pivot.is_active === 1 && 
                ["Dikirim", "Diterima", "Dalam Pengerjaan"].includes(pivot.status_tugas);
         
-        console.log(`📊 Laporan ${laporan.judul}: isActive=${isActive}, pivot=`, pivot);
         return isActive;
     });
     
-    console.log(`🎯 Final result for ${petugas.nama}:`, isDalamTugas);
     return isDalamTugas;
 };
 
     // Get status gabungan untuk badge (status akun + penugasan)
 const getStatusGabungan = (petugas) => {
     // DEBUG
-    console.log("🎯 Petugas:", petugas.nama, 
-                "Status:", petugas.status, 
-                "Status Penugasan:", petugas.status_penugasan,
-                "Laporans:", petugas.laporans?.length || 0);
 
     // 1. Gunakan status_penugasan dari backend jika ada
     if (petugas.status_penugasan) {
@@ -124,16 +103,13 @@ const getStatusGabungan = (petugas) => {
 
     // Get laporan yang sedang ditangani petugas (hanya yang belum selesai)
     const getLaporanDitangani = (petugas) => {
-    console.log('🔍 Getting laporan ditangani for:', petugas.nama);
     
     if (!petugas.laporans || !Array.isArray(petugas.laporans)) {
-        console.log('❌ No laporans array');
         return null;
     }
     
     // Cari laporan aktif dari data backend
     if (petugas.laporan_ditangani) {
-        console.log('✅ Using laporan_ditangani from backend:', petugas.laporan_ditangani);
         return {
             id: petugas.laporan_ditangani.id,
             judul: petugas.laporan_ditangani.judul,
@@ -148,11 +124,6 @@ const getStatusGabungan = (petugas) => {
         const statusTugas = pivot?.status_tugas;
         const statusLaporan = laporan.status;
         
-        console.log('🔍 Checking laporan:', {
-            judul: laporan.judul,
-            status: statusLaporan,
-            pivot: pivot
-        });
         
         // Hanya laporan yang aktif dan belum selesai
         return pivot && 
@@ -163,12 +134,7 @@ const getStatusGabungan = (petugas) => {
     });
     
     if (laporanAktif) {
-        console.log('✅ Found active laporan:', {
-            id: laporanAktif.id,
-            judul: laporanAktif.judul
-        });
     } else {
-        console.log('❌ No active laporan found');
     }
     
     return laporanAktif || null;
@@ -193,17 +159,6 @@ const fetchPetugasData = async () => {
         if (response.data.success) {
             // DEBUG: Tampilkan detail setiap petugas
             response.data.data.forEach((petugas, index) => {
-                console.log(`📊 Petugas ${index + 1}:`, {
-                    nama: petugas.nama,
-                    status_akun: petugas.status,
-                    status_penugasan: petugas.status_penugasan,
-                    laporans_count: petugas.laporans?.length || 0,
-                    laporans: petugas.laporans?.map(l => ({
-                        judul: l.judul,
-                        status: l.status,
-                        pivot: l.pivot
-                    })) || []
-                });
             });
             
             setPetugasData(response.data.data);

@@ -100,9 +100,6 @@ export default function UploadBuktiModal({
                                 100
                             ).toFixed(1);
 
-                            console.log(
-                                `Kompresi: ${originalSize}KB → ${compressedSize}KB (${compressionRatio}% lebih kecil)`
-                            );
 
                             resolve({
                                 file: compressedFile,
@@ -386,14 +383,6 @@ export default function UploadBuktiModal({
                         </p>
                         <button
                             onClick={() => {
-                                console.log("🔍 Debug Info:", {
-                                    laporanId: selectedLaporanForUpload?.id,
-                                    token:
-                                        localStorage.getItem("admin_token") ||
-                                        localStorage.getItem("token"),
-                                    photosCount: buktiPhotos.length,
-                                    hasPDF: !!pdfFile,
-                                });
                             }}
                             className="text-xs text-blue-600 mt-1 hover:underline"
                         >
