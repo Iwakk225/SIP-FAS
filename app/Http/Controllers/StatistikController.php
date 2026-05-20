@@ -277,15 +277,13 @@ private function getWilayahFromCoordinates($lat, $lng)
     {
         try {
             // Hitung waktu respon rata-rata berdasarkan data aktual
-            // Untuk MySQL
-            $waktuVerifikasi = Laporan::where('status', '!=', 'Validasi')
-                ->select(DB::raw('AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)) as avg_hours'))
-                ->first();
-
-            // Untuk SQLite (fallback)
-            if (!$waktuVerifikasi || !$waktuVerifikasi->avg_hours) {
+            if (DB::getDriverName() === 'sqlite') {
                 $waktuVerifikasi = Laporan::where('status', '!=', 'Validasi')
                     ->select(DB::raw('AVG((JULIANDAY(updated_at) - JULIANDAY(created_at)) * 24) as avg_hours'))
+                    ->first();
+            } else {
+                $waktuVerifikasi = Laporan::where('status', '!=', 'Validasi')
+                    ->select(DB::raw('AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)) as avg_hours'))
                     ->first();
             }
 
@@ -330,10 +328,17 @@ private function getWilayahFromCoordinates($lat, $lng)
             $formattedAvgRating = number_format($avgRating, 1, '.', '');
 
             // 4. Rata-rata hari penyelesaian
-            $avgDays = Laporan::where('status', 'Selesai')
-                ->select(DB::raw('AVG(DATEDIFF(updated_at, created_at)) as avg_days'))
-                ->first()
-                ->avg_days ?? 0;
+            if (DB::getDriverName() === 'sqlite') {
+                $avgDays = Laporan::where('status', 'Selesai')
+                    ->select(DB::raw('AVG(JULIANDAY(updated_at) - JULIANDAY(created_at)) as avg_days'))
+                    ->first()
+                    ->avg_days ?? 0;
+            } else {
+                $avgDays = Laporan::where('status', 'Selesai')
+                    ->select(DB::raw('AVG(DATEDIFF(updated_at, created_at)) as avg_days'))
+                    ->first()
+                    ->avg_days ?? 0;
+            }
 
             $roundedAvgDays = round($avgDays);
 

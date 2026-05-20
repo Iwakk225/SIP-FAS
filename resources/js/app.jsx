@@ -1,6 +1,31 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import axios from "axios";
+
+// Global URL Interceptor to dynamically rewrite http://localhost:8000 requests to the current active host origin
+axios.interceptors.request.use((config) => {
+  if (config.url && config.url.includes("http://localhost:8000")) {
+    config.url = config.url.replace("http://localhost:8000", window.location.origin);
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
+const originalFetch = window.fetch;
+window.fetch = function (input, init) {
+  if (typeof input === "string" && input.includes("http://localhost:8000")) {
+    input = input.replace("http://localhost:8000", window.location.origin);
+  } else if (input instanceof URL && input.href.includes("http://localhost:8000")) {
+    input = new URL(input.href.replace("http://localhost:8000", window.location.origin));
+  } else if (input && typeof input === "object" && input.url && input.url.includes("http://localhost:8000")) {
+    const newUrl = input.url.replace("http://localhost:8000", window.location.origin);
+    input = new Request(newUrl, input);
+  }
+  return originalFetch(input, init);
+};
+
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AdminAuthProvider, useAdminAuth } from "./contexts/AdminAuthContext";
