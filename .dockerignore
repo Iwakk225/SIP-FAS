@@ -17,5 +17,4 @@ storage/framework/sessions/*
 storage/framework/views/*
 docker-compose.yml
 Dockerfile
-docker/
 .dockerignore
