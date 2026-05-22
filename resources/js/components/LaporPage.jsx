@@ -86,6 +86,23 @@ const LaporPage = () => {
     const fileInputRef = useRef(null);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
+    const isProgrammaticUpdateRef = useRef(false); // ✅ Menghindari hit geocoding API saat update dari GPS
+    const photosRef = useRef([]); // ✅ Menyimpan state photos terbaru untuk cleanup memory leak pada unmount
+    const [availableCameras, setAvailableCameras] = useState([]);
+    const [selectedDeviceId, setSelectedDeviceId] = useState(null);
+    const [isFrontCamera, setIsFrontCamera] = useState(false);
+
+    const safePlay = async (videoEl) => {
+        if (!videoEl) return;
+        try {
+            const p = videoEl.play();
+            if (p !== undefined) await p;
+        } catch (e) {
+            // Ignore AbortError caused by rapid source changes; log others
+            if (e && e.name === "AbortError") return;
+            console.error("Gagal memutar video:", e);
+        }
+    };
 
     // Batas map hanya dikota Surabaya
     const surabayaBounds = L.latLngBounds(
@@ -111,41 +128,70 @@ const LaporPage = () => {
 
     // Auto geser setelah user menginput alamat/lokasi
     useEffect(() => {
+        // Jika input kosong atau terlalu pendek, bersihkan error dan hentikan pencarian
+        if (formData.lokasi.trim().length <= 3 || !isLoggedIn) {
+            setIsGeocoding(false);
+            return;
+        }
+
+        // ✅ Cegah geocoding jika input berubah secara programmatis (misal: "Gunakan Lokasi Saya")
+        if (isProgrammaticUpdateRef.current) {
+            isProgrammaticUpdateRef.current = false;
+            return;
+        }
+
+        // ✅ Gunakan AbortController untuk membatalkan request sebelumnya yang masih berjalan (in-flight request)
+        // Ini sangat penting agar resource server cloud Google Anda hemat dan tidak memproses request usang
+        const controller = new AbortController();
+
         const timeout = setTimeout(async () => {
-            if (formData.lokasi.trim().length > 3 && isLoggedIn) {
-                setGeocodeError(null);
-                setIsGeocoding(true);
+            setGeocodeError(null);
+            setIsGeocoding(true);
+            
+            try {
+                const response = await axios.get('/api/geocode/search', {
+                    params: {
+                        q: `${formData.lokasi} Surabaya`,
+                        viewbox: '112.55,-7.18,112.85,-7.37',
+                        bounded: 1,
+                    },
+                    timeout: 5000,
+                    signal: controller.signal // ✅ Kirimkan signal pembatalan ke Axios
+                });
                 
-                try {
-                    const response = await axios.get('/api/geocode/search', {
-                        params: {
-                            q: `${formData.lokasi} Surabaya`,
-                            viewbox: '112.55,-7.18,112.85,-7.37',
-                            bounded: 1,
-                        },
-                        timeout: 5000,
+                if (response.data && response.data.length > 0 && !response.data.error) {
+                    const { lat, lon } = response.data[0];
+                    setMapCenter({
+                        lat: parseFloat(lat),
+                        lng: parseFloat(lon),
                     });
-                    
-                    if (response.data && response.data.length > 0 && !response.data.error) {
-                        const { lat, lon } = response.data[0];
-                        setMapCenter({
-                            lat: parseFloat(lat),
-                            lng: parseFloat(lon),
-                        });
-                    } else if (response.data?.error) {
-                        setGeocodeError(response.data.error);
-                    }
-                } catch (error) {
-                    console.error("Error fetching location:", error);
-                    setGeocodeError("Gagal mencari lokasi. Silakan coba lagi.");
-                } finally {
+                } else if (response.data?.error) {
+                    setGeocodeError(response.data.error);
+                }
+            } catch (error) {
+                // Jangan tampilkan error jika request memang sengaja dibatalkan
+                if (axios.isCancel(error) || error.name === "CanceledError") {
+                    return;
+                }
+                console.error("Error fetching location:", error);
+                setGeocodeError("Gagal mencari lokasi. Silakan coba lagi.");
+            } finally {
+                if (!controller.signal.aborted) {
                     setIsGeocoding(false);
                 }
             }
         }, 1500); // Debounce 1.5 detik
         
-        return () => clearTimeout(timeout);
+        return () => {
+            clearTimeout(timeout);
+            controller.abort(); // ✅ Batalkan request jika user lanjut mengetik atau komponen di-unmount
+        };
     }, [formData.lokasi, isLoggedIn]);
+
+    // ✅ Selalu update photosRef saat photos berubah
+    useEffect(() => {
+        photosRef.current = photos;
+    }, [photos]);
 
     useEffect(() => {
         // Cleanup ketika komponen unmount
@@ -153,8 +199,8 @@ const LaporPage = () => {
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach((track) => track.stop());
             }
-            // Cleanup URL preview foto
-            photos.forEach((photo) => {
+            // Cleanup URL preview foto menggunakan ref terbaru untuk menghindari memory leak
+            photosRef.current.forEach((photo) => {
                 if (photo.preview) {
                     URL.revokeObjectURL(photo.preview);
                 }
@@ -169,6 +215,52 @@ const LaporPage = () => {
             ...prev,
             [name]: value,
         }));
+    };
+
+    const startStreamWithDevice = async (deviceId) => {
+        // Stop previous stream
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach((t) => t.stop());
+            streamRef.current = null;
+        }
+
+        try {
+            const constraints = {
+                video: deviceId
+                    ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+                    : { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+            };
+
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter((d) => d.kind === "videoinput");
+            setAvailableCameras(videoDevices);
+
+            const chosen = videoDevices.find((d) => d.deviceId === deviceId);
+            const front = chosen ? /front|user|selfie/i.test(chosen.label) : false;
+            setIsFrontCamera(front);
+            setSelectedDeviceId(deviceId || null);
+
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+                streamRef.current = stream;
+                await safePlay(videoRef.current);
+            }
+        } catch (error) {
+            console.error("Error starting stream with device:", error);
+            alert("Gagal mengakses kamera yang dipilih.");
+        }
+    };
+
+    const switchCamera = async () => {
+        if (availableCameras.length > 1) {
+            const idx = availableCameras.findIndex((d) => d.deviceId === selectedDeviceId);
+            const next = availableCameras[(idx + 1) % availableCameras.length];
+            await startStreamWithDevice(next.deviceId);
+        } else {
+            // Toggle facing if device list unavailable
+            await startStreamWithDevice(null);
+        }
     };
 
     // Mulai edit informasi pelapor
@@ -234,6 +326,21 @@ const LaporPage = () => {
             return;
         }
 
+        // ✅ Validasi ukuran file (maksimal 10MB per file) untuk menghemat bandwidth & resource Cloudinary
+        const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+        const oversizedFiles = imageFiles.filter((file) => file.size > MAX_SIZE);
+        if (oversizedFiles.length > 0) {
+            alert(`Beberapa gambar terlalu besar! Maksimal ukuran per gambar adalah 10MB. Gambar yang ditolak: ${oversizedFiles.map(f => f.name).join(', ')}`);
+            return;
+        }
+
+        // ✅ Validasi jumlah foto (maksimal 5 foto secara total)
+        const MAX_PHOTOS = 5;
+        if (photos.length + imageFiles.length > MAX_PHOTOS) {
+            alert(`Anda hanya dapat mengupload maksimal ${MAX_PHOTOS} foto untuk satu laporan.`);
+            return;
+        }
+
         const newPhotos = imageFiles.map((file) => ({
             file,
             preview: URL.createObjectURL(file),
@@ -259,7 +366,6 @@ const LaporPage = () => {
             setShowLoginModal(true);
             return;
         }
-
         try {
             // Stop camera sebelumnya jika ada
             if (streamRef.current) {
@@ -270,34 +376,61 @@ const LaporPage = () => {
             // Tampilkan modal terlebih dahulu
             setShowCameraModal(true);
 
-            // Constraint sederhana untuk laptop
-            const constraints = {
-                video: {
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                },
-            };
-
-            // Coba dengan fallback
-            let stream;
+            // Request a lightweight permission stream first so device labels become available
+            let permissionStream = null;
             try {
-                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                permissionStream = await navigator.mediaDevices.getUserMedia({ video: true });
             } catch (err) {
-                // Fallback ke constraint minimal
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                });
+                // ignore, we'll try again below and will surface errors
             }
 
+            // Enumerate devices (labels available after permission)
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter((d) => d.kind === "videoinput");
+            setAvailableCameras(videoDevices);
+
+            // Choose a sensible default: prefer a device with 'back'/'rear'/'environment' in label
+            let chosenDeviceId = selectedDeviceId;
+            if (!chosenDeviceId) {
+                const env = videoDevices.find((d) => /back|rear|environment|camera 1|kamera belakang/i.test(d.label));
+                if (env) chosenDeviceId = env.deviceId;
+                else if (videoDevices.length > 0) chosenDeviceId = videoDevices[videoDevices.length - 1].deviceId; // often rear is last
+            }
+
+            // Determine front/back from chosen label if possible
+            const chosenDevice = videoDevices.find((d) => d.deviceId === chosenDeviceId);
+            const front = chosenDevice ? /front|user|selfie/i.test(chosenDevice.label) : false;
+            setIsFrontCamera(front);
+            setSelectedDeviceId(chosenDeviceId || null);
+
+            // Stop permission stream to free camera
+            if (permissionStream) {
+                permissionStream.getTracks().forEach((t) => t.stop());
+            }
+
+            // Build constraints: prefer explicit deviceId when available
+            const constraints = {
+                video: chosenDeviceId
+                    ? {
+                          deviceId: { exact: chosenDeviceId },
+                          width: { ideal: 1280 },
+                          height: { ideal: 720 },
+                      }
+                    : {
+                          facingMode: front ? "user" : "environment",
+                          width: { ideal: 1280 },
+                          height: { ideal: 720 },
+                      },
+            };
+
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 streamRef.current = stream;
 
-                // Pastikan video mulai diputar
-                videoRef.current.play().catch((e) => {
-                    console.error("Gagal memutar video:", e);
-                });
+                // Pastikan video mulai diputar (use safePlay to avoid AbortError noise)
+                await safePlay(videoRef.current);
             }
         } catch (error) {
             console.error("Error accessing camera:", error);
@@ -325,17 +458,15 @@ const LaporPage = () => {
 
             const context = canvas.getContext("2d");
 
-            // Untuk kamera laptop, mirror secara manual
-            context.save();
-            context.scale(-1, 1);
-            context.drawImage(
-                video,
-                -canvas.width,
-                0,
-                canvas.width,
-                canvas.height
-            );
-            context.restore();
+            // Mirror hanya jika menggunakan kamera depan/selfie
+            if (isFrontCamera) {
+                context.save();
+                context.scale(-1, 1);
+                context.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+                context.restore();
+            } else {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            }
 
             canvas.toBlob(
                 (blob) => {
@@ -388,21 +519,25 @@ const LaporPage = () => {
         setShowCameraModal(false);
     };
 
-    // Hapus foto
+    // Hapus foto dan bebaskan memori dari object URL
     const removePhoto = (index) => {
-        setPhotos(photos.filter((_, i) => i !== index));
+        const photoToRemove = photos[index];
+        if (photoToRemove && photoToRemove.preview) {
+            URL.revokeObjectURL(photoToRemove.preview);
+        }
+        setPhotos((prev) => prev.filter((_, i) => i !== index));
     };
 
     // Tambahkan fungsi untuk mengecek kamera yang tersedia
     const checkAvailableCameras = async () => {
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(
-                (device) => device.kind === "videoinput"
-            );
+            const videoDevices = devices.filter((device) => device.kind === "videoinput");
+            setAvailableCameras(videoDevices);
             return videoDevices;
         } catch (error) {
             console.error("Error enumerating devices:", error);
+            setAvailableCameras([]);
             return [];
         }
     };
@@ -470,6 +605,7 @@ const LaporPage = () => {
                             timeout: 5000
                         });
                         
+                        isProgrammaticUpdateRef.current = true; // ✅ Menghindari geocoding berulang
                         if (response.data && response.data.display_name) {
                             setFormData(prev => ({
                                 ...prev,
@@ -484,6 +620,7 @@ const LaporPage = () => {
                     } catch (error) {
                         console.error("Reverse geocode error:", error);
                         // Fallback ke koordinat
+                        isProgrammaticUpdateRef.current = true; // ✅ Menghindari geocoding berulang
                         setFormData(prev => ({
                             ...prev,
                             lokasi: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
@@ -1141,13 +1278,40 @@ const LaporPage = () => {
                         </div>
 
                         <div className="bg-black rounded-lg overflow-hidden mb-4 relative min-h-64">
+                            <div className="absolute top-2 left-2 z-20 flex items-center space-x-2">
+                                {availableCameras.length > 0 && (
+                                    <select
+                                        value={selectedDeviceId || ""}
+                                        onChange={async (e) => {
+                                            const id = e.target.value || null;
+                                            await startStreamWithDevice(id);
+                                        }}
+                                        className="text-xs p-1 rounded bg-white"
+                                    >
+                                        <option value="">Default</option>
+                                        {availableCameras.map((cam, i) => (
+                                            <option key={cam.deviceId} value={cam.deviceId}>
+                                                {cam.label || `Kamera ${i + 1}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                                <button
+                                    onClick={switchCamera}
+                                    type="button"
+                                    className="text-xs bg-white px-2 py-1 rounded"
+                                >
+                                    Ganti Kamera
+                                </button>
+                            </div>
+
                             <video
                                 ref={videoRef}
                                 autoPlay
                                 playsInline
                                 muted
                                 className="w-full h-64 object-cover"
-                                style={{ transform: "scaleX(-1)" }}
+                                style={{ transform: isFrontCamera ? "scaleX(-1)" : "none" }}
                             />
 
                             {/* Loading indicator */}

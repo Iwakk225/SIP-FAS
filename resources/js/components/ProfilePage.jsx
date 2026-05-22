@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { User, Mail, Phone, MapPin, Edit2, Save, X, Camera, LogOut, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Footer from "./Footer";
@@ -51,6 +51,19 @@ export default function ProfilePage() {
   const authContext = useAuth();
   const { user, logout, updateUser } = authContext;
   
+  const photoPreviewRef = useRef(photoPreview);
+  useEffect(() => {
+    photoPreviewRef.current = photoPreview;
+  }, [photoPreview]);
+
+  useEffect(() => {
+    return () => {
+      if (photoPreviewRef.current && photoPreviewRef.current.startsWith("blob:")) {
+        URL.revokeObjectURL(photoPreviewRef.current);
+      }
+    };
+  }, []);
+
   const API_URL = 'http://localhost:8000/api';
   
   const [formData, setFormData] = useState({
@@ -117,6 +130,25 @@ export default function ProfilePage() {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validasi tipe file (hanya gambar)
+      if (!file.type.startsWith("image/")) {
+        alert("Harap pilih file gambar saja.");
+        e.target.value = "";
+        return;
+      }
+      // Validasi ukuran file (maksimal 2MB untuk foto profil)
+      const maxSize = 2 * 1024 * 1024; // 2MB
+      if (file.size > maxSize) {
+        alert("Ukuran foto profil terlalu besar. Maksimal 2MB.");
+        e.target.value = "";
+        return;
+      }
+
+      // Revoke preview lama jika bertipe blob URL
+      if (photoPreview && photoPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(photoPreview);
+      }
+
       setPhotoFile(file);
       setPhotoPreview(URL.createObjectURL(file));
     }
@@ -160,6 +192,11 @@ export default function ProfilePage() {
       const updatedUser = response.data.data;
       updateUser(updatedUser);
       setIsEditing(false);
+      
+      // Revoke preview lama jika bertipe blob URL setelah sukses upload/save
+      if (photoPreview && photoPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(photoPreview);
+      }
       setPhotoFile(null);
 
     } catch (error) {
@@ -226,6 +263,12 @@ export default function ProfilePage() {
       phone: user?.phone || '',
       address: 'Surabaya, Jawa Timur'
     });
+    
+    // Revoke preview lama jika bertipe blob URL saat dibatalkan
+    if (photoPreview && photoPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(photoPreview);
+    }
+    
     setPhotoFile(null);
     setPhotoPreview(user?.profile_photo_path || null);
     setIsEditing(false);

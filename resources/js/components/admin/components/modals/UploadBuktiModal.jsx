@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
     X,
     Upload,
@@ -50,6 +50,21 @@ export default function UploadBuktiModal({
     const [isCompressing, setIsCompressing] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadError, setUploadError] = useState(null);
+
+    const photosRef = useRef(buktiPhotos);
+    useEffect(() => {
+        photosRef.current = buktiPhotos;
+    }, [buktiPhotos]);
+
+    useEffect(() => {
+        return () => {
+            photosRef.current.forEach((photo) => {
+                if (photo.preview?.startsWith("blob:")) {
+                    URL.revokeObjectURL(photo.preview);
+                }
+            });
+        };
+    }, []);
 
     const compressImage = async (file) => {
         return new Promise((resolve, reject) => {
