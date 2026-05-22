@@ -84,6 +84,7 @@ const LaporPage = () => {
     const { isLoggedIn, user, getToken, performLogout } = useAuth();
 
     const fileInputRef = useRef(null);
+    const captureInputRef = useRef(null);
     const videoRef = useRef(null);
     const streamRef = useRef(null);
     const isProgrammaticUpdateRef = useRef(false); // ✅ Menghindari hit geocoding API saat update dari GPS
@@ -198,6 +199,7 @@ const LaporPage = () => {
         return () => {
             if (streamRef.current) {
                 streamRef.current.getTracks().forEach((track) => track.stop());
+                streamRef.current = null;
             }
             // Cleanup URL preview foto menggunakan ref terbaru untuk menghindari memory leak
             photosRef.current.forEach((photo) => {
@@ -366,6 +368,22 @@ const LaporPage = () => {
             setShowLoginModal(true);
             return;
         }
+
+        const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0 && /Android|iOS|iPhone|iPad|iPod/i.test(navigator.userAgent));
+        if (isMobile) {
+            if (captureInputRef.current) {
+                captureInputRef.current.value = null;
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                try {
+                    captureInputRef.current.setAttribute('capture', isIOS ? 'camera' : 'environment');
+                } catch (e) {
+                    // ignore if setting attribute fails
+                }
+                captureInputRef.current.click();
+                return;
+            }
+        }
+
         try {
             // Stop camera sebelumnya jika ada
             if (streamRef.current) {
@@ -376,60 +394,12 @@ const LaporPage = () => {
             // Tampilkan modal terlebih dahulu
             setShowCameraModal(true);
 
-            // Request a lightweight permission stream first so device labels become available
-            let permissionStream = null;
-            try {
-                permissionStream = await navigator.mediaDevices.getUserMedia({ video: true });
-            } catch (err) {
-                // ignore, we'll try again below and will surface errors
-            }
-
-            // Enumerate devices (labels available after permission)
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter((d) => d.kind === "videoinput");
-            setAvailableCameras(videoDevices);
-
-            // Choose a sensible default: prefer a device with 'back'/'rear'/'environment' in label
-            let chosenDeviceId = selectedDeviceId;
-            if (!chosenDeviceId) {
-                const env = videoDevices.find((d) => /back|rear|environment|camera 1|kamera belakang/i.test(d.label));
-                if (env) chosenDeviceId = env.deviceId;
-                else if (videoDevices.length > 0) chosenDeviceId = videoDevices[videoDevices.length - 1].deviceId; // often rear is last
-            }
-
-            // Determine front/back from chosen label if possible
-            const chosenDevice = videoDevices.find((d) => d.deviceId === chosenDeviceId);
-            const front = chosenDevice ? /front|user|selfie/i.test(chosenDevice.label) : false;
-            setIsFrontCamera(front);
-            setSelectedDeviceId(chosenDeviceId || null);
-
-            // Stop permission stream to free camera
-            if (permissionStream) {
-                permissionStream.getTracks().forEach((t) => t.stop());
-            }
-
-            // Build constraints: prefer explicit deviceId when available
-            const constraints = {
-                video: chosenDeviceId
-                    ? {
-                          deviceId: { exact: chosenDeviceId },
-                          width: { ideal: 1280 },
-                          height: { ideal: 720 },
-                      }
-                    : {
-                          facingMode: front ? "user" : "environment",
-                          width: { ideal: 1280 },
-                          height: { ideal: 720 },
-                      },
-            };
-
+            const constraints = { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
 
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
                 streamRef.current = stream;
-
-                // Pastikan video mulai diputar (use safePlay to avoid AbortError noise)
                 await safePlay(videoRef.current);
             }
         } catch (error) {
@@ -1056,6 +1026,16 @@ const LaporPage = () => {
                                     onChange={handlePhotoUpload}
                                     className="hidden"
                                     ref={fileInputRef}
+                                    disabled={!isLoggedIn}
+                                />
+                                {/* Input khusus untuk buka kamera bawaan mobile */}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    onChange={handlePhotoUpload}
+                                    className="hidden"
+                                    ref={captureInputRef}
                                     disabled={!isLoggedIn}
                                 />
 
