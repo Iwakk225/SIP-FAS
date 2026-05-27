@@ -183,7 +183,7 @@ export default function UploadBuktiModal({
                         preview: URL.createObjectURL(compressed.file),
                         originalSize: compressed.originalSize,
                         compressedSize: compressed.compressedSize,
-                        compressionRatio: compressed.compressionRatio,
+                        compressionRatio: compressed.compressionRatio,fix 
                     });
                 } catch (error) {
                     console.error("Error compressing file:", file.name, error);

@@ -191,8 +191,11 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
       let downloadUrl = fileUrl;
 
       if (fileUrl.includes('cloudinary.com')) {
-        downloadUrl = fileUrl.replace(/\/raw\/upload\//g, '/upload/');
-        if (downloadUrl.includes('/upload/')) {
+        if (downloadUrl.includes('/raw/upload/')) {
+          downloadUrl = downloadUrl.replace('/raw/upload/', '/raw/upload/fl_attachment/');
+        } else if (downloadUrl.includes('/image/upload/')) {
+          downloadUrl = downloadUrl.replace('/image/upload/', '/image/upload/fl_attachment/');
+        } else if (downloadUrl.includes('/upload/')) {
           downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
         }
         if (!downloadUrl.includes('?dl=1')) {
