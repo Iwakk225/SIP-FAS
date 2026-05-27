@@ -526,15 +526,11 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                         <FileText className="text-gray-400 w-8 h-8" />
                       </div>
                     )}
-
                     {/* Info Dokumen */}
                     <div className="flex-1">
-                      <p className="text-green-800 font-medium">Rincian Biaya (PDF)</p>
+                      <p className="text-green-800 font-medium">Rincian Biaya Dokumen</p>
                       <p className="text-sm text-green-600 mt-1">
-                        Klik gambar untuk lihat dokumen lengkap
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        Halaman 1 dari dokumen PDF
+                        Klik ikon/gambar untuk lihat dokumen lengkap
                       </p>
                     </div>
                   </div>
@@ -544,12 +540,14 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                     onClick={() => {
                       // Gunakan URL download yang benar
                       const downloadUrl = laporan.rincian_biaya_download_url || laporan.rincian_biaya_pdf;
-                      downloadFile(downloadUrl, `rincian-biaya-laporan-${laporan.id}.pdf`);
+                      // Ekstrak ekstensi asli dari URL untuk mencegah file corrupt (misal docx, xlsx, dll)
+                      const ext = downloadUrl.split('.').pop().split('?')[0] || 'pdf';
+                      downloadFile(downloadUrl, `rincian-biaya-laporan-${laporan.id}.${ext}`);
                     }}
                     className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full flex items-center justify-center gap-2 transition"
                   >
                     <Download className="w-4 h-4" />
-                    Download Rincian Biaya (PDF)
+                    Download Rincian Biaya
                   </button>
                 </div>
               )}

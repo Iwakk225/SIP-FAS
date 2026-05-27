@@ -213,17 +213,26 @@ export default function UploadBuktiModal({
         const file = e.target.files[0];
         if (!file) return;
 
-        // Validasi hanya PDF
-        const allowedPdfTypes = ["application/pdf"];
-        const allowedExtensions = [".pdf"];
-
-        const isPdfType = allowedPdfTypes.includes(file.type);
-        const hasPdfExtension = allowedExtensions.some((ext) =>
+        // Validasi ekstensi dokumen yang diperbolehkan (PDF, Word, Excel, Txt, Zip/Rar)
+        const allowedExtensions = [
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".txt",
+            ".zip",
+            ".rar",
+        ];
+        const hasValidExtension = allowedExtensions.some((ext) =>
             file.name.toLowerCase().endsWith(ext)
         );
 
-        if (!isPdfType && !hasPdfExtension) {
-            showNotification("Harap upload file PDF saja (.pdf)", "error");
+        if (!hasValidExtension) {
+            showNotification(
+                "Format dokumen tidak didukung. Harap upload PDF, Word, Excel, Txt, atau Zip/Rar",
+                "error"
+            );
             e.target.value = "";
             return;
         }
@@ -240,7 +249,7 @@ export default function UploadBuktiModal({
         }
 
         setPdfFile(file);
-        showNotification("File PDF berhasil dipilih", "success");
+        showNotification("Dokumen berhasil dipilih", "success");
     };
 
     const handleUploadBukti = async () => {
@@ -258,7 +267,29 @@ export default function UploadBuktiModal({
         setUploadError(null);
 
         try {
-            // 1. UPLOAD FOTO KE CLOUDINARY
+            // 1. UPLOAD DOKUMEN KE CLOUDINARY JIKA ADA
+            let uploadedDocUrl = null;
+            if (pdfFile) {
+                try {
+                    uploadedDocUrl = await uploadToCloudinary(
+                        pdfFile,
+                        "admin-bukti-perbaikan/rincian-biaya"
+                    );
+                    showNotification(
+                        `Dokumen ${pdfFile.name} berhasil diupload`,
+                        "success"
+                    );
+                } catch (error) {
+                    console.error(`Error uploading doc:`, error);
+                    showNotification(
+                        `Gagal upload dokumen ${pdfFile.name}`,
+                        "error"
+                    );
+                    throw error;
+                }
+            }
+
+            // 2. UPLOAD FOTO KE CLOUDINARY
             const fotoUrls = [];
             for (const photo of buktiPhotos) {
                 try {
@@ -280,10 +311,16 @@ export default function UploadBuktiModal({
                 }
             }
 
-            // 2. KIRIM KE BACKEND
-            const payload = {
-                foto_bukti_perbaikan: fotoUrls,
-            };
+            // 3. KIRIM SEMUA SEKALIGUS KE BACKEND
+            const payload = {};
+            
+            if (fotoUrls.length > 0) {
+                payload.foto_bukti_perbaikan = fotoUrls;
+            }
+            
+            if (uploadedDocUrl) {
+                payload.rincian_biaya_pdf = uploadedDocUrl;
+            }
 
             const response = await api.post(
                 `/admin/laporan/${selectedLaporanForUpload.id}/upload-all-bukti`,
@@ -295,19 +332,8 @@ export default function UploadBuktiModal({
                 }
             );
 
-            if (pdfFile) {
-                const formData = new FormData();
-                formData.append('rincian_biaya_pdf', pdfFile);
-                
-                await api.post(
-                    `/admin/laporan/${selectedLaporanForUpload.id}/upload-rincian-biaya`,
-                    formData,
-                    { headers: { 'Content-Type': 'multipart/form-data' } }
-                );
-            }
-
             if (response.data.success) {
-                showNotification("✅ Bukti berhasil diupload!", "success");
+                showNotification("✅ Bukti berhasil disimpan!", "success");
                 if (onSuccess && typeof onSuccess === "function") {
                     onSuccess(selectedLaporanForUpload.id);
                 }
@@ -317,6 +343,7 @@ export default function UploadBuktiModal({
             console.error("Upload process error:", error);
             setUploadError(
                 error.response?.data?.message ||
+                    error.message ||
                     "Gagal menyimpan bukti perbaikan"
             );
         } finally {
@@ -529,22 +556,22 @@ export default function UploadBuktiModal({
                         )}
                     </div>
 
-                    {/* Rincian Biaya PDF */}
+                    {/* Rincian Biaya Dokumen */}
                     <div className="border-t border-gray-200 pt-6">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                             <FileText className="w-5 h-5 mr-2" />
-                            Rincian Biaya (PDF)
+                            Rincian Biaya (PDF/Word/Excel/Zip)
                         </h3>
                         <div className="mb-4">
                             <input
                                 type="file"
-                                accept=".pdf"
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
                                 onChange={handlePdfUpload}
                                 className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={isUploading}
                             />
                             <div className="text-xs text-gray-500 mt-1">
-                                • Hanya PDF (.pdf) • Maksimal 10MB
+                                • Format: PDF, Word, Excel, Txt, Zip/Rar • Maksimal 10MB
                             </div>
                         </div>
 
@@ -587,7 +614,7 @@ export default function UploadBuktiModal({
                                 ) : (
                                     <>
                                         <Upload className="w-5 h-5 mr-2" />
-                                        Upload Rincian Biaya (PDF)
+                                        Upload Dokumen Rincian Biaya
                                     </>
                                 )}
                             </button>
@@ -611,10 +638,10 @@ export default function UploadBuktiModal({
                                     <>
                                         <Upload className="w-5 h-5 mr-2" />
                                         {buktiPhotos.length > 0 && pdfFile
-                                            ? `Upload ${buktiPhotos.length} Foto & PDF`
+                                            ? `Upload ${buktiPhotos.length} Foto & Dokumen`
                                             : buktiPhotos.length > 0
                                             ? `Upload ${buktiPhotos.length} Foto`
-                                            : "Upload PDF"}
+                                            : "Upload Dokumen"}
                                     </>
                                 )}
                             </button>
@@ -625,8 +652,8 @@ export default function UploadBuktiModal({
                         <h4 className="font-medium text-yellow-900 mb-2">Perhatian:</h4>
                         <ul className="text-sm text-yellow-800 space-y-1">
                             <li>• Foto: JPG/PNG/GIF/WebP</li>
-                            <li>• Dokumen: PDF saja</li>
-                            <li>• File tersimpan permanen</li>
+                            <li>• Dokumen: PDF, Word, Excel, Txt, Zip/Rar</li>
+                            <li>• File tersimpan permanen di Cloudinary</li>
                             <li>• Pastikan sesuai bukti perbaikan</li>
                         </ul>
                     </div>
