@@ -63,8 +63,8 @@ class BuktiPerbaikanController extends Controller
         }
     }
 
-    /**
-     * Upload rincian biaya (PDF) → SIMPAN DI LOCAL STORAGE
+     /**
+     * Upload rincian biaya (PDF) → SIMPAN DI CLOUDINARY UNTUK EPHEMERAL FILESYSTEM DI CLOUD RUN
      */
     public function uploadRincianBiaya(Request $request, $id): JsonResponse
     {
@@ -76,18 +76,24 @@ class BuktiPerbaikanController extends Controller
 
             $pdfUrl = null;
             if ($request->hasFile('rincian_biaya_pdf')) {
-                // Simpan ke storage/app/public/rincian-biaya/
-                $filename = 'rincian-biaya-laporan-' . $id . '-' . time() . '.' . $request->file('rincian_biaya_pdf')->extension();
-                $path = $request->file('rincian_biaya_pdf')->storeAs('bukti-perbaikan/rincian-biaya', $filename, 'public');
+                $file = $request->file('rincian_biaya_pdf');
                 
-                // URL akses publik: /storage/rincian-biaya/...
-                $pdfUrl = Storage::url($path);
+                // Upload ke Cloudinary sebagai raw (PDF)
+                $uploaded = Cloudinary::upload($file->getRealPath(), [
+                    'folder' => 'admin-bukti-perbaikan/rincian-biaya',
+                    'public_id' => 'rincian-biaya-laporan-' . $id . '-' . time(),
+                    'resource_type' => 'raw',
+                    'use_filename' => true,
+                    'unique_filename' => true,
+                    'access_mode' => 'public',
+                ]);
+                
+                $pdfUrl = $uploaded->getSecurePath();
             }
 
             // Simpan ke database
             $laporan->update([
                 'rincian_biaya_pdf' => $pdfUrl,
-                // Tidak perlu field terpisah untuk download — URL ini sudah bisa preview & download!
             ]);
 
             return response()->json([
