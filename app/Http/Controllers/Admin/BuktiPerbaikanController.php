@@ -64,28 +64,24 @@ class BuktiPerbaikanController extends Controller
     }
 
     /**
-     * Upload rincian biaya (PDF/Word/Excel/Zip) → SIMPAN DI CLOUDINARY
+     * Upload rincian biaya (PDF) → SIMPAN DI LOCAL STORAGE
      */
     public function uploadRincianBiaya(Request $request, $id): JsonResponse
     {
         try {
             $laporan = Laporan::findOrFail($id);
             $request->validate([
-                'rincian_biaya_pdf' => 'required|file|mimes:pdf,doc,docx,xls,xlsx,txt,zip,rar|max:10240'
+                'rincian_biaya_pdf' => 'required|file|mimes:pdf|max:10240'
             ]);
 
             $pdfUrl = null;
             if ($request->hasFile('rincian_biaya_pdf')) {
-                $uploadedFile = Cloudinary::upload(
-                    $request->file('rincian_biaya_pdf')->getRealPath(),
-                    [
-                        'folder' => 'admin-bukti-perbaikan/rincian-biaya',
-                        'use_filename' => true,
-                        'unique_filename' => false,
-                        'resource_type' => 'auto'
-                    ]
-                );
-                $pdfUrl = $uploadedFile->getSecurePath();
+                // Simpan ke storage/app/public/rincian-biaya/
+                $filename = 'rincian-biaya-laporan-' . $id . '-' . time() . '.' . $request->file('rincian_biaya_pdf')->extension();
+                $path = $request->file('rincian_biaya_pdf')->storeAs('bukti-perbaikan/rincian-biaya', $filename, 'public');
+                
+                // URL akses publik: /storage/rincian-biaya/...
+                $pdfUrl = Storage::url($path);
             }
 
             // Simpan ke database

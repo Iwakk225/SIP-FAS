@@ -187,26 +187,12 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
   };
 
   const downloadFile = (fileUrl, filename) => {
-    if (!fileUrl) return;
-
-    // Deteksi jika file adalah dokumen (PDF, Word, Excel, Zip, dll.)
-    const isDocument = fileUrl.includes('/raw/upload/') || 
-                       /\.(pdf|doc|docx|xls|xlsx|txt|zip|rar)$/i.test(fileUrl.split('?')[0]);
-
-    if (isDocument) {
-      // Buka langsung di tab baru. Ini aman dari CORS/Sandboxing browser, 
-      // memicu pratinjau PDF interaktif dan memicu download otomatis untuk Word/Excel/Zip.
-      window.open(fileUrl, '_blank', 'noopener,noreferrer');
-      return;
-    }
-
     try {
       let downloadUrl = fileUrl;
 
       if (fileUrl.includes('cloudinary.com')) {
-        if (downloadUrl.includes('/image/upload/')) {
-          downloadUrl = downloadUrl.replace('/image/upload/', '/image/upload/fl_attachment/');
-        } else if (downloadUrl.includes('/upload/')) {
+        downloadUrl = fileUrl.replace(/\/raw\/upload\//g, '/upload/');
+        if (downloadUrl.includes('/upload/')) {
           downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
         }
         if (!downloadUrl.includes('?dl=1')) {
@@ -222,7 +208,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
       document.body.removeChild(link);
     } catch (err) {
       console.error('Download error:', err);
-      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      alert('Gagal mengunduh file. Silakan coba lagi nanti.');
     }
   };
 
@@ -540,25 +526,31 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                         <FileText className="text-gray-400 w-8 h-8" />
                       </div>
                     )}
+
                     {/* Info Dokumen */}
                     <div className="flex-1">
-                      <p className="text-green-800 font-medium">Rincian Biaya Dokumen</p>
+                      <p className="text-green-800 font-medium">Rincian Biaya (PDF)</p>
                       <p className="text-sm text-green-600 mt-1">
-                        Klik ikon/gambar untuk lihat dokumen lengkap
+                        Klik gambar untuk lihat dokumen lengkap
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        Halaman 1 dari dokumen PDF
                       </p>
                     </div>
                   </div>
 
-                  {/* Tombol Lihat/Download */}
-                  <a
-                    href={laporan.rincian_biaya_download_url || laporan.rincian_biaya_pdf}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full flex items-center justify-center gap-2 transition font-medium text-center no-underline cursor-pointer"
+                  {/* Tombol Download */}
+                  <button
+                    onClick={() => {
+                      // Gunakan URL download yang benar
+                      const downloadUrl = laporan.rincian_biaya_download_url || laporan.rincian_biaya_pdf;
+                      downloadFile(downloadUrl, `rincian-biaya-laporan-${laporan.id}.pdf`);
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full flex items-center justify-center gap-2 transition"
                   >
                     <Download className="w-4 h-4" />
-                    Lihat / Download Rincian Biaya
-                  </a>
+                    Download Rincian Biaya (PDF)
+                  </button>
                 </div>
               )}
             </div>
