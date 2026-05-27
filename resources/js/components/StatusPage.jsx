@@ -100,7 +100,7 @@ const StatusPage = () => {
         return;
       }
       const response = await axios.get(
-        "http://localhost:8000/api/laporan-user",
+        `${window.location.origin}/api/laporan-user`,
         { headers, timeout: 10000 }
       );
       const data = response.data.data || response.data;

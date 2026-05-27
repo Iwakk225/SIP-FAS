@@ -49,7 +49,7 @@ export const useLaporanData = () => {
                 return;
             }
 
-            const response = await axios.get("http://localhost:8000/api/admin/laporan", {
+            const response = await axios.get(`${window.location.origin}/api/admin/laporan`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     Accept: "application/json",

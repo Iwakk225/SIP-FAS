@@ -12,9 +12,9 @@ import axios from "axios";
 const CLOUDINARY_CLOUD_NAME = "dlwfk4gly";
 const CLOUDINARY_UPLOAD_PRESET = "sip-fas";
 
-// Setup axios instance dengan base URL
+// Setup axios instance dengan base URL dinamis (support localhost & production)
 const api = axios.create({
-    baseURL: "http://localhost:8000/api",
+    baseURL: `${window.location.origin}/api`,
     timeout: 60000,
     headers: {
         Accept: "application/json",

@@ -7,7 +7,7 @@ export const usePetugasData = () => {
     const fetchPetugasData = async () => {
         try {
             const token = localStorage.getItem("admin_token");
-            const response = await axios.get("http://localhost:8000/api/admin/petugas", {
+            const response = await axios.get(`${window.location.origin}/api/admin/petugas`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                     Accept: "application/json",

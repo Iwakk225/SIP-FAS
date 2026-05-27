@@ -92,7 +92,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
       try {
         const token = getToken();
         const res = await axios.get(
-          `http://localhost:8000/api/laporan/${laporan.id}/petugas`,
+          `${window.location.origin}/api/laporan/${laporan.id}/petugas`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         // 🔥 PASTIKAN DATA ADALAH ARRAY
@@ -111,7 +111,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
       try {
         const token = getToken();
         const res = await axios.get(
-          `http://localhost:8000/api/laporan/${laporan.id}/riwayat-petugas`,
+          `${window.location.origin}/api/laporan/${laporan.id}/riwayat-petugas`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         // 🔥 PASTIKAN DATA ADALAH ARRAY
@@ -133,7 +133,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
         try {
           const token = getToken();
           const res = await axios.get(
-            `http://localhost:8000/api/laporan/${laporan.id}/rating`,
+            `${window.location.origin}/api/laporan/${laporan.id}/rating`,
             { headers: { Authorization: `Bearer ${token}` } }
           );
           if (res.data.rating) {
@@ -219,7 +219,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
     try {
       const token = getToken();
       const res = await axios.post(
-        `http://localhost:8000/api/laporan/${laporan.id}/rating`,
+        `${window.location.origin}/api/laporan/${laporan.id}/rating`,
         {
           rating: rating,
           comment: comment.trim() || null

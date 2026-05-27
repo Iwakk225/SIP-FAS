@@ -9,7 +9,7 @@ export default function Statistik() {
   const [periode, setPeriode] = useState("");
   const [error, setError] = useState("");
 
-  const API_BASE_URL = "http://localhost:8000/api";
+  const API_BASE_URL = `${window.location.origin}/api`;
 
   //fucntion fecth statistik
   const fetchStatistik = async (selectedPeriode = "") => {

@@ -53,7 +53,7 @@ export default function NavbarAfterLogin() {
             }
 
             const response = await axios.get(
-                "http://localhost:8000/api/user/notifications",
+                `${window.location.origin}/api/user/notifications`,
                 {
                     headers: { 
                         Authorization: `Bearer ${userToken}`,
@@ -78,7 +78,7 @@ export default function NavbarAfterLogin() {
             const userToken = getToken();
             
             const response = await axios.post(
-                "http://localhost:8000/api/user/notifications/mark-all-read",
+                `${window.location.origin}/api/user/notifications/mark-all-read`,
                 {},
                 {
                     headers: { 
@@ -106,7 +106,7 @@ export default function NavbarAfterLogin() {
             const userToken = getToken();
             
             const response = await axios.post(
-                `http://localhost:8000/api/user/notifications/${notificationId}/read`,
+                `${window.location.origin}/api/user/notifications/${notificationId}/read`,
                 {},
                 {
                     headers: { 

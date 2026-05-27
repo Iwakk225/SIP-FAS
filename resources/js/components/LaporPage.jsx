@@ -695,7 +695,7 @@ const LaporPage = () => {
             };
 
             const response = await axios.post(
-                "http://localhost:8000/api/laporan",
+                `${window.location.origin}/api/laporan`,
                 laporanData,
                 {
                     headers: {

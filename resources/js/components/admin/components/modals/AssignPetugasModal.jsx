@@ -19,7 +19,7 @@ export default function AssignPetugasModal({
     const fetchPetugasData = async () => {
         try {
             const token = localStorage.getItem("admin_token");
-            const response = await axios.get("http://localhost:8000/api/admin/petugas", {
+            const response = await axios.get(`${window.location.origin}/api/admin/petugas`, {
                 headers: { Authorization: `Bearer ${token}`, Accept: "application/json" }
             });
             setPetugasData(response.data.data || response.data);
@@ -33,7 +33,7 @@ export default function AssignPetugasModal({
         try {
             const token = localStorage.getItem("admin_token");
             const response = await axios.post(
-                "http://localhost:8000/api/admin/petugas/assign-laporan",
+                `${window.location.origin}/api/admin/petugas/assign-laporan`,
                 { laporan_id: selectedLaporanForAssign.id, petugas_id: petugasId },
                 { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
             );

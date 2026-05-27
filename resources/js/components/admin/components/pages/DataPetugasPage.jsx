@@ -150,7 +150,7 @@ const fetchPetugasData = async () => {
         const token = localStorage.getItem("admin_token");
         
         const response = await axios.get(
-            "http://localhost:8000/api/admin/petugas",
+            `${window.location.origin}/api/admin/petugas`,
             {
                 headers: { Authorization: `Bearer ${token}` }
             }
@@ -175,7 +175,7 @@ const fetchPetugasData = async () => {
     const fetchLaporanData = async () => {
         try {
             const token = localStorage.getItem("admin_token");
-            const response = await axios.get("http://localhost:8000/api/admin/laporan", {
+            const response = await axios.get(`${window.location.origin}/api/admin/laporan`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             
@@ -284,7 +284,7 @@ const fetchPetugasData = async () => {
         try {
             const token = localStorage.getItem("admin_token");
             const response = await axios.post(
-                `http://localhost:8000/api/admin/laporan/${laporanId}/assign-petugas`,
+                `${window.location.origin}/api/admin/laporan/${laporanId}/assign-petugas`,
                 {
                     petugas_id: selectedPetugas.id,
                     catatan: "Ditugaskan oleh admin"
@@ -314,7 +314,7 @@ const fetchPetugasData = async () => {
         try {
             const token = localStorage.getItem("admin_token");
             const response = await axios.post(
-                "http://localhost:8000/api/admin/petugas/release-laporan",
+                `${window.location.origin}/api/admin/petugas/release-laporan`,
                 {
                     laporan_id: laporanDitangani.id,
                     petugas_id: petugas.id,
@@ -340,7 +340,7 @@ const fetchPetugasData = async () => {
         try {
             const token = localStorage.getItem("admin_token");
             const response = await axios.delete(
-                `http://localhost:8000/api/admin/petugas/${petugasId}`,
+                `${window.location.origin}/api/admin/petugas/${petugasId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
@@ -359,8 +359,8 @@ const fetchPetugasData = async () => {
         try {
             const token = localStorage.getItem("admin_token");
             const url = isEditingPetugas
-                ? `http://localhost:8000/api/admin/petugas/${editingPetugasId}`
-                : "http://localhost:8000/api/admin/petugas";
+                ? `${window.location.origin}/api/admin/petugas/${editingPetugasId}`
+                : `${window.location.origin}/api/admin/petugas`;
 
             const method = isEditingPetugas ? "put" : "post";
             const response = await axios[method](url, formPetugas, {

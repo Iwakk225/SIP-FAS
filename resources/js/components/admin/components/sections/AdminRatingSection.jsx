@@ -16,7 +16,7 @@ const AdminRatingSection = ({ laporanId, adminToken, onReplySuccess }) => {
       setIsLoading(true);
       try {
         const res = await axios.get(
-          `http://localhost:8000/api/laporan/${laporanId}/rating`,
+          `${window.location.origin}/api/laporan/${laporanId}/rating`,
           {
             headers: { Authorization: `Bearer ${adminToken}` },
           }
@@ -43,7 +43,7 @@ const AdminRatingSection = ({ laporanId, adminToken, onReplySuccess }) => {
     setIsSubmitting(true);
     try {
       const res = await axios.post(
-        `http://localhost:8000/api/admin/ratings/${laporanId}/reply`,
+        `${window.location.origin}/api/admin/ratings/${laporanId}/reply`,
         { admin_reply: adminReply.trim() },
         { headers: { Authorization: `Bearer ${adminToken}` } }
       );

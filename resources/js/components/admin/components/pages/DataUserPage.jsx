@@ -37,7 +37,7 @@ export default function DataUserPage({ showNotification }) {
         try {
             const token = localStorage.getItem("admin_token");
             const response = await axios.get(
-                "http://localhost:8000/api/admin/users",
+                `${window.location.origin}/api/admin/users`,
                 {
                     headers: { Authorization: `Bearer ${token}` }
                 }
@@ -179,7 +179,7 @@ export default function DataUserPage({ showNotification }) {
         try {
             const token = localStorage.getItem("admin_token");
             const response = await axios.put(
-                `http://localhost:8000/api/admin/users/${userId}/status`,
+                `${window.location.origin}/api/admin/users/${userId}/status`,
                 { status: activate ? "aktif" : "nonaktif" },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -202,7 +202,7 @@ export default function DataUserPage({ showNotification }) {
         try {
             const token = localStorage.getItem("admin_token");
             const response = await axios.delete(
-                `http://localhost:8000/api/admin/users/${userId}`,
+                `${window.location.origin}/api/admin/users/${userId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
@@ -253,8 +253,8 @@ export default function DataUserPage({ showNotification }) {
         try {
             const token = localStorage.getItem("admin_token");
             const url = isEditingUser
-                ? `http://localhost:8000/api/admin/users/${editingUserId}`
-                : "http://localhost:8000/api/admin/users";
+                ? `${window.location.origin}/api/admin/users/${editingUserId}`
+                : `${window.location.origin}/api/admin/users`;
 
             const method = isEditingUser ? "put" : "post";
             

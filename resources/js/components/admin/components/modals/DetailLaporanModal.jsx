@@ -50,7 +50,7 @@ export default function DetailLaporanModal({
 
 
             const response = await axios.get(
-                `http://localhost:8000/api/admin/petugas/tersedia?laporan_id=${selectedLaporan.id}${timestamp}`,
+                `${window.location.origin}/api/admin/petugas/tersedia?laporan_id=${selectedLaporan.id}${timestamp}`,
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -80,7 +80,7 @@ export default function DetailLaporanModal({
 
             // 🔥 GUNAKAN ENDPOINT YANG BENAR-BENAR ADA DENGAN PRIORITAS
             const endpoints = [
-                `http://localhost:8000/api/admin/laporan/${selectedLaporan.id}/petugas`,
+                `${window.location.origin}/api/admin/laporan/${selectedLaporan.id}/petugas`,
             ];
 
             let response = null;
@@ -148,7 +148,7 @@ export default function DetailLaporanModal({
             const token = localStorage.getItem("admin_token");
 
             const response = await axios.post(
-                `http://localhost:8000/api/admin/laporan/${laporanId}/assign-petugas`,
+                `${window.location.origin}/api/admin/laporan/${laporanId}/assign-petugas`,
                 {
                     petugas_id: pid,
                     catatan: formData.catatan || "Ditugaskan melalui detail laporan",
@@ -207,7 +207,7 @@ export default function DetailLaporanModal({
 
 
             const response = await axios.post(
-                "http://localhost:8000/api/admin/petugas/release-laporan",
+                `${window.location.origin}/api/admin/petugas/release-laporan`,
                 {
                     laporan_id: parseInt(selectedLaporan.id),
                     petugas_id: parseInt(petugasDitugaskan.id),
@@ -299,7 +299,7 @@ export default function DetailLaporanModal({
             }
 
             const response = await axios.put(
-                `http://localhost:8000/api/admin/laporan/${selectedLaporan.id}`,
+                `${window.location.origin}/api/admin/laporan/${selectedLaporan.id}`,
                 dataToSend,
                 { headers: { Authorization: `Bearer ${token}` } }
             );

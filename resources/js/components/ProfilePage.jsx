@@ -64,7 +64,7 @@ export default function ProfilePage() {
     };
   }, []);
 
-  const API_URL = 'http://localhost:8000/api';
+  const API_URL = `${window.location.origin}/api`;
   
   const [formData, setFormData] = useState({
     name: user?.name || '',

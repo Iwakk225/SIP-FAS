@@ -11,7 +11,7 @@ export const useRiwayatPenugasan = () => {
         try {
             const token = localStorage.getItem("admin_token");
             const res = await axios.get(
-                `http://localhost:8000/api/admin/riwayat-penugasan?page=${page}`,
+                `${window.location.origin}/api/admin/riwayat-penugasan?page=${page}`,
                 {
                     headers: { Authorization: `Bearer ${token}` },
                 }
