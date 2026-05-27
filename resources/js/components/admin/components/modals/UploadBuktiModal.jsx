@@ -213,26 +213,32 @@ export default function UploadBuktiModal({
         const file = e.target.files[0];
         if (!file) return;
 
-        // Validasi hanya PDF
-        const allowedPdfTypes = ["application/pdf"];
-        const allowedExtensions = [".pdf"];
+        // Validasi gambar saja (JPG, JPEG, PNG, GIF, WebP)
+        const allowedImageTypes = [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+        ];
+        const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
 
-        const isPdfType = allowedPdfTypes.includes(file.type);
-        const hasPdfExtension = allowedExtensions.some((ext) =>
+        const isImageType = allowedImageTypes.includes(file.type);
+        const hasImageExtension = allowedExtensions.some((ext) =>
             file.name.toLowerCase().endsWith(ext)
         );
 
-        if (!isPdfType && !hasPdfExtension) {
-            showNotification("Harap upload file PDF saja (.pdf)", "error");
+        if (!isImageType && !hasImageExtension) {
+            showNotification("Harap upload file gambar saja (JPG, JPEG, PNG, GIF, WebP)", "error");
             e.target.value = "";
             return;
         }
 
-        // Cek ukuran file (maksimal 10MB)
-        const maxSize = 10 * 1024 * 1024; // 10MB
+        // Cek ukuran file (maksimal 5MB)
+        const maxSize = 5 * 1024 * 1024; // 5MB
         if (file.size > maxSize) {
             showNotification(
-                "Ukuran file terlalu besar. Maksimal 10MB",
+                "Ukuran file terlalu besar. Maksimal 5MB",
                 "error"
             );
             e.target.value = "";
@@ -240,7 +246,7 @@ export default function UploadBuktiModal({
         }
 
         setPdfFile(file);
-        showNotification("File PDF berhasil dipilih", "success");
+        showNotification("Foto rincian biaya berhasil dipilih", "success");
     };
 
     const handleUploadBukti = async () => {
@@ -258,7 +264,7 @@ export default function UploadBuktiModal({
         setUploadError(null);
 
         try {
-            // 1. UPLOAD FOTO KE CLOUDINARY
+            // 1. UPLOAD FOTO BUKTI KE CLOUDINARY
             const fotoUrls = [];
             for (const photo of buktiPhotos) {
                 try {
@@ -277,13 +283,39 @@ export default function UploadBuktiModal({
                         `Gagal upload ${photo.file.name}`,
                         "error"
                     );
+                    throw error;
                 }
             }
 
-            // 2. KIRIM KE BACKEND
+            // 2. UPLOAD RINCIAN BIAYA JIKA ADA
+            let uploadedRincianBiayaUrl = null;
+            if (pdfFile) {
+                try {
+                    uploadedRincianBiayaUrl = await uploadToCloudinary(
+                        pdfFile,
+                        "admin-bukti-perbaikan/rincian-biaya"
+                    );
+                    showNotification(
+                        `Foto rincian biaya berhasil diupload`,
+                        "success"
+                    );
+                } catch (error) {
+                    console.error(`Error uploading rincian biaya:`, error);
+                    showNotification(
+                        `Gagal upload rincian biaya`,
+                        "error"
+                    );
+                    throw error;
+                }
+            }
+
+            // 3. KIRIM SEMUA SEKALIGUS KE BACKEND via JSON
             const payload = {
                 foto_bukti_perbaikan: fotoUrls,
             };
+            if (uploadedRincianBiayaUrl) {
+                payload.rincian_biaya_pdf = uploadedRincianBiayaUrl;
+            }
 
             const response = await api.post(
                 `/admin/laporan/${selectedLaporanForUpload.id}/upload-all-bukti`,
@@ -294,17 +326,6 @@ export default function UploadBuktiModal({
                     },
                 }
             );
-
-            if (pdfFile) {
-                const formData = new FormData();
-                formData.append('rincian_biaya_pdf', pdfFile);
-                
-                await api.post(
-                    `/admin/laporan/${selectedLaporanForUpload.id}/upload-rincian-biaya`,
-                    formData,
-                    { headers: { 'Content-Type': 'multipart/form-data' } }
-                );
-            }
 
             if (response.data.success) {
                 showNotification("✅ Bukti berhasil diupload!", "success");
@@ -317,6 +338,7 @@ export default function UploadBuktiModal({
             console.error("Upload process error:", error);
             setUploadError(
                 error.response?.data?.message ||
+                    error.message ||
                     "Gagal menyimpan bukti perbaikan"
             );
         } finally {
@@ -529,22 +551,22 @@ export default function UploadBuktiModal({
                         )}
                     </div>
 
-                    {/* Rincian Biaya PDF */}
+                    {/* Rincian Biaya Gambar */}
                     <div className="border-t border-gray-200 pt-6">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                             <FileText className="w-5 h-5 mr-2" />
-                            Rincian Biaya (PDF)
+                            Rincian Biaya (Foto/Gambar)
                         </h3>
                         <div className="mb-4">
                             <input
                                 type="file"
-                                accept=".pdf"
+                                accept=".jpg,.jpeg,.png,.gif,.webp"
                                 onChange={handlePdfUpload}
                                 className="w-full border border-gray-300 rounded-lg p-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={isUploading}
                             />
                             <div className="text-xs text-gray-500 mt-1">
-                                • Hanya PDF (.pdf) • Maksimal 10MB
+                                • Format: JPG, JPEG, PNG, GIF, WebP • Maksimal 5MB
                             </div>
                         </div>
 
@@ -552,7 +574,7 @@ export default function UploadBuktiModal({
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center">
-                                        <FileText className="w-8 h-8 text-blue-600 mr-3" />
+                                        <ImageIcon className="w-8 h-8 text-blue-600 mr-3" />
                                         <div>
                                             <p className="text-sm text-blue-800 font-medium">
                                                 {pdfFile.name}
@@ -587,7 +609,7 @@ export default function UploadBuktiModal({
                                 ) : (
                                     <>
                                         <Upload className="w-5 h-5 mr-2" />
-                                        Upload Rincian Biaya (PDF)
+                                        Upload Foto Rincian Biaya
                                     </>
                                 )}
                             </button>
@@ -611,10 +633,10 @@ export default function UploadBuktiModal({
                                     <>
                                         <Upload className="w-5 h-5 mr-2" />
                                         {buktiPhotos.length > 0 && pdfFile
-                                            ? `Upload ${buktiPhotos.length} Foto & PDF`
+                                            ? `Upload ${buktiPhotos.length} Foto & Rincian`
                                             : buktiPhotos.length > 0
                                             ? `Upload ${buktiPhotos.length} Foto`
-                                            : "Upload PDF"}
+                                            : "Upload Foto Rincian"}
                                     </>
                                 )}
                             </button>
@@ -625,8 +647,8 @@ export default function UploadBuktiModal({
                         <h4 className="font-medium text-yellow-900 mb-2">Perhatian:</h4>
                         <ul className="text-sm text-yellow-800 space-y-1">
                             <li>• Foto: JPG/PNG/GIF/WebP</li>
-                            <li>• Dokumen: PDF saja</li>
-                            <li>• File tersimpan permanen</li>
+                            <li>• Rincian Biaya: Foto/Gambar saja</li>
+                            <li>• File tersimpan permanen di Cloudinary</li>
                             <li>• Pastikan sesuai bukti perbaikan</li>
                         </ul>
                     </div>
