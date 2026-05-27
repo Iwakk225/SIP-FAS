@@ -273,7 +273,8 @@ export default function UploadBuktiModal({
                 try {
                     uploadedDocUrl = await uploadToCloudinary(
                         pdfFile,
-                        "admin-bukti-perbaikan/rincian-biaya"
+                        "admin-bukti-perbaikan/rincian-biaya",
+                        "raw"
                     );
                     showNotification(
                         `Dokumen ${pdfFile.name} berhasil diupload`,
@@ -295,7 +296,8 @@ export default function UploadBuktiModal({
                 try {
                     const url = await uploadToCloudinary(
                         photo.file,
-                        "admin-bukti-perbaikan/foto-perbaikan"
+                        "admin-bukti-perbaikan/foto-perbaikan",
+                        "image"
                     );
                     fotoUrls.push(url);
                     showNotification(
@@ -351,16 +353,15 @@ export default function UploadBuktiModal({
         }
     };
 
-    const uploadToCloudinary = async (file, folder = "admin-bukti-perbaikan/foto-perbaikan") => {
+    const uploadToCloudinary = async (file, folder = "admin-bukti-perbaikan/foto-perbaikan", resourceType = "image") => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("upload_preset", "sip-fas");
         formData.append("folder", folder);
 
         try {
-            // ✅ Gunakan auto/upload
             const response = await fetch(
-            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
+            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
             {
                 method: "POST",
                 body: formData,
