@@ -144,9 +144,20 @@ export default function UploadBuktiModal({
             "image/gif",
             "image/webp",
         ];
-        const imageFiles = files.filter((file) =>
-            allowedImageTypes.includes(file.type)
-        );
+        const allowedImageExtensions = [
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".gif",
+            ".webp",
+        ];
+        const imageFiles = files.filter((file) => {
+            const hasValidType = allowedImageTypes.includes(file.type);
+            const hasValidExt = allowedImageExtensions.some((ext) =>
+                file.name.toLowerCase().endsWith(ext)
+            );
+            return hasValidType || hasValidExt;
+        });
 
         if (imageFiles.length === 0) {
             showNotification(
@@ -267,37 +278,13 @@ export default function UploadBuktiModal({
         setUploadError(null);
 
         try {
-            // 1. UPLOAD DOKUMEN KE CLOUDINARY JIKA ADA
-            let uploadedDocUrl = null;
-            if (pdfFile) {
-                try {
-                    uploadedDocUrl = await uploadToCloudinary(
-                        pdfFile,
-                        "admin-bukti-perbaikan/rincian-biaya",
-                        "raw"
-                    );
-                    showNotification(
-                        `Dokumen ${pdfFile.name} berhasil diupload`,
-                        "success"
-                    );
-                } catch (error) {
-                    console.error(`Error uploading doc:`, error);
-                    showNotification(
-                        `Gagal upload dokumen ${pdfFile.name}`,
-                        "error"
-                    );
-                    throw error;
-                }
-            }
-
-            // 2. UPLOAD FOTO KE CLOUDINARY
+            // 1. UPLOAD FOTO KE CLOUDINARY
             const fotoUrls = [];
             for (const photo of buktiPhotos) {
                 try {
                     const url = await uploadToCloudinary(
                         photo.file,
-                        "admin-bukti-perbaikan/foto-perbaikan",
-                        "image"
+                        "admin-bukti-perbaikan/foto-perbaikan"
                     );
                     fotoUrls.push(url);
                     showNotification(
@@ -310,37 +297,48 @@ export default function UploadBuktiModal({
                         `Gagal upload ${photo.file.name}`,
                         "error"
                     );
+                    throw error;
                 }
             }
 
-            // 3. KIRIM SEMUA SEKALIGUS KE BACKEND
-            const payload = {};
-            
+            // 2. KIRIM FOTO KE BACKEND
             if (fotoUrls.length > 0) {
-                payload.foto_bukti_perbaikan = fotoUrls;
-            }
-            
-            if (uploadedDocUrl) {
-                payload.rincian_biaya_pdf = uploadedDocUrl;
+                const payload = {
+                    foto_bukti_perbaikan: fotoUrls,
+                };
+
+                await api.post(
+                    `/admin/laporan/${selectedLaporanForUpload.id}/upload-all-bukti`,
+                    payload,
+                    {
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
             }
 
-            const response = await api.post(
-                `/admin/laporan/${selectedLaporanForUpload.id}/upload-all-bukti`,
-                payload,
-                {
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                }
-            );
-
-            if (response.data.success) {
-                showNotification("✅ Bukti berhasil disimpan!", "success");
-                if (onSuccess && typeof onSuccess === "function") {
-                    onSuccess(selectedLaporanForUpload.id);
-                }
-                handleCloseUploadModal();
+            // 3. KIRIM DOKUMEN KE BACKEND (Biar backend PHP yang handle upload Cloudinary secara aman)
+            if (pdfFile) {
+                const formData = new FormData();
+                formData.append('rincian_biaya_pdf', pdfFile);
+                
+                await api.post(
+                    `/admin/laporan/${selectedLaporanForUpload.id}/upload-rincian-biaya`,
+                    formData,
+                    { headers: { 'Content-Type': 'multipart/form-data' } }
+                );
+                showNotification(
+                    `Dokumen ${pdfFile.name} berhasil disimpan`,
+                    "success"
+                );
             }
+
+            showNotification("✅ Bukti berhasil disimpan!", "success");
+            if (onSuccess && typeof onSuccess === "function") {
+                onSuccess(selectedLaporanForUpload.id);
+            }
+            handleCloseUploadModal();
         } catch (error) {
             console.error("Upload process error:", error);
             setUploadError(
@@ -353,15 +351,16 @@ export default function UploadBuktiModal({
         }
     };
 
-    const uploadToCloudinary = async (file, folder = "admin-bukti-perbaikan/foto-perbaikan", resourceType = "image") => {
+    const uploadToCloudinary = async (file, folder = "admin-bukti-perbaikan/foto-perbaikan") => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("upload_preset", "sip-fas");
         formData.append("folder", folder);
 
         try {
+            // Gunakan image/upload karena preset sip-fas terbukti berfungsi baik untuk gambar
             const response = await fetch(
-            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/upload`,
+            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
             {
                 method: "POST",
                 body: formData,

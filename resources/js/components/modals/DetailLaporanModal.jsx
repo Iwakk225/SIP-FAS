@@ -187,13 +187,24 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
   };
 
   const downloadFile = (fileUrl, filename) => {
+    if (!fileUrl) return;
+
+    // Deteksi jika file adalah dokumen (PDF, Word, Excel, Zip, dll.)
+    const isDocument = fileUrl.includes('/raw/upload/') || 
+                       /\.(pdf|doc|docx|xls|xlsx|txt|zip|rar)$/i.test(fileUrl.split('?')[0]);
+
+    if (isDocument) {
+      // Buka langsung di tab baru. Ini aman dari CORS/Sandboxing browser, 
+      // memicu pratinjau PDF interaktif dan memicu download otomatis untuk Word/Excel/Zip.
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     try {
       let downloadUrl = fileUrl;
 
       if (fileUrl.includes('cloudinary.com')) {
-        if (downloadUrl.includes('/raw/upload/')) {
-          downloadUrl = downloadUrl.replace('/raw/upload/', '/raw/upload/fl_attachment/');
-        } else if (downloadUrl.includes('/image/upload/')) {
+        if (downloadUrl.includes('/image/upload/')) {
           downloadUrl = downloadUrl.replace('/image/upload/', '/image/upload/fl_attachment/');
         } else if (downloadUrl.includes('/upload/')) {
           downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
@@ -211,7 +222,7 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
       document.body.removeChild(link);
     } catch (err) {
       console.error('Download error:', err);
-      alert('Gagal mengunduh file. Silakan coba lagi nanti.');
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -538,20 +549,16 @@ const DetailLaporanModal = ({ isOpen, onClose, laporan, onRatingSubmit }) => {
                     </div>
                   </div>
 
-                  {/* Tombol Download */}
-                  <button
-                    onClick={() => {
-                      // Gunakan URL download yang benar
-                      const downloadUrl = laporan.rincian_biaya_download_url || laporan.rincian_biaya_pdf;
-                      // Ekstrak ekstensi asli dari URL untuk mencegah file corrupt (misal docx, xlsx, dll)
-                      const ext = downloadUrl.split('.').pop().split('?')[0] || 'pdf';
-                      downloadFile(downloadUrl, `rincian-biaya-laporan-${laporan.id}.${ext}`);
-                    }}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full flex items-center justify-center gap-2 transition"
+                  {/* Tombol Lihat/Download */}
+                  <a
+                    href={laporan.rincian_biaya_download_url || laporan.rincian_biaya_pdf}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded w-full flex items-center justify-center gap-2 transition font-medium text-center no-underline cursor-pointer"
                   >
                     <Download className="w-4 h-4" />
-                    Download Rincian Biaya
-                  </button>
+                    Lihat / Download Rincian Biaya
+                  </a>
                 </div>
               )}
             </div>
